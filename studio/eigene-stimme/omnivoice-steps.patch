@@ -1,0 +1,35 @@
+diff --git a/tools/tts-server.cpp b/tools/tts-server.cpp
+index cf903d0..df276f2 100644
+--- a/tools/tts-server.cpp
++++ b/tools/tts-server.cpp
+@@ -74,6 +74,7 @@ int main(int argc, char ** argv) {
+     server_config cfg;
+     bool          use_fa     = true;
+     bool          clamp_fp16 = false;
++    int           steps      = 0;  // Watson-Ergaenzung: MaskGIT-Schritte (0 = Standard 32)
+ 
+     for (int i = 1; i < argc; i++) {
+         const char * arg = argv[i];
+@@ -93,6 +94,8 @@ int main(int argc, char ** argv) {
+             use_fa = false;
+         } else if (!std::strcmp(arg, "--clamp-fp16")) {
+             clamp_fp16 = true;
++        } else if (!std::strcmp(arg, "--steps") && i + 1 < argc) {
++            steps = std::atoi(argv[++i]);
+         } else {
+             print_usage(argv[0]);
+             return 1;
+@@ -209,9 +212,12 @@ int main(int argc, char ** argv) {
+     // granularity, the same path either way. A named voice injects its
+     // pre-encoded reference ; an unknown name is rejected instead of
+     // silently falling back to voice design.
+-    be.synthesize = [ov, &lang](const tts_request & req, const tts_sink & sink, std::string & err) -> int {
++    be.synthesize = [ov, &lang, steps](const tts_request & req, const tts_sink & sink, std::string & err) -> int {
+         struct ov_tts_params p;
+         ov_tts_default_params(&p);
++        if (steps > 0) {
++            p.mg_num_step = steps;
++        }
+         p.text = req.input.c_str();
+         p.lang = req.lang.empty() ? lang.c_str() : req.lang.c_str();
+ 

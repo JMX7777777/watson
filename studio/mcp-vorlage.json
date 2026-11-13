@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "webseiten": {
+      "command": "${PYTHON}",
+      "args": ["-m", "mcp_server_fetch"],
+      "trusted": true
+    },
+    "uhrzeit": {
+      "command": "${PYTHON}",
+      "args": ["-m", "mcp_server_time"],
+      "trusted": true
+    }
+  }
+}

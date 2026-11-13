@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#185FA5">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/logo.png">
+<link rel="apple-touch-icon" href="/logo.png">
+<script src="/i18n.js"></script>
+<title>Watson</title>
+<style>
+:root{
+  --bg:#07090e;--bg2:#0d1119;--glass:rgba(255,255,255,.045);--glass2:rgba(255,255,255,.075);--line:rgba(255,255,255,.09);--line2:rgba(255,255,255,.16);
+  --text:#eef1f7;--muted:#8d95a7;--accent:#6d8bff;--accent2:#a274ff;--grad:linear-gradient(135deg,#5b8cff 0%,#8b5cf6 55%,#c06bff 100%);
+  --accentSoft:rgba(109,139,255,.14);--accentText:#b9c8ff;--ok:#4ade80;--okSoft:rgba(74,222,128,.12);--err:#ff6b6b;--errSoft:rgba(255,107,107,.12);
+  --panel:var(--glass);--panel2:var(--glass2);--r:22px;--shadow:0 10px 40px rgba(0,0,0,.45);
+  color-scheme:dark}
+@media (prefers-color-scheme: light){:root{
+  --bg:#f4f6fb;--bg2:#ffffff;--glass:rgba(255,255,255,.72);--glass2:rgba(15,23,42,.05);--line:rgba(15,23,42,.08);--line2:rgba(15,23,42,.14);
+  --text:#0f1424;--muted:#5d6577;--accentSoft:rgba(91,140,255,.12);--accentText:#3b55d9;--okSoft:rgba(22,163,74,.1);--ok:#16a34a;--err:#dc2626;--errSoft:rgba(220,38,38,.08);
+  --shadow:0 10px 40px rgba(15,23,42,.12);color-scheme:light}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;color:var(--text);font:16px/1.5 "Inter",-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:-.005em}
+body{background:var(--bg);background-image:radial-gradient(1200px 600px at 110% -10%,rgba(139,92,246,.22),transparent 60%),radial-gradient(900px 500px at -20% 10%,rgba(91,140,255,.18),transparent 55%),radial-gradient(700px 500px at 50% 120%,rgba(34,211,238,.10),transparent 60%);background-attachment:fixed}
+svg.i{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+button{font:inherit;font-weight:500;border:1px solid var(--line);background:var(--glass);color:var(--text);border-radius:14px;padding:10px 16px;cursor:pointer;transition:transform .15s ease,background .2s,border-color .2s,opacity .2s;-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+button:active{transform:scale(.97)}
+button.primary{background:var(--grad);border-color:transparent;color:#fff;box-shadow:0 6px 24px rgba(109,139,255,.35)}
+button.ghost{background:transparent;border-color:transparent}
+button.small{font-size:13.5px;padding:7px 12px}
+button:disabled{opacity:.45}
+a{color:var(--accentText)}
+textarea,input,select{font:inherit;color:var(--text);background:var(--glass);border:1px solid var(--line);border-radius:16px;padding:12px 14px;width:100%;outline:none;transition:border-color .2s,box-shadow .2s;-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+textarea:focus,input:focus,select:focus{border-color:rgba(109,139,255,.6);box-shadow:0 0 0 4px rgba(109,139,255,.15)}
+select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 20px) 52%,calc(100% - 14px) 52%;background-size:6px 6px;background-repeat:no-repeat;padding-right:38px}
+.muted{color:var(--muted)}.small{font-size:13px}
+/* ---------- Kopfzeile ---------- */
+header{position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:6px;padding:calc(12px + env(safe-area-inset-top)) 14px 12px;background:linear-gradient(to bottom,rgba(7,9,14,.85),rgba(7,9,14,.55));-webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);border-bottom:1px solid var(--line)}
+@media (prefers-color-scheme: light){header{background:linear-gradient(to bottom,rgba(244,246,251,.9),rgba(244,246,251,.65))}}
+header img{width:34px;height:34px;border-radius:11px;box-shadow:0 0 0 1px var(--line2),0 6px 18px rgba(109,139,255,.35)}
+header b{font-size:18px;font-weight:650;letter-spacing:-.02em;flex:1;display:flex;flex-direction:column;line-height:1.15}
+header b small{font-size:11.5px;font-weight:500;color:var(--muted);letter-spacing:0;display:flex;align-items:center;gap:6px}
+header b small:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 10px var(--ok)}
+header button{width:40px;height:40px;padding:0;display:grid;place-items:center;border-radius:13px;background:var(--glass);border-color:var(--line)}
+/* ---------- App + Chat ---------- */
+#app{display:flex;flex-direction:column;height:100%;max-width:780px;margin:0 auto}
+#chat{flex:1;overflow-y:auto;padding:18px 14px 10px;scroll-behavior:smooth}
+.msg{max-width:86%;padding:12px 15px;border-radius:20px;margin:8px 0;white-space:pre-wrap;word-wrap:break-word;background:var(--glass);border:1px solid var(--line);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);animation:rein .35s cubic-bezier(.2,.8,.2,1);border-bottom-left-radius:8px}
+.msg.user{margin-left:auto;background:var(--grad);color:#fff;border-color:transparent;border-radius:20px;border-bottom-right-radius:8px;box-shadow:0 8px 26px rgba(109,139,255,.28)}
+.msg .who{font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--accentText);margin-bottom:4px;opacity:.9}
+@keyframes rein{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+.note{font-size:12.5px;color:var(--muted);margin:2px 6px}
+.note.info{margin:-4px 6px 10px;padding:7px 11px;border-radius:12px;background:var(--glass2)}
+.zitat{border-left:3px solid var(--accent);padding:2px 0 2px 10px;margin:4px 0}
+.msg.user .zitat{border-color:rgba(255,255,255,.8)}
+.msg code{background:var(--glass2);border-radius:6px;padding:1px 5px;font-size:.9em}
+.bar{display:flex;gap:4px;margin:-2px 0 10px 4px}.bar button{padding:5px 10px;font-size:13.5px;border-radius:11px}.bar button.an{background:var(--accentSoft);border-color:rgba(109,139,255,.5)}
+.karte{border:1px solid rgba(109,139,255,.45);border-radius:var(--r);padding:12px 14px;margin:8px 0 14px;background:var(--glass);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+.denkt{color:var(--muted);font-size:14px;margin:10px 6px;display:flex;align-items:center;gap:8px}
+.denkt:before{content:"";width:34px;height:10px;background:radial-gradient(circle,var(--accent) 45%,transparent 50%) 0 50%/11px 10px repeat-x;animation:tipp 1s infinite steps(3)}
+@keyframes tipp{0%{opacity:.4}50%{opacity:1}100%{opacity:.4}}
+/* ---------- Eingabe-Dock ---------- */
+footer{display:flex;align-items:flex-end;gap:8px;margin:0 10px calc(10px + env(safe-area-inset-bottom));padding:8px;border-radius:26px;background:var(--glass);border:1px solid var(--line2);box-shadow:var(--shadow);-webkit-backdrop-filter:blur(26px) saturate(160%);backdrop-filter:blur(26px) saturate(160%)}
+footer textarea{resize:none;max-height:140px;border:0;background:transparent;box-shadow:none!important;padding:10px 4px;-webkit-backdrop-filter:none;backdrop-filter:none}
+footer button{width:44px;height:44px;padding:0;border-radius:50%;display:grid;place-items:center;flex-shrink:0}
+#senden{background:var(--grad);border:0;color:#fff;box-shadow:0 6px 20px rgba(109,139,255,.45)}
+.plusWrap{position:relative}
+.plusMenu{position:absolute;bottom:calc(100% + 14px);left:-4px;background:var(--bg2);border:1px solid var(--line2);border-radius:20px;padding:6px;min-width:250px;box-shadow:var(--shadow);display:none;flex-direction:column;z-index:6;animation:rein .2s ease}
+.plusMenu.open{display:flex}
+.plusMenu button{width:auto;height:auto;border:0;border-radius:14px;text-align:left;padding:12px 14px;background:none;display:flex;gap:12px;align-items:center;white-space:nowrap;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+.plusMenu button:active{background:var(--glass2)}
+.anhang{font-size:13px;margin:0 14px 8px;padding:9px 13px;border-radius:14px;background:var(--accentSoft);color:var(--accentText);border:1px solid rgba(109,139,255,.3);display:none}
+/* ---------- Anmeldung ---------- */
+#login{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:28px;gap:14px;text-align:center}
+#login img{width:92px;height:92px;border-radius:28px;box-shadow:0 0 0 1px var(--line2),0 20px 60px rgba(139,92,246,.45);margin-bottom:6px}
+#login h2{font-size:30px;font-weight:700;letter-spacing:-.03em;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+#login input{max-width:300px;text-align:center;font-size:19px;letter-spacing:2px;padding:14px;border-radius:20px}
+#login button{border-radius:18px;padding:13px 18px}
+/* ---------- Dialoge ---------- */
+.ov{position:fixed;inset:0;background:rgba(3,5,10,.55);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:flex;align-items:flex-end;justify-content:center;z-index:9;padding:12px}
+.box{background:var(--bg2);border:1px solid var(--line2);border-radius:26px;width:100%;max-width:560px;padding:20px;max-height:85vh;overflow:auto;box-shadow:var(--shadow);animation:rein .3s ease}
+.box.grenze{border-color:var(--err)}
+.box h3{margin:0 0 6px;font-size:18px;letter-spacing:-.02em}
+.band{border-radius:12px;padding:7px 11px;font-size:13px;font-weight:600;margin:8px 0;background:var(--accentSoft);color:var(--accentText)}
+.box.grenze .band{background:var(--errSoft);color:var(--err)}
+.knoepfe{display:flex;gap:10px;margin-top:14px}.knoepfe button{flex:1;padding:13px;border-radius:16px}
+/* ---------- Vollbild-Seiten (Menü, Stimme) ---------- */
+#menuSeite,#stimmeSeite{position:fixed;inset:0;z-index:8;display:none;flex-direction:column;max-width:780px;margin:0 auto;background:var(--bg);background-image:inherit;animation:hoch .3s cubic-bezier(.2,.8,.2,1)}
+@keyframes hoch{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+#menuSeite .inhalt,#stimmeSeite .inhalt{flex:1;overflow-y:auto;padding:16px 14px calc(30px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px}
+.kachel{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.kachel button{padding:13px 10px;text-align:left;display:flex;flex-direction:column;align-items:flex-start;gap:9px;border-radius:20px;font-size:13px;font-weight:600;line-height:1.25;min-height:96px}
+.kachel button .chip{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;color:#fff}
+.kachel button.an{border-color:rgba(109,139,255,.65);background:var(--accentSoft);box-shadow:0 0 0 3px rgba(109,139,255,.12)}
+.c1{background:linear-gradient(135deg,#5b8cff,#3b5bdb)}.c2{background:linear-gradient(135deg,#a274ff,#7048e8)}.c3{background:linear-gradient(135deg,#ffb347,#f76707)}.c4{background:linear-gradient(135deg,#3dd5f3,#0b7285)}
+.c5{background:linear-gradient(135deg,#ffd43b,#e8a400)}.c6{background:linear-gradient(135deg,#ff8787,#e03131)}.c7{background:linear-gradient(135deg,#63e6be,#0ca678)}.c8{background:linear-gradient(135deg,#f783ac,#c2255c)}.c9{background:linear-gradient(135deg,#74c0fc,#7950f2)}
+#menuInhalt:empty{display:none}
+#menuInhalt{display:flex;flex-direction:column;gap:10px}
+#menuInhalt>b{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-top:6px}
+#sGeschuetzt{display:flex;flex-direction:column;gap:10px}#sGeschuetzt>b{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-top:6px}
+.liste{display:flex;flex-direction:column;gap:8px}
+.liste>div{border:1px solid var(--line);background:var(--glass);border-radius:18px;padding:12px 14px;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);animation:rein .3s ease}
+.liste .kopf{display:flex;gap:8px;align-items:center}.liste .kopf b,.liste .kopf span{flex:1}.liste .kopf .marke{flex:0 0 auto}
+label.zeile{display:flex;gap:12px;align-items:center;margin:4px 0;padding:12px 14px;border-radius:16px;background:var(--glass);border:1px solid var(--line)}
+input[type=checkbox]{width:22px!important;height:22px;accent-color:var(--accent)}
+.suche{display:flex;gap:8px}.suche button{flex-shrink:0}
+.marke{font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--glass2);color:var(--muted);white-space:nowrap}
+.marke.gut{background:var(--okSoft);color:var(--ok)}.marke.schlecht{background:var(--errSoft);color:var(--err)}
+/* ---------- Stimme aufnehmen ---------- */
+.fortschritt{height:8px;border-radius:99px;background:var(--glass2);overflow:hidden}.fortschritt div{height:100%;background:var(--grad);width:0;border-radius:99px;transition:width .5s ease}
+.satzKarte{background:var(--glass);border:1px solid var(--line2);border-radius:26px;padding:26px 22px;font-size:24px;font-weight:500;line-height:1.45;letter-spacing:-.015em;min-height:170px;display:flex;align-items:center;box-shadow:var(--shadow);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+.pegel{height:6px;border-radius:99px;background:var(--glass2);overflow:hidden}.pegel div{height:100%;width:0;background:linear-gradient(90deg,#4ade80,#a3e635);transition:width .08s}
+.aufBtn{width:104px;height:104px;border-radius:50%;align-self:center;padding:0;display:grid;place-items:center;border:0;background:radial-gradient(circle at 30% 30%,#ff8a8a,#e03131);color:#fff;box-shadow:0 0 0 8px rgba(255,107,107,.12),0 14px 40px rgba(224,49,49,.45)}
+.aufBtn svg{width:38px;height:38px;fill:#fff;stroke:none}
+.aufBtn.laeuft{animation:puls 1.4s infinite}
+@keyframes puls{0%,100%{box-shadow:0 0 0 8px rgba(255,107,107,.15),0 14px 40px rgba(224,49,49,.45)}50%{box-shadow:0 0 0 22px rgba(255,107,107,.05),0 14px 40px rgba(224,49,49,.6)}}
+.reihe{display:flex;gap:8px}.reihe button{flex:1;padding:13px 6px;border-radius:16px;display:flex;align-items:center;justify-content:center;gap:6px}
+.hinweis{border-radius:16px;padding:12px 14px;font-size:15px;background:var(--glass2)}
+.hinweis.gut{background:var(--okSoft);color:var(--ok)}.hinweis.schlecht{background:var(--errSoft);color:var(--err)}
+::-webkit-scrollbar{width:0}
+/* ---------- Gesprächsmodus (dauerhaft zuhören) ---------- */
+#gSeite{position:fixed;inset:0;z-index:10;display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;
+  padding:calc(20px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));background:var(--bg);background-image:inherit;animation:hoch .3s cubic-bezier(.2,.8,.2,1)}
+#gSeite.offen{display:flex}
+#gKugel{width:min(52vw,210px);height:min(52vw,210px);border-radius:50%;border:0;padding:0;background:var(--grad);
+  box-shadow:0 0 0 0 rgba(109,139,255,.35),0 24px 70px rgba(139,92,246,.5);transition:transform .1s ease-out,filter .3s;-webkit-backdrop-filter:none;backdrop-filter:none}
+#gSeite[data-p="hoert"] #gKugel{animation:gAtmen 3.2s ease-in-out infinite}
+#gSeite[data-p="versteht"] #gKugel,#gSeite[data-p="denkt"] #gKugel{animation:gDenk 1.4s ease-in-out infinite}
+#gSeite[data-p="spricht"] #gKugel{animation:gSprich .7s ease-in-out infinite alternate}
+#gSeite[data-p="stumm"] #gKugel,#gSeite[data-p="fehler"] #gKugel{filter:grayscale(1) brightness(.7);animation:none}
+@keyframes gAtmen{0%,100%{filter:brightness(1)}50%{filter:brightness(1.15)}}
+@keyframes gDenk{0%,100%{transform:scale(.93);filter:brightness(.9)}50%{transform:scale(1);filter:brightness(1.2)}}
+@keyframes gSprich{from{transform:scale(.97)}to{transform:scale(1.08)}}
+#gStatus{font-size:20px;font-weight:650;letter-spacing:-.02em;text-align:center;min-height:30px}
+#gDu,#gAntw{width:100%;max-width:560px;text-align:center;color:var(--muted);font-size:15px;min-height:22px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+#gDu b,#gAntw b{color:var(--text)}
+#gKnoepfe{display:flex;gap:22px;margin-top:8px}
+#gKnoepfe button{width:62px;height:62px;border-radius:50%;padding:0;display:grid;place-items:center}
+#gKnoepfe button.an{background:var(--errSoft);color:var(--err);border-color:var(--err)}
+#gZu{background:var(--err)!important;border-color:transparent!important;color:#fff}
+#gTipp{font-size:13px;color:var(--muted);text-align:center;max-width:420px}
+</style>
+</head>
+<body>
+<div id="login" style="display:none">
+  <img src="/logo.png" alt="">
+  <h2 style="margin:0" id="loginName">Watson</h2>
+  <input type="text" autocomplete="username" value="Watson" style="display:none" aria-hidden="true">
+  <div id="anmeldenTeil" style="display:contents">
+    <div class="muted">Melde dich mit Fingerabdruck oder Passwort an.</div>
+    <input id="pin" type="password" autocomplete="current-password" maxlength="128" placeholder="Passwort">
+    <button class="primary" id="pinBtn" style="min-width:200px">Anmelden</button>
+    <button id="fingerBtn" style="min-width:200px;display:none">Mit Fingerabdruck anmelden</button>
+  </div>
+  <div id="erstPinTeil" style="display:none;flex-direction:column;align-items:center;gap:10px">
+    <div class="muted" style="max-width:320px"><b>Willkommen!</b> Lege jetzt dein Passwort fest: mindestens 12 Zeichen, mit Buchstaben und Ziffern. Nur du kennst es – Watson speichert es nur verschlüsselt.</div>
+    <input id="pinNeu" type="password" autocomplete="new-password" maxlength="128" placeholder="Neues Passwort">
+    <input id="pinNeu2" type="password" autocomplete="new-password" maxlength="128" placeholder="Passwort wiederholen">
+    <button class="primary" id="erstPinBtn" style="min-width:200px">Passwort festlegen</button>
+    <div class="muted small" style="max-width:320px">Das geht nur dieses eine Mal. Später änderst du es unter Menü → Sicherheit (mit Fingerabdruck) oder in Watson am Computer.</div>
+  </div>
+  <div id="pinMsg" class="small" style="color:var(--err)"></div>
+  <div class="muted small" style="max-width:320px">Diese Seite läuft auf deinem eigenen Computer und ist nur über deinen privaten, verschlüsselten Tunnel erreichbar.</div>
+</div>
+<div id="app" style="display:none">
+  <header><img src="/logo.png" alt=""><b><span id="kopfName">Watson</span><small>verbunden mit deinem Laptop</small></b>
+    <button id="stimmeBtn" title="Stimme aufnehmen"><svg class="i" viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M19 11a7 7 0 0 1-14 0M12 18v3"/></svg></button>
+    <button id="menuBtn" title="Menü"><svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg></button>
+    <button class="ghost small" id="neuBtn" title="Neues Gespräch" style="display:none">＋ Neu</button>
+    <button class="ghost small" id="abBtn" title="Abmelden" style="display:none">Abmelden</button></header>
+  <div id="chat"></div>
+  <div class="anhang" id="anhang"></div>
+  <footer><div class="plusWrap"><button id="plusBtn" title="Hinzufügen"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+      <div class="plusMenu" id="plusMenu">
+        <button id="pmDatei"><svg class="i" viewBox="0 0 24 24"><path d="m21 11-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/></svg> Datei an Watson schicken</button>
+        <button id="pmRecherche"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg> Recherche</button>
+        <button id="pmNeu"><svg class="i" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg> Neues Gespräch</button>
+      </div><input type="file" id="dateiWahl" multiple accept=".pdf,.docx,.doc,.txt,.md,.csv,.json,.html,.htm" style="display:none"></div>
+    <textarea id="eingabe" rows="1" placeholder="Schreib Watson etwas …"></textarea>
+    <button id="gBtn" title="Gesprächsmodus: einfach reden"><svg class="i" viewBox="0 0 24 24"><path d="M3 12h1M7 8v8M11 5v14M15 9v6M19 7v10M22 12h-1"/></svg></button>
+    <button class="primary" id="senden" title="Senden"><svg class="i" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></footer>
+</div>
+<div id="menuSeite">
+  <header><img src="/logo.png" alt=""><b>Menü<small>alles von deinem Watson</small></b><button id="menuZu" title="Schließen"><svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></header>
+  <div class="inhalt">
+    <div class="kachel">
+      <button data-t="gespraeche"><span class="chip c1"><svg class="i" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></span>Gespräche</button>
+      <button data-t="einstellungen"><span class="chip c2"><svg class="i" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg></span>Stimme &amp; Gehirn</button>
+      <button data-t="skills"><span class="chip c9"><svg class="i" viewBox="0 0 24 24"><path d="M19.4 13.1a2.5 2.5 0 1 0 0-2.2V7a1 1 0 0 0-1-1h-3.9a2.5 2.5 0 1 0-2.2 0H8.4a1 1 0 0 0-1 1v3.9a2.5 2.5 0 1 1 0 2.2V17a1 1 0 0 0 1 1h3.9a2.5 2.5 0 1 1 2.2 0h3.9a1 1 0 0 0 1-1z"/></svg></span>Skills &amp; Werkzeuge</button>
+      <button data-t="ablaeufe"><span class="chip c3"><svg class="i" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></span>Abläufe</button>
+      <button data-t="termine"><span class="chip c4"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span>Kalender</button>
+      <button data-t="merkzettel"><span class="chip c5"><svg class="i" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></span>Merkzettel</button>
+      <button data-t="rezepte"><span class="chip c6"><svg class="i" viewBox="0 0 24 24"><path d="M8 21h10a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H6"/><path d="M6 3a2 2 0 0 0-2 2v2h4V5a2 2 0 0 0-2-2zM8 7v12a2 2 0 0 1-2 2M12 8h4M12 12h4"/></svg></span>Fertigkeiten</button>
+      <button data-t="wissen"><span class="chip c7"><svg class="i" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg></span>Wissensbuch</button>
+      <button data-t="sicherheit"><span class="chip c6"><svg class="i" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></span>Sicherheit</button>
+      <button data-t="stimme"><span class="chip c8"><svg class="i" viewBox="0 0 24 24"><path d="M2 12h2M6 8v8M10 5v14M14 8v8M18 10v4M22 12h0"/></svg></span>Meine Stimme</button>
+    </div>
+    <div id="menuInhalt"></div>
+    <button class="ghost small" id="abBtn2" style="align-self:center;display:flex;gap:8px;align-items:center;margin-top:10px"><svg class="i" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg> Abmelden</button>
+  </div>
+</div>
+<div id="gSeite" data-p="hoert">
+  <button id="gKugel" title="Tippen: Watson unterbrechen"></button>
+  <div id="gStatus">Einen Moment …</div>
+  <div id="gDu"></div>
+  <div id="gAntw"></div>
+  <div id="gKnoepfe">
+    <button id="gStumm" title="Mikrofon stumm"><svg class="i" viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M19 11a7 7 0 0 1-14 0M12 18v3"/></svg></button>
+    <button id="gZu" title="Gespräch beenden"><svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>
+  <div id="gTipp">Sprich einfach – ohne „Hey Watson“. Tippe auf die Kugel, um Watson zu unterbrechen. Lass den Bildschirm an, solange ihr redet.</div>
+</div>
+<div id="stimmeSeite">
+  <header><img src="/logo.png" alt=""><b>Meine Stimme<small>Sätze vorlesen fürs Training</small></b><button id="stimmeZu" title="Schließen"><svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></header>
+  <div class="inhalt">
+    <div class="small muted" id="stFort">…</div>
+    <div class="fortschritt"><div id="stBalken"></div></div>
+    <div class="small muted" id="stNr"></div>
+    <div class="satzKarte" id="stSatz">…</div>
+    <div class="pegel"><div id="stPegel"></div></div>
+    <button class="aufBtn" id="stAuf" title="Aufnehmen"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/></svg></button>
+    <div class="small muted" style="text-align:center" id="stTipp">Tippe auf den roten Knopf, lies den Satz ruhig und deutlich vor und tippe dann noch einmal.</div>
+    <div class="hinweis" id="stHinweis" style="display:none"></div>
+    <div class="reihe"><button id="stZurueck"><svg class="i" viewBox="0 0 24 24"><path d="M15 18 9 12l6-6"/></svg> Zurück</button><button id="stHoeren" disabled><svg class="i" viewBox="0 0 24 24"><path d="M7 4v16l13-8z"/></svg> Anhören</button><button id="stWeiter">Weiter <svg class="i" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button></div>
+    <div class="small muted">Tipps: ruhiger Raum, Handy etwa eine Handbreit vor dem Mund, leicht seitlich. Immer gleich laut und in deinem normalen Tempo sprechen. Verlesen? Einfach nochmal aufnehmen, die alte Aufnahme wird ersetzt.</div>
+  </div>
+</div>
+<script>
+const $ = s => document.querySelector(s);
+let chatId = null, beschaeftigt = false, frageUhr = null, gezeigt = new Set(), name = "Watson";
+try { chatId = +localStorage.getItem("watsonChat") || null; } catch (e) {}
+const esc = t => String(t).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+// Formatierung der Antworten (Markdown): fett, schräg, Zitat, Überschrift, Aufzählung, Code – ohne Rohzeichen
+const inl = s => s.replace(/`([^`]+)`/g, "<code>$1</code>")
+  .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/__(.+?)__/g, "<b>$1</b>")
+  .replace(/(^|[^\w*])\*(?!\s)(.+?)\*(?!\w)/g, "$1<i>$2</i>").replace(/(^|[^\w])_(?!\s)(.+?)_(?!\w)/g, "$1<i>$2</i>");
+function fmt(t) {
+  const aus = []; let zitat = null;
+  for (const zeile of esc(t).split("\n")) {
+    const z = zeile.match(/^\s*&gt;\s?(.*)$/);
+    if (z) {
+      if (!zitat && aus.length && aus[aus.length - 1].endsWith("\n")) aus[aus.length - 1] = aus[aus.length - 1].slice(0, -1);   // keine doppelte Leerzeile vor dem Zitat
+      (zitat = zitat || []).push(inl(z[1])); continue;
+    }
+    if (zitat) { aus.push(`<div class="zitat">${zitat.join("\n")}</div>`); zitat = null; if (!zeile.trim()) continue; }
+    const h = zeile.match(/^#{1,4}\s*(.+)$/), li = zeile.match(/^(\s*)[-*•]\s+(.+)$/);
+    aus.push((h ? `<b>${inl(h[1])}</b>` : li ? `${li[1]}• ${inl(li[2])}` : inl(zeile)) + "\n");
+  }
+  if (zitat) aus.push(`<div class="zitat">${zitat.join("\n")}</div>`);
+  return aus.join("").replace(/\n+$/, "");
+}
+async function api(pfad, daten) {
+  const r = await fetch(pfad, daten ? {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(daten), credentials: "same-origin"} : {credentials: "same-origin"});
+  if (r.status === 401) { zeigeLogin(); throw new Error("Bitte anmelden"); }
+  if ((r.headers.get("Content-Type") || "").startsWith("audio/")) return r.blob();
+  return r.json();
+}
+function zeigeLogin() { $("#app").style.display = "none"; $("#login").style.display = "flex"; setTimeout(() => $("#pin").focus(), 100); }
+function zeigeApp() { $("#login").style.display = "none"; $("#app").style.display = "flex"; }
+let status0 = {};
+async function start() {
+  const s = status0 = await fetch("/api/status", {credentials: "same-origin"}).then(r => r.json());
+  if (s.ui_sprache === "en" && window.watsonSprache) window.watsonSprache("en");   // Menüs auf Englisch
+  name = s.name || "Watson"; $("#loginName").textContent = name; $("#kopfName").textContent = name; document.title = name;
+  $("#fingerBtn").style.display = s.fingerabdruck_eingerichtet && window.PublicKeyCredential ? "" : "none";
+  $("#anmeldenTeil").style.display = "contents"; $("#erstPinTeil").style.display = "none";
+  if (!s.pin_gesetzt && s.erst_pin_moeglich) { zeigeLogin(); $("#anmeldenTeil").style.display = "none"; $("#erstPinTeil").style.display = "flex"; setTimeout(() => $("#pinNeu").focus(), 100); return; }
+  if (!s.pin_gesetzt) { zeigeLogin(); $("#pinMsg").textContent = "Es ist noch kein Passwort festgelegt – bitte in Watson unter Einstellungen → Watson auf dem Handy."; return; }
+  if (s.angemeldet) { zeigeApp(); begruessen(); fingerAnbieten(); } else zeigeLogin();
+}
+// ---------- Fingerabdruck (Passkey) ----------
+const b64uZuBytes = s => { s = s.replace(/-/g, "+").replace(/_/g, "/"); while (s.length % 4) s += "="; return Uint8Array.from(atob(s), c => c.charCodeAt(0)); };
+const bytesZuB64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+function credJson(c) {
+  const r = c.response, out = {id: c.id, rawId: bytesZuB64u(c.rawId), type: c.type, clientExtensionResults: c.getClientExtensionResults ? c.getClientExtensionResults() : {}, response: {clientDataJSON: bytesZuB64u(r.clientDataJSON)}};
+  if (c.authenticatorAttachment) out.authenticatorAttachment = c.authenticatorAttachment;
+  if (r.attestationObject) { out.response.attestationObject = bytesZuB64u(r.attestationObject); if (r.getTransports) out.response.transports = r.getTransports(); }
+  if (r.authenticatorData) { out.response.authenticatorData = bytesZuB64u(r.authenticatorData); out.response.signature = bytesZuB64u(r.signature); if (r.userHandle) out.response.userHandle = bytesZuB64u(r.userHandle); }
+  return out;
+}
+$("#fingerBtn").onclick = async () => {
+  $("#pinMsg").textContent = "";
+  try {
+    const s = await fetch("/api/passkey/login_start", {method: "POST", headers: {"Content-Type": "application/json"}, body: "{}", credentials: "same-origin"}).then(r => r.json());
+    if (s.error) { $("#pinMsg").textContent = s.error; return; }
+    const o = s.optionen; o.challenge = b64uZuBytes(o.challenge);
+    (o.allowCredentials || []).forEach(c => c.id = b64uZuBytes(c.id));
+    const cred = await navigator.credentials.get({publicKey: o});
+    const r = await fetch("/api/passkey/login", {method: "POST", headers: {"Content-Type": "application/json"}, credentials: "same-origin", body: JSON.stringify({vorgang: s.vorgang, credential: credJson(cred)})}).then(r => r.json());
+    if (r.ok) { zeigeApp(); begruessen(); } else $("#pinMsg").textContent = r.error;
+  } catch (e) { $("#pinMsg").textContent = "Fingerabdruck abgebrochen oder nicht möglich – du kannst das Passwort nehmen."; }
+};
+function fingerAnbieten() {
+  if (!status0.fingerabdruck_moeglich || status0.fingerabdruck_eingerichtet || !window.PublicKeyCredential) return;
+  let spaeter = false; try { spaeter = localStorage.getItem("fingerSpaeter") === "1"; } catch (e) {}
+  if (spaeter) return;
+  const d = document.createElement("div"); d.className = "karte";
+  d.innerHTML = `👆 <b>Fingerabdruck einrichten?</b> Dann meldest du dich künftig einfach mit deinem Finger (oder Gesicht) an. Dein Fingerabdruck bleibt dabei immer auf deinem Handy – Watson bekommt ihn nie zu sehen.<div style="display:flex;gap:8px;margin-top:8px"><button class="primary fj">Einrichten</button><button class="ghost fn">Später</button></div><div class="small fm" style="margin-top:6px"></div>`;
+  d.querySelector(".fn").onclick = () => { try { localStorage.setItem("fingerSpaeter", "1"); } catch (e) {} d.remove(); };
+  d.querySelector(".fj").onclick = async () => {
+    const m = d.querySelector(".fm");
+    try {
+      const s = await api("/api/passkey/einrichten_start", {});
+      if (s.error) { m.textContent = s.error; return; }
+      const o = s.optionen; o.challenge = b64uZuBytes(o.challenge); o.user.id = b64uZuBytes(o.user.id);
+      (o.excludeCredentials || []).forEach(c => c.id = b64uZuBytes(c.id));
+      const cred = await navigator.credentials.create({publicKey: o});
+      const r = await api("/api/passkey/einrichten", {credential: credJson(cred), name: /iPhone|iPad/.test(navigator.userAgent) ? "iPhone" : /Android/.test(navigator.userAgent) ? "Android-Handy" : "Mein Gerät"});
+      if (r.ok) { d.innerHTML = "👆 ✅ Fingerabdruck eingerichtet. Ab jetzt kannst du dich damit anmelden – das Passwort bleibt als Ersatz."; status0.fingerabdruck_eingerichtet = true; }
+      else m.textContent = r.error;
+    } catch (e) { m.textContent = "Abgebrochen oder auf diesem Gerät nicht möglich."; }
+  };
+  $("#chat").appendChild(d);
+}
+async function verlaufZeigen() {
+  if (!chatId || $("#chat").children.length) return false;
+  try { const r = await api("/api/handy/gespraech", {id: chatId}); const n = (r.nachrichten || []).slice(-20);
+    for (const x of n) blase(x.content || "", x.role === "user" ? "" : name, x.role === "user" ? "user" : "");
+    return n.length > 0; } catch (e) { return false; }
+}
+async function begruessen() { if (await verlaufZeigen()) return; if (!$("#chat").children.length) blase((window.watsonTr || (t => t))(`Hallo! Ich bin ${name}. Schreib mir einfach – ich bin auf deinem Computer zu Hause und höre dir hier zu.`), name); }
+$("#pinBtn").onclick = async () => {
+  $("#pinMsg").textContent = "";
+  const r = await fetch("/api/login", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({pin: $("#pin").value}), credentials: "same-origin"}).then(r => r.json());
+  if (r.ok) { $("#pin").value = ""; zeigeApp(); begruessen(); fingerAnbieten(); } else $("#pinMsg").textContent = r.error || "Anmeldung fehlgeschlagen";
+};
+$("#pin").onkeydown = e => { if (e.key === "Enter") $("#pinBtn").click(); };
+$("#erstPinBtn").onclick = async () => {
+  $("#pinMsg").textContent = "";
+  const p1 = $("#pinNeu").value, p2 = $("#pinNeu2").value;
+  if (p1.length < 12) { $("#pinMsg").textContent = "Das Passwort braucht mindestens 12 Zeichen."; return; }
+  if (p1 !== p2) { $("#pinMsg").textContent = "Die beiden Passwörter sind nicht gleich."; return; }
+  const r = await fetch("/api/pin_erstmals", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({pin: p1, wiederholung: p2}), credentials: "same-origin"}).then(r => r.json());
+  if (r.ok) { $("#pinNeu").value = $("#pinNeu2").value = ""; status0.pin_gesetzt = true; zeigeApp(); begruessen(); fingerAnbieten(); }
+  else $("#pinMsg").textContent = r.error || "Das hat nicht geklappt.";
+};
+$("#pinNeu2").onkeydown = e => { if (e.key === "Enter") $("#erstPinBtn").click(); };
+$("#abBtn").onclick = async () => { await api("/api/abmelden", {}); zeigeLogin(); };
+$("#neuBtn").onclick = () => { chatId = null; try { localStorage.removeItem("watsonChat"); } catch (e) {} $("#chat").innerHTML = ""; begruessen(); };
+function blase(text, wer, art = "") {
+  const d = document.createElement("div"); d.className = "msg " + art;
+  d.innerHTML = (wer ? `<div class="who">${esc(wer)}</div>` : "") + fmt(text);
+  $("#chat").appendChild(d); $("#chat").scrollTop = 1e9; return d;
+}
+async function kopieren(t) { try { await navigator.clipboard.writeText(t); return true; } catch (e) { return false; } }
+function lernLeiste(b, r) {
+  const bar = document.createElement("div"); bar.className = "bar";
+  bar.innerHTML = `<button class="ghost" data-w="1">👍</button><button class="ghost" data-w="-1">👎</button><button class="ghost" data-s="1">🔊 Anhören</button>`;
+  bar.querySelectorAll("[data-w]").forEach(x => x.onclick = async () => { if (!r.lern_id) return; await api("/api/bewerten", {lern_id: r.lern_id, wert: +x.dataset.w}); bar.querySelectorAll("[data-w]").forEach(y => y.classList.toggle("an", y === x)); });
+  bar.querySelector("[data-s]").onclick = async e => {
+    const k = e.target; k.disabled = true; k.textContent = "⏳ Watson spricht gleich …";
+    try { const blob = await api("/api/sprich", {text: r.text.slice(0, 1500)}); const a = new Audio(URL.createObjectURL(blob)); await a.play(); k.textContent = "🔊 Nochmal"; }
+    catch (err) { k.textContent = "🔊 Ging nicht"; }
+    k.disabled = false;
+  };
+  b.after(bar);
+  // ℹ️ – eingeklappt: welches Gehirn geantwortet hat und welche Werkzeuge/Abläufe benutzt wurden
+  if (r.tools && r.tools.length) {
+    const i = document.createElement("button"); i.className = "ghost"; i.textContent = "ℹ️"; i.title = "Wie hat Watson das gemacht?";
+    const n = document.createElement("div"); n.className = "note info"; n.style.display = "none";
+    n.textContent = "Hinter den Kulissen: " + r.tools.join(" · ");
+    i.onclick = () => { const zu = n.style.display === "none"; n.style.display = zu ? "" : "none"; i.classList.toggle("an", zu); };
+    bar.appendChild(i); bar.after(n);
+  }
+}
+function lehrerKarte(frage) {
+  const d = document.createElement("div"); d.className = "karte";
+  d.innerHTML = `🌉 <b>Lehrer-Brücke</b> – hier bin ich mir nicht sicher. Frag gern deine andere KI-App (ChatGPT, Claude, Gemini) und bring mir die Antwort später am Computer bei.<div class="msg" style="max-width:100%;margin-top:8px"></div><button class="small">Frage kopieren</button> <span class="small muted"></span>`;
+  d.querySelector(".msg").textContent = frage;
+  d.querySelector("button").onclick = async () => { d.querySelector("span").textContent = (await kopieren(frage)) ? "✓ kopiert" : "Bitte lange drücken und kopieren"; };
+  $("#chat").appendChild(d); $("#chat").scrollTop = 1e9;
+}
+// Erlaubnis-Fragen (Vertrauens-Stufen) auf dem Handy beantworten
+async function fragenHolen() {
+  try {
+    const r = await api("/api/fragen");
+    for (const f of r.fragen || []) { if (!gezeigt.has(f.id)) { gezeigt.add(f.id); frageZeigen(f); } }
+  } catch (e) {}
+}
+function frageZeigen(f) {
+  const ov = document.createElement("div"); ov.className = "ov";
+  const band = f.art === "grenze" ? "🛡 Feste Grenze – hier fragt Watson auf jeder Stufe" : f.art === "kritisch" ? "Kritischer Moment – Watson fragt dich um Rat" : f.art === "plan" ? "📋 Plan für diesen Auftrag" : "";
+  ov.innerHTML = `<div class="box ${f.art === "grenze" ? "grenze" : ""}"><h3></h3><div class="muted small">${esc(f.stufe_icon || "")} Vertrauens-Stufe ${f.stufe}: ${esc(f.stufe_name || "")}</div>
+    ${band ? `<div class="band">${band}</div>` : ""}<div class="txt" style="white-space:pre-line;margin:8px 0"></div>
+    ${(f.schritte || []).length ? `<ol>${f.schritte.map(s => `<li>${esc(s)}</li>`).join("")}</ol>` : ""}
+    <div class="knoepfe"><button class="nein"></button><button class="primary ja"></button></div></div>`;
+  ov.querySelector("h3").textContent = f.titel; ov.querySelector(".txt").textContent = f.text;
+  ov.querySelector(".ja").textContent = f.ja || "Erlauben"; ov.querySelector(".nein").textContent = f.nein || "Nicht erlauben";
+  const antwort = async ok => { ov.remove(); await api("/api/antwort", {id: f.id, ok}); };
+  ov.querySelector(".ja").onclick = () => antwort(true); ov.querySelector(".nein").onclick = () => antwort(false);
+  document.body.appendChild(ov);
+}
+async function senden() {
+  const text = $("#eingabe").value.trim();
+  if (!text || beschaeftigt) return;
+  beschaeftigt = true; $("#senden").disabled = true; $("#eingabe").value = ""; groesse();
+  blase(text, "", "user");
+  const denkt = document.createElement("div"); denkt.className = "denkt"; denkt.textContent = name + " denkt nach …"; $("#chat").appendChild(denkt);
+  const stopp = document.createElement("button"); stopp.className = "small"; stopp.textContent = "■ Stopp"; stopp.style.marginLeft = "8px";
+  stopp.onclick = () => api("/api/stopp", {}); denkt.appendChild(stopp);
+  frageUhr = setInterval(fragenHolen, 1500);
+  try {
+    let volltext = text;
+    if (anhang) { volltext = `${text}\n\n[Dokument „${anhang.name}“]\n${anhang.text}`; anhang = null; zeigeAnhang(""); }
+    const r = await api("/api/chat", {text: volltext, chat_id: chatId});
+    denkt.remove();
+    if (r.error && !r.text) blase(r.error, "Hinweis");
+    else {
+      if (r.chat_id) { chatId = r.chat_id; try { localStorage.setItem("watsonChat", chatId); } catch (e) {} }
+      const b = blase(r.text, name); lernLeiste(b, r);   // Blick hinter die Kulissen steckt im ℹ️-Knopf
+      if (r.lehrer) lehrerKarte(r.lehrer);
+    }
+  } catch (e) { denkt.remove(); blase("Keine Verbindung zu Watson: " + e.message, "Hinweis"); }
+  clearInterval(frageUhr); beschaeftigt = false; $("#senden").disabled = false;
+}
+function groesse() { const t = $("#eingabe"); t.style.height = "auto"; t.style.height = Math.min(140, t.scrollHeight) + "px"; }
+$("#eingabe").oninput = groesse;
+$("#eingabe").onkeydown = e => { if (e.key === "Enter" && !e.shiftKey && !/Android|iPhone|iPad/i.test(navigator.userAgent)) { e.preventDefault(); senden(); } };
+$("#senden").onclick = senden;
+
+// ================= Gesprächsmodus: dauerhaft zuhören, wie bei Claude =================
+// Das Handy erkennt selbst, wann du sprichst und wann du fertig bist (Lautstärke), schickt nur diese Aufnahme
+// an deinen Laptop (Whisper erkennt den Text), Watson antwortet und spricht Satz für Satz – dann hört er wieder zu.
+const GS = {an: false, p: "", stumm: false, gen: 0, ctx: null, stream: null, src: null, proc: null, quelle: null, lock: null,
+            boden: 0.008, laut: 0, spricht: false, teile: [], vor: [], stille: 0, dauer: 0, ruheBis: 0};
+const G_TEXT = {hoert: "Ich höre zu …", versteht: "Einen Moment, ich verstehe …", denkt: "Ich denke nach …", stumm: "Mikrofon ist stumm"};
+function gPhase(p, text) {
+  if (p === "hoert" && GS.stumm) p = "stumm";
+  GS.p = p; $("#gSeite").dataset.p = p;
+  $("#gStatus").textContent = p === "spricht" ? name + " spricht …" : p === "fehler" ? (text || "Fehler") : (G_TEXT[p] || "");
+  if (p !== "hoert") $("#gKugel").style.transform = "";
+  if (p === "hoert") { GS.spricht = false; GS.teile = []; GS.vor = []; GS.stille = 0; GS.dauer = 0; GS.laut = 0; }
+}
+async function gWachHalten() { try { if ("wakeLock" in navigator && GS.an && !GS.lock) { GS.lock = await navigator.wakeLock.request("screen"); GS.lock.addEventListener("release", () => GS.lock = null); } } catch (e) {} }
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") gWachHalten(); });
+async function gAuf() {
+  if (GS.an) return;
+  if (beschaeftigt) { blase("Watson antwortet gerade noch – einen Moment, dann geht der Gesprächsmodus.", "Hinweis"); return; }
+  try {
+    GS.stream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1}});
+  } catch (e) { blase("Kein Zugriff aufs Mikrofon: " + e.message + ". Bitte im Browser das Mikrofon für Watson erlauben.", "Hinweis"); return; }
+  GS.ctx = new (window.AudioContext || window.webkitAudioContext)();
+  await GS.ctx.resume();                                  // jetzt (beim Tippen) freischalten, damit Watson später sprechen darf
+  GS.src = GS.ctx.createMediaStreamSource(GS.stream);
+  GS.proc = GS.ctx.createScriptProcessor(2048, 1, 1);
+  GS.proc.onaudioprocess = gFrame;
+  GS.src.connect(GS.proc); GS.proc.connect(GS.ctx.destination);
+  GS.an = true; GS.stumm = false; GS.gen++; beschaeftigt = true;
+  $("#gStumm").classList.remove("an"); $("#gDu").textContent = ""; $("#gAntw").textContent = "";
+  $("#gSeite").classList.add("offen"); gWachHalten(); gPhase("hoert");
+}
+function gZu() {
+  if (!GS.an) return;
+  GS.an = false; GS.gen++;
+  if (GS.p === "denkt") api("/api/stopp", {}).catch(() => {});
+  try { GS.quelle && GS.quelle.stop(); } catch (e) {}
+  try { GS.proc.disconnect(); GS.src.disconnect(); } catch (e) {}
+  try { GS.stream.getTracks().forEach(t => t.stop()); } catch (e) {}
+  try { GS.ctx.close(); } catch (e) {}
+  try { GS.lock && GS.lock.release(); } catch (e) {}
+  GS.lock = null; beschaeftigt = false; $("#senden").disabled = false;
+  $("#gSeite").classList.remove("offen");
+}
+function gFrame(e) {
+  if (!GS.an || GS.p !== "hoert" || GS.stumm || performance.now() < GS.ruheBis) return;
+  const d = e.inputBuffer.getChannelData(0), dt = d.length / GS.ctx.sampleRate;
+  let s = 0; for (let i = 0; i < d.length; i++) s += d[i] * d[i];
+  const rms = Math.sqrt(s / d.length);
+  $("#gKugel").style.transform = `scale(${(1 + Math.min(1, rms * 14) * 0.18).toFixed(3)})`;
+  const schwelle = Math.max(0.012, GS.boden * 3);
+  if (!GS.spricht) {
+    GS.boden = Math.max(0.002, Math.min(0.05, GS.boden * 0.97 + rms * 0.03));   // Grundrauschen langsam mitlernen
+    GS.vor.push(new Float32Array(d)); if (GS.vor.length * dt > 0.45) GS.vor.shift();   // Anfang des Wortes nicht abschneiden
+    GS.laut = rms > schwelle ? GS.laut + dt : 0;
+    if (GS.laut >= 0.15) { GS.spricht = true; GS.teile = GS.vor.slice(); GS.vor = []; GS.stille = 0; GS.dauer = 0; }
+    return;
+  }
+  GS.teile.push(new Float32Array(d)); GS.dauer += dt;
+  GS.stille = rms < schwelle * 0.7 ? GS.stille + dt : 0;
+  if (GS.stille >= 1.0 || GS.dauer >= 30) gFertig();
+}
+async function gFertig() {
+  const gen = GS.gen, rate = GS.ctx.sampleRate, teile = GS.teile;
+  gPhase("versteht");
+  try {
+    const len = teile.reduce((a, t) => a + t.length, 0), alles = new Float32Array(len);
+    let o = 0; for (const t of teile) { alles.set(t, o); o += t.length; }
+    const ziel = 16000, off = new OfflineAudioContext(1, Math.max(1, Math.ceil(len * ziel / rate)), ziel);
+    const b = off.createBuffer(1, len || 1, rate); b.copyToChannel(alles, 0);
+    const q = off.createBufferSource(); q.buffer = b; q.connect(off.destination); q.start();
+    const wav = stWav((await off.startRendering()).getChannelData(0), ziel);
+    const r = await fetch("/api/hoeren", {method: "POST", headers: {"Content-Type": "audio/wav"}, body: wav, credentials: "same-origin"}).then(x => x.json());
+    if (gen !== GS.gen || !GS.an) return;
+    if (r.error) { gPhase("fehler", r.error); setTimeout(() => { if (gen === GS.gen && GS.an) gPhase("hoert"); }, 2500); return; }
+    if (!r.text) { gPhase("hoert"); return; }
+    if (r.ende) { gZu(); blase("Gespräch beendet.", "Hinweis"); return; }
+    await gFrage(r.text, gen);
+  } catch (e) {
+    if (gen !== GS.gen || !GS.an) return;
+    gPhase("fehler", "Keine Verbindung zu Watson: " + e.message);
+    setTimeout(() => { if (gen === GS.gen && GS.an) gPhase("hoert"); }, 3000);
+  }
+}
+async function gFrage(text, gen) {
+  $("#gDu").innerHTML = "<b>Du:</b> " + esc(text); $("#gAntw").textContent = "";
+  blase(text, "", "user"); gPhase("denkt");
+  const uhr = setInterval(fragenHolen, 1500);              // Erlaubnis-Fragen auch im Gesprächsmodus zeigen
+  let r;
+  try { r = await api("/api/chat", {text, chat_id: chatId}); } finally { clearInterval(uhr); }
+  if (gen !== GS.gen || !GS.an) return;
+  if (r.error && !r.text) { $("#gAntw").textContent = r.error; blase(r.error, "Hinweis"); gPhase("hoert"); return; }
+  if (r.chat_id) { chatId = r.chat_id; try { localStorage.setItem("watsonChat", chatId); } catch (e) {} }
+  const b = blase(r.text, name); lernLeiste(b, r); if (r.lehrer) lehrerKarte(r.lehrer);
+  $("#gAntw").innerHTML = "<b>" + esc(name) + ":</b> " + esc(r.text.replace(/[*#`_>|]/g, "").slice(0, 400));
+  await gSprechen(r.text, gen);
+  if (gen === GS.gen && GS.an) { GS.ruheBis = performance.now() + 400; gPhase("hoert"); }
+}
+function gStuecke(text) {                                  // Antwort in Stücke (~200 Zeichen), damit Watson schneller anfängt
+  const saetze = text.replace(/```[\s\S]*?```/g, " ").split(/(?<=[.!?:;])\s+|\n+/).map(s => s.trim()).filter(s => s.length > 1);
+  const st = [];
+  for (const s of saetze) { if (st.length && st[st.length - 1].length + s.length < 200) st[st.length - 1] += " " + s; else st.push(s); }
+  return st.slice(0, 12);
+}
+async function gSprechen(text, gen) {
+  const stuecke = gStuecke(text);
+  if (!stuecke.length) return;
+  gPhase("spricht");
+  const holen = s => api("/api/sprich", {text: s}).then(blob => blob.arrayBuffer()).then(ab => GS.ctx.decodeAudioData(ab)).catch(() => null);
+  let naechstes = holen(stuecke[0]);
+  for (let i = 0; i < stuecke.length; i++) {
+    const puffer = await naechstes;
+    if (gen !== GS.gen || !GS.an) return;
+    naechstes = i + 1 < stuecke.length ? holen(stuecke[i + 1]) : null;   // nächstes Stück schon vorbereiten
+    if (!puffer) continue;
+    await new Promise(fertig => {
+      const q = GS.ctx.createBufferSource(); q.buffer = puffer; q.connect(GS.ctx.destination);
+      q.onended = fertig; GS.quelle = q; q.start();
+    });
+    GS.quelle = null;
+  }
+}
+$("#gBtn").onclick = gAuf;
+$("#gZu").onclick = gZu;
+$("#gKugel").onclick = () => {                             // unterbrechen: Watson hört auf und hört wieder zu
+  if (!GS.an) return;
+  if (GS.p === "spricht" || GS.p === "denkt") {
+    if (GS.p === "denkt") api("/api/stopp", {}).catch(() => {});
+    GS.gen++; try { GS.quelle && GS.quelle.stop(); } catch (e) {}
+    GS.ruheBis = performance.now() + 300; gPhase("hoert");
+  }
+};
+$("#gStumm").onclick = () => {
+  GS.stumm = !GS.stumm; $("#gStumm").classList.toggle("an", GS.stumm);
+  if (GS.p === "hoert" || GS.p === "stumm") gPhase(GS.stumm ? "stumm" : "hoert");   // beim Denken/Sprechen erst danach
+};
+
+// ================= Stimm-Training: Sätze vorlesen und aufnehmen =================
+const ST = {nr: 1, gesamt: 0, rec: null, audio: null};
+async function stJson(pfad, daten) {
+  const r = await fetch(pfad, daten ? {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(daten), credentials: "same-origin"} : {credentials: "same-origin"});
+  return r.json();
+}
+async function stimmeOeffnen() {
+  $("#stimmeSeite").style.display = "flex";
+  const s = await stJson("/api/stimme/status");
+  if (s.error) { $("#stSatz").textContent = s.error; return; }
+  if (!s.gesamt) { $("#stSatz").textContent = "Es sind noch keine Sätze vorbereitet."; return; }
+  stFortschritt(s);
+  await stZeige(s.naechster || 1);
+}
+function stFortschritt(s) {
+  ST.gesamt = s.gesamt;
+  $("#stFort").textContent = `${s.fertig} von ${s.gesamt} Sätzen aufgenommen · ${s.minuten} Minuten`;
+  $("#stBalken").style.width = (100 * s.fertig / s.gesamt) + "%";
+}
+async function stZeige(nr) {
+  const s = await stJson("/api/stimme/satz?nr=" + nr);
+  if (s.error) return;
+  ST.nr = nr;
+  $("#stNr").textContent = `Satz ${nr}` + (s.aufgenommen ? " · schon aufgenommen ✓" : "");
+  $("#stSatz").textContent = s.text;
+  $("#stHoeren").disabled = !s.aufgenommen;
+  $("#stZurueck").disabled = nr <= 1; $("#stWeiter").disabled = nr >= ST.gesamt;
+  $("#stHinweis").style.display = "none";
+}
+async function stStart() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1}});
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = ctx.createMediaStreamSource(stream);
+    const proc = ctx.createScriptProcessor(4096, 1, 1);
+    const teile = [];
+    proc.onaudioprocess = e => {
+      const d = e.inputBuffer.getChannelData(0); teile.push(new Float32Array(d));
+      let m = 0; for (let i = 0; i < d.length; i++) m = Math.max(m, Math.abs(d[i]));
+      $("#stPegel").style.width = Math.min(100, m * 110) + "%";
+      $("#stPegel").style.background = m > 0.95 ? "var(--err)" : "var(--ok)";
+    };
+    src.connect(proc); proc.connect(ctx.destination);
+    ST.rec = {stream, ctx, src, proc, teile, rate: ctx.sampleRate};
+    $("#stAuf").classList.add("laeuft"); $("#stAuf").innerHTML = '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>';
+    $("#stTipp").textContent = "Ich nehme auf … lies jetzt den Satz vor und tippe dann auf ■.";
+    $("#stHinweis").style.display = "none";
+  } catch (e) {
+    stHinweis("Kein Zugriff aufs Mikrofon: " + e.message + ". Bitte im Browser das Mikrofon für Watson erlauben.", "schlecht");
+  }
+}
+function stWav(samples, rate) {
+  const buf = new ArrayBuffer(44 + samples.length * 2), v = new DataView(buf);
+  const str = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+  str(0, "RIFF"); v.setUint32(4, 36 + samples.length * 2, true); str(8, "WAVE"); str(12, "fmt ");
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, rate, true);
+  v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); str(36, "data"); v.setUint32(40, samples.length * 2, true);
+  for (let i = 0; i < samples.length; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, samples[i])) * 32767, true);
+  return new Blob([buf], {type: "audio/wav"});
+}
+async function stStopp() {
+  const r = ST.rec; ST.rec = null;
+  $("#stAuf").classList.remove("laeuft"); $("#stAuf").innerHTML = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/></svg>'; $("#stPegel").style.width = "0";
+  r.proc.disconnect(); r.src.disconnect(); r.stream.getTracks().forEach(t => t.stop()); await r.ctx.close();
+  const len = r.teile.reduce((a, t) => a + t.length, 0), alles = new Float32Array(len);
+  let o = 0; for (const t of r.teile) { alles.set(t, o); o += t.length; }
+  // auf 24 kHz umrechnen (Format fürs Training)
+  const ziel = 24000, off = new OfflineAudioContext(1, Math.max(1, Math.ceil(len * ziel / r.rate)), ziel);
+  const b = off.createBuffer(1, len || 1, r.rate); b.copyToChannel(alles, 0);
+  const q = off.createBufferSource(); q.buffer = b; q.connect(off.destination); q.start();
+  const fertig = await off.startRendering();
+  $("#stTipp").textContent = "Speichere …";
+  try {
+    const antw = await fetch("/api/stimme/aufnahme?nr=" + ST.nr, {method: "POST", headers: {"Content-Type": "audio/wav"}, body: stWav(fertig.getChannelData(0), ziel), credentials: "same-origin"}).then(x => x.json());
+    $("#stTipp").textContent = "Tippe auf den roten Knopf, lies den Satz ruhig und deutlich vor und tippe dann noch einmal.";
+    if (antw.error) { stHinweis(antw.error, "schlecht"); return; }
+    stFortschritt(await stJson("/api/stimme/status"));
+    $("#stHoeren").disabled = false; $("#stNr").textContent = `Satz ${ST.nr} · aufgenommen ✓ (${antw.dauer} s)`;
+    if (antw.nochmal_empfohlen) { stHinweis(antw.hinweise.join(" ") + " Am besten nochmal aufnehmen.", "schlecht"); return; }
+    stHinweis("✓ Gespeichert. " + (antw.hinweise || []).join(" "), "gut");
+    if (ST.nr < ST.gesamt) setTimeout(() => { if (!ST.rec) stZeige(ST.nr + 1); }, 900);
+  } catch (e) { stHinweis("Keine Verbindung zu Watson: " + e.message, "schlecht"); }
+}
+function stHinweis(t, art) { const h = $("#stHinweis"); h.textContent = t; h.className = "hinweis " + (art || ""); h.style.display = "block"; }
+$("#stAuf").onclick = () => ST.rec ? stStopp() : stStart();
+$("#stHoeren").onclick = () => { if (ST.audio) ST.audio.pause(); ST.audio = new Audio("/api/stimme/audio?nr=" + ST.nr + "&t=" + Date.now()); ST.audio.play(); };
+$("#stWeiter").onclick = () => { if (!ST.rec && ST.nr < ST.gesamt) stZeige(ST.nr + 1); };
+$("#stZurueck").onclick = () => { if (!ST.rec && ST.nr > 1) stZeige(ST.nr - 1); };
+$("#stimmeBtn").onclick = stimmeOeffnen;
+
+// ================= Menü =================
+const hx = (aktion, daten) => api("/api/handy/" + aktion, daten || {});
+const STIMMEN = [["kokoro:martin", "Martin (Kokoro) – natürlich und schnell"], ["ov:eigene", "Meine eigene Stimme (langsam)"],
+                 ["thorsten", "Thorsten – männlich, ruhig"], ["kerstin", "Kerstin – weiblich"]];
+function menuOeffnen(t) { $("#menuSeite").style.display = "flex"; if (t) menuZeige(t); else { $("#menuInhalt").innerHTML = ""; document.querySelectorAll("#menuSeite .kachel button").forEach(b => b.classList.remove("an")); } }
+async function menuZeige(t) {
+  document.querySelectorAll("#menuSeite .kachel button").forEach(b => b.classList.toggle("an", b.dataset.t === t));
+  const m = $("#menuInhalt"); m.innerHTML = '<div class="muted small">Lade …</div>';
+  setTimeout(() => m.scrollIntoView({behavior: "smooth", block: "start"}), 50);
+  try {
+    if (t === "stimme") { $("#menuSeite").style.display = "none"; return stimmeOeffnen(); }
+    if (t === "gespraeche") {
+      const r = await hx("gespraeche");
+      m.innerHTML = '<div class="liste">' + ((r.gespraeche || []).map(g => `<div><div class="kopf"><b>${esc(g.title || "Gespräch")}</b><button class="small" data-o="${g.id}">Öffnen</button><button class="ghost small" data-x="${g.id}">🗑</button></div><div class="small muted">${new Date(g.updated * 1000).toLocaleString("de-DE")}</div></div>`).join("") || '<div class="muted">Noch keine Gespräche.</div>') + "</div>";
+      m.querySelectorAll("[data-o]").forEach(b => b.onclick = () => gespraechLaden(+b.dataset.o));
+      m.querySelectorAll("[data-x]").forEach(b => b.onclick = async () => { if (confirm("Dieses Gespräch löschen?")) { await hx("gespraech_loeschen", {id: +b.dataset.x}); menuZeige("gespraeche"); } });
+    } else if (t === "einstellungen") {
+      const c = await hx("einstellungen");
+      m.innerHTML = `<b>Stimme</b><select id="mStimme">${STIMMEN.map(([v, n]) => `<option value="${v}" ${c.piper_voice === v ? "selected" : ""}>${n}</option>`).join("")}</select>
+        <label class="zeile"><input type="checkbox" id="mVorlesen" style="width:auto" ${c.voice ? "checked" : ""}> Antworten am Laptop laut vorlesen</label>
+        <b>Gehirn</b><select id="mGehirn"><option>${esc(c.model || "")}</option></select><div class="small muted" id="mInfo" style="margin-top:8px"></div>`;
+      $("#mStimme").onchange = async e => { await hx("einstellungen_setzen", {piper_voice: e.target.value, tts_engine: "piper"}); $("#mInfo").textContent = "✓ Stimme gespeichert"; };
+      $("#mVorlesen").onchange = async e => { await hx("einstellungen_setzen", {voice: e.target.checked}); $("#mInfo").textContent = "✓ gespeichert"; };
+      hx("gehirne").then(g => {
+        if (g.error) { $("#mInfo").textContent = g.error; return; }
+        const eigene = [["watson/dirigent", "Dirigent (wählt selbst das passende Gehirn)"]];
+        const alle = eigene.concat((g.gehirne || []).map(x => [x.id, (x.name || x.id) + (x.free ? " — gratis" : "")]));
+        if (!alle.some(([v]) => v === c.model)) alle.unshift([c.model, c.model]);
+        $("#mGehirn").innerHTML = alle.map(([v, n]) => `<option value="${esc(v)}" ${v === c.model ? "selected" : ""}>${esc(n)}</option>`).join("");
+        $("#mGehirn").onchange = async e => { await hx("einstellungen_setzen", {model: e.target.value}); $("#mInfo").textContent = "✓ Gehirn gespeichert"; };
+      });
+    } else if (t === "skills") {
+      m.innerHTML = `<div class="suche"><input type="search" id="skSuch" placeholder="Was soll Watson können? z. B. Wetter, PDF …"><button class="primary" id="skBtn">Suchen</button></div>
+        <div class="small muted" id="skInfo"></div><div class="liste" id="skTreffer"></div><b>Schon eingesteckt</b><div class="liste" id="skDrin"><div class="muted small">Lade …</div></div>`;
+      let weiter = null, begriff = "";
+      const karte = x => { const d = document.createElement("div");
+        d.innerHTML = `<div class="kopf"><b>${esc(x.titel || x.id)}</b><span class="knopf" style="flex:0"></span></div><div class="small muted" style="margin-top:4px">${esc(x.beschreibung || "")}</div><div class="small msg2" style="margin-top:6px"></div>`;
+        const k = d.querySelector(".knopf"), msg = d.querySelector(".msg2");
+        if (x.drin) k.innerHTML = '<span class="marke gut">✓ dabei</span>';
+        else if (x.einsteckbar) {
+          const b = document.createElement("button"); b.className = "primary small"; b.textContent = "Hinzufügen"; k.appendChild(b);
+          if ((x.schluessel || []).length) msg.innerHTML = `<span class="muted">Braucht einen Zugangscode: ${x.schluessel.map(s => esc(s.env)).join(", ")}</span>`;
+          b.onclick = async () => {
+            if (!confirm(`„${x.titel}“ kommt von einem fremden Anbieter. Watson fragt dich vor JEDER Benutzung um Erlaubnis.` + (x.art === "online" ? " Das ist ein Online-Dienst: Deine Anfragen gehen an den Anbieter im Internet." : " Das Programm wird beim ersten Start aus dem Internet geladen.") + "\n\nWirklich hinzufügen?")) return;
+            b.disabled = true; b.textContent = "Wird hinzugefügt …";
+            const r = await hx("werkzeug_einstecken", {id: x.id});
+            if (r.error) { b.disabled = false; b.textContent = "Hinzufügen"; msg.innerHTML = `<span style="color:var(--err)">${esc(r.error)}</span>`; return; }
+            k.innerHTML = '<span class="marke gut">✓ hinzugefügt</span>';
+            msg.textContent = "Watson kann den Skill jetzt benutzen." + ((r.schluessel || []).length ? " Den Zugangscode trägst du am Laptop unter Einstellungen → Schlüsseltresor ein." : "");
+          };
+        } else { k.innerHTML = '<span class="marke">nicht automatisch</span>'; if (x.grund) msg.textContent = x.grund; }
+        return d; };
+      const suchen = async mehr => {
+        if (!mehr) { begriff = $("#skSuch").value.trim(); weiter = null; $("#skTreffer").innerHTML = ""; }
+        $("#skInfo").textContent = "Suche …";
+        const r = await hx("werkzeug_suchen", {begriff, weiter: mehr ? weiter : null});
+        if (r.error) { $("#skInfo").textContent = r.error; return; }
+        (r.treffer || []).forEach(x => $("#skTreffer").appendChild(karte(x)));
+        const n = $("#skTreffer").children.length; weiter = r.weiter || null;
+        $("#skInfo").innerHTML = (r.uebersetzt ? esc(r.uebersetzt) + " " : "") + (n ? `${n} gefunden.` : "Nichts gefunden – versuch ein anderes Wort, gern auf Englisch.") + (weiter && (r.treffer || []).length ? ' <a href="#" id="skMehr">Mehr laden</a>' : "");
+        const mh = $("#skMehr"); if (mh) mh.onclick = e => { e.preventDefault(); suchen(true); };
+      };
+      $("#skBtn").onclick = () => suchen(false);
+      $("#skSuch").onkeydown = e => { if (e.key === "Enter") suchen(false); };
+      hx("werkzeuge").then(w => { $("#skDrin").innerHTML = (w.server || []).map(x => `<div><div class="kopf"><b>${esc(x.name)}</b><span class="marke ${x.ok ? "gut" : "schlecht"}">${x.ok ? x.werkzeuge + " Werkzeuge" : "nicht verbunden"}</span></div>${!x.ok && x.fehler ? `<div class="small muted">${esc(x.fehler).slice(0, 160)}</div>` : ""}</div>`).join("") || '<div class="muted small">Noch keine.</div>'; });
+    } else if (t === "sicherheit") {
+      await sicherheitZeigen(m);
+    } else if (t === "ablaeufe") {
+      const r = await hx("ablaeufe"); const a = r.ablaeufe || [];
+      m.innerHTML = (r.running ? "" : '<div class="small muted">Die Ablauf-Werkstatt läuft gerade nicht, beim Starten wird sie eingeschaltet (kann etwas dauern).</div>') + '<div class="liste">' +
+        (a.map((x, i) => `<div><div class="kopf"><b>${esc(x.name || x.pfad)}</b><button class="small" data-i="${i}">▶ Starten</button></div><div class="small muted">${esc(x.beschreibung || "")}</div><div class="small erg" style="white-space:pre-wrap"></div></div>`).join("") || '<div class="muted">Noch keine Abläufe.</div>') + "</div>";
+      m.querySelectorAll("[data-i]").forEach(b => b.onclick = async () => {
+        const erg = b.closest("div").parentNode.querySelector(".erg"); erg.textContent = "läuft …";
+        const x = await hx("ablauf_starten", {pfad: a[+b.dataset.i].pfad});
+        let txt = x.error || x.text || ""; try { const j = JSON.parse(txt); txt = j.text ? `${j.text}${j.ref ? "\n— " + j.ref : ""}` : txt; } catch (e) {}
+        erg.textContent = txt;
+      });
+    } else if (t === "termine") {
+      const r = await hx("termine", {tage: 7});
+      m.innerHTML = '<div class="liste">' + ((r.termine || []).map(x => `<div><b>${esc(x.titel || x.betreff || x.subject || "Termin")}</b><div class="small muted">${esc(x.start || x.beginn || "")}${x.ort ? " · " + esc(x.ort) : ""}</div></div>`).join("") || `<div class="muted">${esc(r.info || r.error || "Keine Termine in den nächsten 7 Tagen.")}</div>`) + "</div>";
+    } else if (t === "merkzettel") {
+      const r = await hx("merkzettel");
+      m.innerHTML = `<div style="display:flex;gap:8px"><input id="mNeu" placeholder="Neuer Eintrag …"><button class="primary" id="mDazu">＋</button></div><div class="liste">` +
+        ((r.facts || []).map(f => `<div><div class="kopf"><span style="flex:1">${esc(f.text)}</span><button class="ghost small" data-x="${f.id}">🗑</button></div></div>`).join("") || '<div class="muted">Noch leer.</div>') + "</div>";
+      $("#mDazu").onclick = async () => { const v = $("#mNeu").value.trim(); if (v) { await hx("merkzettel_neu", {text: v}); menuZeige("merkzettel"); } };
+      m.querySelectorAll("[data-x]").forEach(b => b.onclick = async () => { if (confirm("Diesen Eintrag löschen?")) { await hx("merkzettel_loeschen", {id: +b.dataset.x}); menuZeige("merkzettel"); } });
+    } else if (t === "rezepte") {
+      const r = await hx("rezepte");
+      m.innerHTML = '<div class="liste">' + ((r.rezepte || []).map(x => `<div><b>${esc(x.titel)}</b>${x.wann ? `<div class="small muted">${esc(x.wann)}</div>` : ""}<ol class="small" style="margin:6px 0 0;padding-left:20px">${(x.schritte || []).map(s => `<li>${esc(s)}</li>`).join("")}</ol></div>`).join("") || '<div class="muted">Noch keine Fertigkeiten.</div>') + "</div>";
+    } else if (t === "wissen") {
+      const r = await hx("wissen");
+      const ints = r.interessen || [];
+      m.innerHTML = (ints.length ? `<b>Watsons eigene Interessen</b><div class="liste"><div>${ints.map(i => `<span class="marke" title="${esc(i.warum || "")}" style="display:inline-block;margin:3px 4px 3px 0">${esc(i.thema)}${i.gelernt ? " · " + i.gelernt : ""}</span>`).join("")}</div></div><b>Gelerntes</b>` : "") + '<div class="liste">' + ((r.eintraege || []).map(x => `<div><b>${esc(x.frage || x.titel || "")}</b><div class="small" style="white-space:pre-wrap;margin-top:4px">${esc(x.antwort || x.kurz || x.text || "")}</div><div class="small muted">${esc(x.quelle || "")}</div></div>`).join("") || '<div class="muted">Noch leer.</div>') + "</div>";
+    }
+  } catch (e) { m.innerHTML = `<div class="muted">Fehler: ${esc(e.message)}</div>`; }
+}
+// ================= Sicherheit (Schlüssel, Tresor, Vertrauensstufe, Passwort) =================
+let bestaetigtUhr = null;
+async function fingerBestaetigen() {
+  const s = await api("/api/passkey/bestaetigen_start", {});
+  if (s.error) throw new Error(s.error);
+  const o = s.optionen; o.challenge = b64uZuBytes(o.challenge);
+  (o.allowCredentials || []).forEach(c => c.id = b64uZuBytes(c.id));
+  const cred = await navigator.credentials.get({publicKey: o});
+  const r = await api("/api/passkey/bestaetigen", {credential: credJson(cred)});
+  if (!r.ok) throw new Error(r.error || "Bestätigung abgelehnt.");
+  return r.sekunden || 300;
+}
+async function sx(aktion, daten) {
+  const r = await fetch("/api/sicher/" + aktion, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(daten || {}), credentials: "same-origin"}).then(x => x.json());
+  if (r.bestaetigen) { await fingerBestaetigen(); return sx(aktion, daten); }
+  return r;
+}
+async function fingerEinrichten(ausgabe) {
+  try {
+    const s = await api("/api/passkey/einrichten_start", {});
+    if (s.error) { ausgabe.textContent = s.error; return; }
+    const o = s.optionen; o.challenge = b64uZuBytes(o.challenge); o.user.id = b64uZuBytes(o.user.id);
+    (o.excludeCredentials || []).forEach(c => c.id = b64uZuBytes(c.id));
+    const cred = await navigator.credentials.create({publicKey: o});
+    const r = await api("/api/passkey/einrichten", {credential: credJson(cred), name: /iPhone|iPad/.test(navigator.userAgent) ? "iPhone" : /Android/.test(navigator.userAgent) ? "Android-Handy" : "Mein Gerät"});
+    if (r.ok) { status0.fingerabdruck_eingerichtet = true; menuZeige("sicherheit"); } else ausgabe.textContent = r.error;
+  } catch (e) { ausgabe.textContent = "Abgebrochen oder auf diesem Gerät nicht möglich."; }
+}
+async function sicherheitZeigen(m) {
+  const s = await sx("sicherheit");
+  const finger = s.fingerabdruecke || [];
+  m.innerHTML = `
+    ${s.passwort ? "" : `<div class="hinweis schlecht">Du meldest dich noch mit der alten Ziffern-PIN an. Bitte ersetze sie unten durch ein starkes Passwort.</div>`}
+    <div class="liste"><div><div class="kopf"><b>Fingerabdruck / Gesicht</b><span class="marke ${finger.length ? "gut" : "schlecht"}">${finger.length ? "eingerichtet" : "fehlt"}</span></div>
+      <div class="small muted" style="margin-top:4px">${finger.length ? esc(finger.join(", ")) : "Ohne Fingerabdruck kannst du Schlüssel, Tresor und Vertrauensstufe auf dem Handy nicht öffnen."}</div>
+      ${s.fingerabdruck_moeglich ? `<button class="small" id="sFinger" style="margin-top:8px">${finger.length ? "Weiteres Gerät einrichten" : "Jetzt einrichten"}</button>` : ""}<div class="small" id="sFingerMsg"></div></div></div>
+    <div id="sGeschuetzt"></div>
+    <b>Protokoll</b><div class="liste">${(s.protokoll || []).map(z => `<div class="small">${esc(z)}</div>`).join("") || '<div class="small muted">Noch keine Einträge.</div>'}</div>`;
+  const f = $("#sFinger"); if (f) f.onclick = () => fingerEinrichten($("#sFingerMsg"));
+  const g = $("#sGeschuetzt");
+  if (!s.bestaetigt_bis) {
+    g.innerHTML = `<div class="liste"><div style="text-align:center;padding:18px 14px"><div style="font-weight:600;margin-bottom:4px">Geschützter Bereich</div>
+      <div class="small muted" style="margin-bottom:12px">API-Schlüssel, Tresor, Vertrauensstufe und Passwort. Zum Öffnen bestätigst du mit Fingerabdruck oder Gesicht.</div>
+      <button class="primary" id="sEntsperren" ${finger.length ? "" : "disabled"}>Mit Fingerabdruck öffnen</button><div class="small" id="sMsg" style="margin-top:8px"></div></div></div>`;
+    $("#sEntsperren").onclick = async () => { try { await fingerBestaetigen(); menuZeige("sicherheit"); } catch (e) { $("#sMsg").textContent = e.message || "Abgebrochen."; } };
+    return;
+  }
+  // --- entsperrt ---
+  let rest = s.bestaetigt_bis;
+  g.innerHTML = `<div class="hinweis gut" id="sUhr"></div>
+    <b>API-Schlüssel &amp; Tresor</b><div class="small muted">Schlüssel kannst du hier eintragen, ändern und löschen. Ansehen geht nur am Laptop.</div><div class="liste" id="sSchl"></div>
+    <div class="liste"><div><b>Eigenen Schlüssel hinzufügen</b><input id="sNeuName" placeholder="Name, z. B. Wetterdienst" style="margin-top:8px"><input id="sNeuWert" type="password" placeholder="Schlüssel" autocomplete="off" style="margin-top:8px"><button class="primary small" id="sNeuBtn" style="margin-top:8px">Speichern</button><div class="small" id="sNeuMsg"></div></div></div>
+    <b>System-Werkzeuge</b><div class="liste"><div><label class="kopf" style="cursor:pointer"><input type="checkbox" id="sSys" ${s.use_system ? "checked" : ""} style="width:22px;height:22px;accent-color:var(--accent)"><b>Windows-Auskunft und PowerShell erlauben</b></label>
+      <div class="small muted" style="margin-top:6px">Auch dann fragt Watson vor <b>jeder</b> Nutzung und erklärt kurz, was er tun will. Gefährliche Befehle bleiben gesperrt, ohne Administratorrechte.</div><div class="small" id="sSysMsg"></div></div></div>
+    <b>Vertrauensstufe</b><div class="liste" id="sVert"></div>
+    <b>Passwort ändern</b><div class="liste"><div><input id="sPw1" type="password" autocomplete="new-password" placeholder="Neues Passwort (mind. 12 Zeichen)"><input id="sPw2" type="password" autocomplete="new-password" placeholder="Wiederholen" style="margin-top:8px"><button class="primary small" id="sPwBtn" style="margin-top:8px">Passwort speichern</button><div class="small" id="sPwMsg"></div><div class="small muted" style="margin-top:6px">Danach werden alle anderen Geräte abgemeldet.</div></div></div>`;
+  clearInterval(bestaetigtUhr);
+  const uhr = () => { rest--; if (rest <= 0) { clearInterval(bestaetigtUhr); if ($("#sUhr")) menuZeige("sicherheit"); return; } const u = $("#sUhr"); if (u) u.textContent = `Entsperrt – noch ${Math.floor(rest / 60)}:${String(rest % 60).padStart(2, "0")} Minuten`; else clearInterval(bestaetigtUhr); };
+  uhr(); bestaetigtUhr = setInterval(uhr, 1000);
+  const schl = await sx("schluessel");
+  $("#sSchl").innerHTML = (schl.schluessel || []).map(k => `<div><div class="kopf"><b>${esc(k.name)}</b><span class="marke ${k.gespeichert ? "gut" : ""}">${k.gespeichert ? "gespeichert" : "leer"}</span></div>
+    <div class="small muted">${k.geaendert ? "geändert " + esc(k.geaendert) : ""}</div>
+    <div class="suche" style="margin-top:8px"><input type="password" autocomplete="off" placeholder="${k.gespeichert ? "Neuen Wert eintragen" : "Schlüssel eintragen"}" data-w="${esc(k.id)}"><button class="small" data-s="${esc(k.id)}">Speichern</button>${k.gespeichert ? `<button class="ghost small" data-x="${esc(k.id)}" title="Löschen">🗑</button>` : ""}</div><div class="small" data-m="${esc(k.id)}"></div></div>`).join("");
+  $("#sSchl").querySelectorAll("[data-s]").forEach(b => b.onclick = async () => {
+    const id = b.dataset.s, feld = $("#sSchl").querySelector(`[data-w="${id}"]`), msg = $("#sSchl").querySelector(`[data-m="${id}"]`);
+    const r = await sx("schluessel_setzen", {id, wert: feld.value}); feld.value = "";
+    msg.textContent = r.error || "✓ Gespeichert"; if (!r.error) setTimeout(() => menuZeige("sicherheit"), 900);
+  });
+  $("#sSchl").querySelectorAll("[data-x]").forEach(b => b.onclick = async () => {
+    if (!confirm("Diesen Schlüssel endgültig löschen?")) return;
+    const r = await sx("schluessel_loeschen", {id: b.dataset.x}); if (r.error) alert(r.error); menuZeige("sicherheit");
+  });
+  $("#sNeuBtn").onclick = async () => {
+    const r = await sx("schluessel_setzen", {name: $("#sNeuName").value, wert: $("#sNeuWert").value});
+    $("#sNeuMsg").textContent = r.error || "✓ Gespeichert"; if (!r.error) setTimeout(() => menuZeige("sicherheit"), 900);
+  };
+  $("#sSys").onchange = async e => {
+    if (e.target.checked && !confirm("System-Werkzeuge erlauben?\n\nWatson darf dann Windows-Informationen abfragen und einzelne PowerShell-Befehle ausführen. Vor JEDER Nutzung fragt er dich und erklärt, was er tun will.")) { e.target.checked = false; return; }
+    const r = await sx("system_setzen", {an: e.target.checked}); $("#sSysMsg").textContent = r.error || (r.an ? "✓ Erlaubt – Watson fragt vor jeder Nutzung." : "✓ Ausgeschaltet.");
+  };
+  const v = await sx("vertrauen"); const stufen = v.stufen || {};
+  $("#sVert").innerHTML = [1, 2, 3, 4].map(n => { const st = stufen[n] || stufen[String(n)] || {};
+    return `<div><label class="kopf" style="cursor:pointer"><input type="radio" name="vst" value="${n}" ${v.stufe === n ? "checked" : ""} style="width:22px;height:22px;accent-color:var(--accent)"><b>${esc((st.icon || "") + " Stufe " + n + (st.name ? " – " + st.name : ""))}</b></label><div class="small muted" style="margin-top:4px">${esc(st.kurz || st.beschreibung || "")}</div></div>`; }).join("");
+  $("#sVert").querySelectorAll("input[name=vst]").forEach(r => r.onchange = async () => {
+    const n = +r.value;
+    if (n === 4 && !confirm("Stufe 4: Watson handelt ohne Rückfrage. Wenn er sich irrt, merkst du es vielleicht erst später. Feste Grenzen gelten weiterhin.\n\nWirklich Stufe 4 einstellen?")) { menuZeige("sicherheit"); return; }
+    const x = await sx("vertrauen_setzen", {stufe: n}); if (x.error) alert(x.error); menuZeige("sicherheit");
+  });
+  $("#sPwBtn").onclick = async () => {
+    const r = await sx("passwort_setzen", {neu: $("#sPw1").value, wiederholung: $("#sPw2").value});
+    $("#sPwMsg").textContent = r.error || "✓ Passwort geändert. Alle anderen Geräte sind jetzt abgemeldet.";
+    if (!r.error) { $("#sPw1").value = $("#sPw2").value = ""; }
+  };
+}
+async function gespraechLaden(id) {
+  const r = await hx("gespraech", {id});
+  chatId = id; try { localStorage.setItem("watsonChat", chatId); } catch (e) {}
+  $("#chat").innerHTML = "";
+  for (const n of r.nachrichten || []) blase(n.content || "", n.role === "user" ? "" : name, n.role === "user" ? "user" : "");
+  $("#menuSeite").style.display = "none";
+}
+$("#menuBtn").onclick = () => menuOeffnen();
+$("#menuZu").onclick = () => { $("#menuSeite").style.display = "none"; };
+document.querySelectorAll("#menuSeite .kachel button").forEach(b => b.onclick = () => menuZeige(b.dataset.t));
+$("#abBtn2").onclick = () => { $("#menuSeite").style.display = "none"; $("#abBtn").click(); };
+
+// ================= Plus-Menü: Dateien vom Handy =================
+let anhang = null;
+$("#plusBtn").onclick = e => { e.stopPropagation(); $("#plusMenu").classList.toggle("open"); };
+document.addEventListener("click", () => $("#plusMenu").classList.remove("open"));
+$("#pmNeu").onclick = () => $("#neuBtn").click();
+$("#pmRecherche").onclick = () => { $("#eingabe").value = "Recherchiere für mich: "; $("#eingabe").focus(); groesse(); };
+$("#pmDatei").onclick = () => $("#dateiWahl").click();
+$("#dateiWahl").onchange = async e => {
+  const dateien = Array.from(e.target.files); e.target.value = ""; if (!dateien.length) return;
+  const teile = [], namen = [];
+  for (const f of dateien) {
+    zeigeAnhang(`📎 Schicke „${f.name}“ an Watson …`);
+    try {
+      const r = await fetch("/api/handy/datei?name=" + encodeURIComponent(f.name), {method: "POST", body: f, credentials: "same-origin"}).then(x => x.json());
+      if (r.error) { blase(`„${f.name}“: ${r.error}`, "Hinweis"); continue; }
+      namen.push(r.name); teile.push(`--- ${r.name} ---\n${r.text}`);
+    } catch (err) { blase("Keine Verbindung zu Watson: " + err.message, "Hinweis"); }
+  }
+  if (!namen.length) { zeigeAnhang(""); return; }
+  anhang = {name: namen.join(", "), text: teile.join("\n\n").slice(0, 40000)};
+  zeigeAnhang(`📎 ${anhang.name} – stell Watson jetzt eine Frage dazu. <a href="#" id="anhangWeg">entfernen</a>`);
+  $("#anhangWeg").onclick = ev => { ev.preventDefault(); anhang = null; zeigeAnhang(""); };
+  $("#eingabe").focus();
+};
+function zeigeAnhang(html) { const a = $("#anhang"); a.innerHTML = html; a.style.display = html ? "block" : "none"; }
+$("#stimmeZu").onclick = () => { if (ST.rec) stStopp(); $("#stimmeSeite").style.display = "none"; };
+start();
+</script>
+</body>
+</html>

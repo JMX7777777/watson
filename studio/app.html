@@ -1,0 +1,2041 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Watson</title>
+<link rel="icon" href="assets/watson-logo.svg">
+<link rel="stylesheet" href="assets/tabler-icons.min.css">
+<script src="i18n.js"></script>
+<style>
+:root{--accent:#185FA5;--accentSoft:#E6F1FB;--accentText:#0C447C;--bg:#f6f5f2;--side:#efeee9;--panel:#ffffff;--panel2:#f3f2ee;--line:#e3e1da;--text:#1d1d1b;--muted:#6b6a64;--ok:#3B6D11;--okSoft:#EAF3DE;--busy:#BA7517;--err:#c63b33;--errSoft:#fcebeb;--user:#185FA5;--userText:#ffffff;--gold:#FAC775}
+body.dark{--accentSoft:#0c2c4f;--accentText:#b5d4f4;--bg:#16181c;--side:#1b1e23;--panel:#21252b;--panel2:#2a2f36;--line:#323840;--text:#e9e9e6;--muted:#9ea1a6;--ok:#97C459;--okSoft:#1f3110;--busy:#EF9F27;--err:#f09595;--errSoft:#3a1a1a;--user:#185FA5;--userText:#ffffff}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;overflow:hidden}
+button,select,input,textarea{font:inherit;color:inherit}
+button{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:7px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+button:hover{background:var(--panel2);border-color:var(--muted)}
+button:focus{outline:none}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.primary:hover{filter:brightness(1.08)}
+button.ghost{background:transparent;border-color:transparent}
+button.ghost:hover{background:var(--panel2)}
+select,input[type=text],input[type=password],input[type=number],textarea{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:7px 11px;outline:none}
+select:focus,input:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 20%,transparent)}
+.ti{font-size:18px;vertical-align:-3px}
+a{color:var(--accent)}
+code{background:var(--panel2);padding:1px 6px;border-radius:6px;font-size:13px}
+/* Wachstum */
+#wsBarFill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--busy),var(--ok));transition:width .4s}
+.wsTag{border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin:6px 0}.wsTag summary{cursor:pointer;font-weight:600}
+.wsTag ul{margin:4px 0 6px;padding-left:20px}.wsTag>div{margin-top:6px}
+.wsVorschlag{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:4px 0;border-bottom:1px dashed var(--line)}
+.wsVorschlag button{padding:3px 10px;font-size:12.5px}
+.wsNoten{display:flex;gap:6px;align-items:flex-end;height:90px;margin-bottom:6px}
+.wsNote{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;width:28px;font-size:11px}
+.wsSaeule{width:100%;background:var(--accent);border-radius:6px 6px 0 0}
+.wsDiff{white-space:pre-wrap;font-size:12px;border-radius:8px;padding:6px 8px;margin:4px 0;max-height:220px;overflow:auto}
+.wsDiff.alt{background:var(--errSoft)}.wsDiff.neu{background:var(--okSoft)}
+.ratBox{margin-top:8px;border-radius:10px;padding:8px 10px;background:var(--panel2)}
+.ratPlatz{padding:4px 0;border-bottom:1px dashed var(--line)}.ratPlatz button{padding:2px 8px;font-size:12px;margin-left:6px}
+/* Lernbuch und Lehrer-Brücke */
+.lernBar{display:flex;align-items:center;gap:2px;margin:-4px 0 8px 4px}.lernBar button{padding:3px 8px;font-size:13px}
+.lernBar button.an{background:var(--accentSoft);border-color:var(--accent)}
+.lehrer{border:1px solid var(--accent);background:var(--panel);border-radius:14px;padding:12px 14px;margin:6px 0 12px;max-width:82%}
+.lehrerKopf{margin-bottom:4px}.lehrer textarea{width:100%;box-sizing:border-box;margin-top:6px;resize:vertical}
+.lernZeile{display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px dashed var(--line)}
+/* Fragen im Watson-Aussehen */
+.wfOverlay{position:fixed;inset:0;background:rgba(10,14,20,.55);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;animation:wfIn .15s ease}
+@keyframes wfIn{from{opacity:0}to{opacity:1}}
+.wfBox{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.35);width:min(560px,100%);max-height:90vh;overflow:auto;padding:20px 22px}
+.wfKopf{display:flex;gap:12px;align-items:center;margin-bottom:12px}.wfKopf img{width:40px;height:40px;border-radius:10px}
+.wfTitel{font-size:17px;font-weight:700}.wfStufe{font-size:12.5px;color:var(--muted);margin-top:2px}
+.wfText{white-space:pre-line;line-height:1.5;margin:6px 0 10px}
+.wfSchritte{margin:4px 0 12px;padding-left:24px;line-height:1.55}.wfSchritte li{margin:3px 0}
+.wfGrenze,.wfKritisch{border-radius:10px;padding:7px 11px;font-size:13px;margin-bottom:8px;font-weight:600}
+.wfGrenze{background:var(--errSoft);color:var(--err)}.wfKritisch{background:var(--accentSoft);color:var(--accentText)}
+.wf-grenze,.wf-warnung{border-color:var(--err)}
+.wfKnoepfe{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}.wfKnoepfe button{padding:9px 18px}
+/* Vertrauens-Stufen */
+.vtStufen{display:flex;flex-direction:column;gap:8px}
+.vtStufe{border:1px solid var(--line);border-radius:12px;padding:10px 14px;cursor:pointer;transition:border-color .15s,background .15s}
+.vtStufe:hover{border-color:var(--accent)}.vtStufe.aktiv{border:2px solid var(--accent);background:var(--accentSoft);cursor:default}
+.vtKopf{display:flex;gap:12px;align-items:center}.vtIcon{font-size:24px}.vtName{font-weight:700}
+.vtKopf>div{flex:1}.vtAktiv,.vtEmpfohlen{font-size:12px;border-radius:999px;padding:3px 10px;white-space:nowrap}
+.vtAktiv{background:var(--accent);color:#fff}.vtEmpfohlen{background:var(--okSoft);color:var(--ok)}
+.vtDetails{display:none;margin:8px 0 2px 36px;line-height:1.5;color:var(--muted)}.vtDetails>div{margin:2px 0}
+.vtStufe.aktiv .vtDetails,.vtStufe:hover .vtDetails{display:block}
+.vtBibel{font-style:italic;margin-top:4px}
+.vtGrenzen{margin-top:12px;border-radius:12px;padding:10px 14px;background:var(--panel2)}.vtGrenzen ul{margin:6px 0 6px;padding-left:20px}
+.vtBalken{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.vtBar{position:relative;height:12px;border-radius:999px;background:var(--panel2);overflow:hidden}
+#vtBarFill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--busy),var(--ok));transition:width .4s}
+.vtBar span{position:absolute;top:0;bottom:0;width:2px;background:var(--line)}.vtBar .m1{left:33.3%}.vtBar .m2{left:66.6%}
+.vtBarLbl{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-top:3px}
+.vtHinweis{border-radius:12px;padding:10px 14px;background:var(--errSoft);color:var(--err);margin-bottom:10px;font-size:13.5px}
+.vtBerichtEintrag{border-left:3px solid var(--accent);padding:4px 10px;margin:6px 0}.vtBerichtEintrag ul{margin:4px 0;padding-left:20px;color:var(--muted)}
+.anleitung{margin-top:14px;border-top:1px solid var(--line);padding-top:6px;font-size:14px;line-height:1.55}
+.anleitung h2{font-size:19px;margin:14px 0 6px}.anleitung h3{font-size:16px;margin:18px 0 6px}.anleitung h4{font-size:14.5px;margin:14px 0 4px}
+.anleitung p{margin:6px 0}.anleitung ul,.anleitung ol{margin:6px 0;padding-left:22px}.anleitung li{margin:3px 0}
+.anleitung hr{border:none;border-top:1px solid var(--line);margin:16px 0}
+.anleitung pre{background:var(--panel2);border-radius:8px;padding:8px 12px;overflow-x:auto;user-select:text}.anleitung pre code{background:none;padding:0}
+.anleitung table{border-collapse:collapse;margin:8px 0;width:100%}.anleitung th,.anleitung td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}.anleitung th{background:var(--panel2)}
+.app{display:grid;grid-template-columns:248px minmax(0,1fr);height:100vh}
+/* Seitenleiste */
+.side{background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:16px 12px;min-height:0}
+.brand{display:flex;align-items:center;gap:10px;padding:2px 8px 16px}
+.brand img{width:34px;height:34px}
+.brand b{font-size:20px;font-weight:600;letter-spacing:.2px}
+#newChat{display:flex;align-items:center;gap:8px;justify-content:center;width:100%;margin-bottom:14px;padding:9px 12px}
+#tabs{display:flex;flex-direction:column;gap:2px}
+#tabs button{display:flex;align-items:center;gap:11px;border:0;background:transparent;padding:9px 12px;border-radius:10px;color:var(--muted);text-align:left;font-size:14.5px}
+#tabs button:hover{background:var(--panel2);color:var(--text)}
+#tabs button.on{background:var(--accentSoft);color:var(--accentText);font-weight:500}
+.sideLabel{font-size:12px;color:var(--muted);margin:18px 12px 6px;font-weight:500}
+#chatList{flex:1;overflow:auto;min-height:60px}
+.chatItem{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;cursor:pointer;font-size:13.5px;color:var(--muted)}
+.chatItem:hover{background:var(--panel2);color:var(--text)}.chatItem.on{background:var(--panel2);color:var(--text)}
+.chatItem span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chatItem b{font-weight:400;visibility:hidden;padding:0 4px}.chatItem:hover b{visibility:visible}
+.sideFoot{border-top:1px solid var(--line);padding:10px 10px 0;font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:2px}
+/* Hauptbereich */
+.main{min-width:0;min-height:0;display:flex;flex-direction:column}
+.page{flex:1;overflow:auto;padding:28px 36px;display:none;min-height:0}
+.page.on{display:block}
+.pageHead{max-width:860px;margin-bottom:20px}
+.pageHead h1{margin:0 0 4px;font-size:24px;font-weight:600;display:flex;align-items:center;gap:10px}
+.pageHead p{margin:0;color:var(--muted)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:14px;max-width:860px}
+.card h3{margin:0 0 8px;font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.lbl{min-width:150px;font-weight:500}
+details.adv{max-width:860px;margin-top:6px}
+details.adv summary{cursor:pointer;color:var(--muted);padding:8px 0}
+/* Gespräch */
+#pageChat{padding:0;flex-direction:column}
+.topbar{display:flex;align-items:center;gap:10px;padding:12px 22px;border-bottom:1px solid var(--line);flex-wrap:wrap;background:var(--bg)}
+.topbar .title{font-weight:600;font-size:15px;margin-right:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 12px;font-size:13px;border:1px solid var(--line);background:var(--panel);cursor:pointer}
+.pill.gratis{background:var(--okSoft);color:var(--ok);border-color:transparent}
+.pill.paid{background:#FAEEDA;color:#854F0B;border-color:transparent}
+body.dark .pill.paid{background:#412402;color:#FAC775}
+.pill select{border:0;background:transparent;padding:0;max-width:210px;box-shadow:none}
+.pill input{border:0;background:transparent;padding:0;width:44px;box-shadow:none}
+.iconBtn{width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;background:transparent;border:1px solid transparent;color:var(--muted)}
+.iconBtn:hover{background:var(--panel2);color:var(--text)}
+.iconBtn.on{background:var(--accentSoft);color:var(--accentText)}
+#chat{flex:1;overflow:auto;padding:24px max(22px,calc((100% - 820px)/2));display:flex;flex-direction:column;gap:14px;min-height:0}
+.msg{max-width:82%;padding:11px 15px;border-radius:16px;background:var(--panel);border:1px solid var(--line);white-space:pre-wrap;word-wrap:break-word}
+.msg.user{align-self:flex-end;background:var(--accent);color:var(--userText);border-color:transparent;border-bottom-right-radius:6px}
+.msg.bot{border-bottom-left-radius:6px}
+.msg .who{font-size:12px;color:var(--muted);margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.msg .who img{width:16px;height:16px}
+.msg.err{border-color:var(--err);background:var(--errSoft)}
+.note{align-self:center;font-size:12.5px;color:var(--muted);background:var(--panel2);padding:4px 12px;border-radius:999px;max-width:90%}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:12px;padding:3px 10px;border-radius:999px;background:var(--panel2);color:var(--muted)}
+.chip.ok{color:var(--ok)}.chip.busy{color:var(--busy)}
+.welcome{margin:auto;text-align:center;max-width:560px;display:flex;flex-direction:column;align-items:center;gap:8px;padding:20px 0}
+.welcome img{width:64px;height:64px;margin-bottom:6px}
+.welcome h2{margin:0;font-size:26px;font-weight:600}
+.sugg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:100%;margin-top:16px}
+.sugg button{text-align:left;padding:12px 14px;border-radius:12px;display:flex;gap:10px;align-items:center;color:var(--muted)}
+.sugg button:hover{color:var(--text)}
+.inputwrap{padding:12px max(22px,calc((100% - 820px)/2)) 18px}
+/* Plus-Menü */
+.plusMenuWrap{position:relative;display:inline-flex}
+.plusMenu{position:absolute;bottom:calc(100% + 10px);left:0;white-space:nowrap;min-width:290px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px 0;min-width:230px;box-shadow:0 4px 20px rgba(0,0,0,.18);z-index:999;display:none;flex-direction:column}
+.plusMenu.open{display:flex}
+.plusMenu button{display:flex;align-items:center;gap:10px;padding:9px 16px;background:none;border:none;text-align:left;cursor:pointer;font-size:14px;color:var(--text);border-radius:0}
+.plusMenu button:hover{background:var(--hover,color-mix(in srgb,var(--accent) 12%,transparent))}
+.plusMenu hr{margin:4px 0;border:none;border-top:1px solid var(--line)}
+.plusMenu .grau{color:var(--muted);font-size:12px;padding:4px 16px 2px}
+.inputbar{display:flex;align-items:flex-end;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:8px}
+.inputbar:focus-within{border-color:var(--accent)}
+.inputbar textarea{flex:1;resize:none;height:42px;max-height:180px;border:0;background:transparent;padding:10px 0;box-shadow:none;overflow-y:hidden}
+.inputbar textarea:focus{box-shadow:none}
+#sendBtn{width:40px;height:40px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center}
+#stopBtn{border-color:var(--err);color:var(--err);border-radius:20px}
+.hint{font-size:12px;color:var(--muted);text-align:center;margin-top:6px}
+/* Verschiedenes */
+.agent{display:flex;align-items:center;gap:8px;padding:4px 0}
+.dot{width:9px;height:9px;border-radius:50%;background:#888;flex:none;display:inline-block}
+.dot.busy{background:var(--busy)}.dot.ok{background:var(--ok)}.dot.err{background:var(--err)}
+.flow{color:var(--muted);font-size:14px;padding:3px 0}
+.fact{display:flex;gap:8px;align-items:center;margin-bottom:6px}.fact input{flex:1}
+.hit{padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.agentEdit{display:grid;grid-template-columns:160px 1fr auto;gap:8px;margin-bottom:10px}
+.agentEdit textarea{grid-column:1/4;min-height:54px}
+pre.mem{white-space:pre-wrap;font:13px/1.5 Consolas,monospace;max-height:55vh;overflow:auto;background:var(--panel2);padding:12px;border-radius:10px}
+.choice{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.choice label{border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;display:flex;gap:10px;align-items:flex-start;background:var(--panel)}
+.choice label:has(input:checked){border-color:var(--accent);background:var(--accentSoft);color:var(--accentText)}
+.choice input{margin-top:4px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;border-radius:0;padding:8px 16px;display:flex;align-items:center;gap:6px;background:var(--panel)}
+.seg button.on{background:var(--accentSoft);color:var(--accentText);font-weight:500}
+.help details{border:1px solid var(--line);border-radius:12px;padding:0 16px;margin-bottom:10px;background:var(--panel);max-width:860px}
+.help summary{cursor:pointer;padding:14px 0;font-weight:500;display:flex;align-items:center;gap:10px;list-style:none}
+.help summary::-webkit-details-marker{display:none}
+.help details[open] summary{border-bottom:1px solid var(--line)}
+.help .body{padding:12px 0 16px;color:var(--text)}
+.help ol,.help ul{margin:6px 0;padding-left:22px}
+.help li{margin:4px 0}
+.back{margin-bottom:14px}
+/* ---------- Gesprächsmodus (dauerhaft zuhören) ---------- */
+#gespraech{position:fixed;inset:0;z-index:50;display:none;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:24px;
+  background:color-mix(in srgb,var(--bg) 94%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+#gespraech.offen{display:flex;animation:gOn .25s ease}
+@keyframes gOn{from{opacity:0}to{opacity:1}}
+#gKugel{width:190px;height:190px;border-radius:50%;cursor:pointer;position:relative;border:0;padding:0;
+  background:radial-gradient(circle at 35% 30%,#7fb2ea 0%,var(--accent) 45%,#0c3a6b 100%);
+  box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 40%,transparent),0 20px 60px color-mix(in srgb,var(--accent) 45%,transparent);
+  transition:transform .12s ease-out,filter .3s,box-shadow .12s}
+#gKugel:after{content:"";position:absolute;width:22px;height:22px;border-radius:50%;background:var(--gold);right:30px;bottom:34px;box-shadow:0 0 18px var(--gold);opacity:.9}
+#gespraech[data-p="hoert"] #gKugel{animation:gAtmen 3.2s ease-in-out infinite}
+#gespraech[data-p="versteht"] #gKugel,#gespraech[data-p="denkt"] #gKugel{animation:gDenk 1.4s ease-in-out infinite}
+#gespraech[data-p="spricht"] #gKugel{animation:gSprich .7s ease-in-out infinite alternate}
+#gespraech[data-p="stumm"] #gKugel,#gespraech[data-p="fehler"] #gKugel{filter:grayscale(1) brightness(.75);animation:none}
+@keyframes gAtmen{0%,100%{filter:brightness(1)}50%{filter:brightness(1.12)}}
+@keyframes gDenk{0%,100%{transform:scale(.94);filter:brightness(.9)}50%{transform:scale(1);filter:brightness(1.15)}}
+@keyframes gSprich{from{transform:scale(.97)}to{transform:scale(1.07)}}
+#gStatus{font-size:20px;font-weight:600;letter-spacing:-.01em;min-height:28px;text-align:center}
+#gDu,#gWatson{max-width:640px;width:100%;text-align:center;color:var(--muted);font-size:15px;line-height:1.5;min-height:22px;
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+#gDu b,#gWatson b{color:var(--text);font-weight:600}
+#gKnoepfe{display:flex;gap:18px;margin-top:6px}
+#gKnoepfe button{width:58px;height:58px;border-radius:50%;padding:0;display:grid;place-items:center;font-size:24px;background:var(--panel);border:1px solid var(--line)}
+#gKnoepfe button.an{background:var(--errSoft);color:var(--err);border-color:var(--err)}
+#gEnde{background:var(--err)!important;color:#fff;border-color:var(--err)!important}
+#gTipp{font-size:13px;color:var(--muted);text-align:center;max-width:520px}
+</style>
+</head>
+<body>
+<div id="gespraech" data-p="hoert" role="dialog" aria-label="Gesprächsmodus">
+  <button id="gKugel" title="Tippen: Watson unterbrechen"></button>
+  <div id="gStatus">Ich höre zu …</div>
+  <div id="gDu"></div>
+  <div id="gWatson"></div>
+  <div id="gKnoepfe">
+    <button id="gStumm" title="Mikrofon stumm / wieder an"><i class="ti ti-microphone"></i></button>
+    <button id="gEnde" title="Gespräch beenden (Esc)"><i class="ti ti-x"></i></button>
+  </div>
+  <div id="gTipp">Sprich einfach drauflos – ohne „Hey Watson“. Auf die Kugel tippen (oder Leertaste) unterbricht Watson. „Gespräch beenden“ sagen oder Esc schließt.</div>
+</div>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><img src="assets/watson-logo.svg" alt=""><b>Watson</b></div>
+    <button id="newChat" class="primary"><i class="ti ti-plus"></i>Neues Gespräch</button>
+    <nav id="tabs">
+      <button data-tab="start" class="on" title="Mit Watson reden"><i class="ti ti-message-circle"></i>Gespräch</button>
+      <button data-tab="ablaeufe" title="Automatische Abläufe"><i class="ti ti-bolt"></i>Abläufe</button>
+      <button data-tab="gehirne" title="Welche KI denkt – gratis oder bezahlt"><i class="ti ti-brain"></i>Gehirne</button>
+      <button data-tab="gedaechtnis" title="Was Watson über dich weiß"><i class="ti ti-notebook"></i>Gedächtnis</button>
+      <button data-tab="charakter" title="Wie Watson ist und redet"><i class="ti ti-user-heart"></i>Charakter</button>
+      <button data-tab="wachstum" title="Wie Watson lernt und wächst"><i class="ti ti-plant-2"></i>Wachstum</button>
+      <button data-tab="stimme" title="Sprechen und Zuhören"><i class="ti ti-microphone"></i>Stimme</button>
+      <button data-tab="skills" title="Neue Fähigkeiten für Watson hinzufügen"><i class="ti ti-puzzle"></i>Skills</button>
+      <button data-tab="einstellungen" title="Aussehen und mehr"><i class="ti ti-settings"></i>Einstellungen</button>
+      <button data-tab="hilfe" title="Anleitung"><i class="ti ti-help-circle"></i>Hilfe</button>
+    </nav>
+    <div class="sideLabel">Letzte Gespräche</div>
+    <div id="chatList"></div>
+    <div class="sideFoot"><span id="status">Bereit</span><span id="trust" style="color:var(--busy)"></span></div>
+  </aside>
+
+  <div class="main">
+    <!-- ============ Gespräch ============ -->
+    <div id="pageChat" class="page on" style="display:flex">
+      <div class="topbar" id="ribbon"></div>
+      <div id="chat"></div>
+      <div class="inputwrap">
+        <div class="inputbar">
+          <!-- Plus-Menü -->
+          <div class="plusMenuWrap">
+            <button id="plusBtn" class="iconBtn" title="Hinzufügen"><i class="ti ti-plus"></i></button>
+            <div class="plusMenu" id="plusMenu">
+              <button id="pmDatei"><i class="ti ti-paperclip"></i> Dateien hochladen <span style="margin-left:auto;font-size:11px;color:var(--muted)">Strg+U</span></button>
+              <button id="pmDrive" title="Google Drive verbinden"><i class="ti ti-brand-google-drive"></i> Von Google Drive hinzufügen <span class="grau" style="font-size:11px;padding:0;margin-left:4px">– Nicht verbunden</span></button>
+              <hr>
+              <button id="pmOrdner"><i class="ti ti-folder-plus"></i> Ordner hinzufügen</button>
+              <button id="pmSkillAufnehmen"><i class="ti ti-video"></i> Einen Skill aufnehmen</button>
+              <hr>
+              <button id="pmKonnektoren"><i class="ti ti-plug"></i> Konnektoren</button>
+              <button id="pmDesign"><i class="ti ti-palette"></i> Designsystem</button>
+              <button id="pmPlugins"><i class="ti ti-apps"></i> Plugins hinzufügen</button>
+              <button id="pmRecherche"><i class="ti ti-search"></i> Recherche</button>
+            </div>
+          </div>
+          <textarea id="input" placeholder="Schreib Watson etwas – oder sag „Hey Watson …“"></textarea>
+          <button id="docBtn" class="iconBtn" style="display:none" title="Dokument einlesen (PDF, Word, TXT)"><i class="ti ti-paperclip"></i></button>
+          <button id="micBtn" class="iconBtn" title="Drücken und sprechen"><i class="ti ti-microphone"></i></button>
+          <button id="gespraechBtn" class="iconBtn" title="Gesprächsmodus: einfach reden – Watson hört dauerhaft zu"><i class="ti ti-wave-sine"></i></button>
+          <button id="stopBtn" style="display:none" title="Watson sofort anhalten"><i class="ti ti-player-stop"></i> Stopp</button>
+          <button id="sendBtn" class="primary" title="Senden (Enter)"><i class="ti ti-arrow-up"></i></button>
+        </div>
+        <div class="hint">Enter = senden · Umschalt + Enter = neue Zeile · Watson kann sich irren – prüfe Wichtiges.</div>
+      </div>
+    </div>
+
+    <!-- ============ Abläufe ============ -->
+    <div id="pageAblaeufe" class="page">
+      <div class="pageHead"><h1><i class="ti ti-bolt"></i>Abläufe</h1><p>Wiederkehrende Aufgaben, die Watson für dich automatisch erledigt – z. B. „Jeden Morgen einen Bibelvers“.</p></div>
+      <div class="card"><h3>Deine Abläufe</h3>
+        <div class="muted small" style="margin-bottom:10px">Sag einfach „Watson, starte den Ablauf …“ – oder klicke auf „Testen“.</div>
+        <div id="flowList"></div></div>
+      <div class="card"><h3><i class="ti ti-tool"></i>Werkstatt (n8n)</h3>
+        <div class="muted" style="margin-bottom:10px">In der Werkstatt <b>n8n</b> entstehen die Abläufe. Sie läuft nur auf diesem Laptop. Watson kann dort auch selbst Abläufe für dich bauen – sag z. B. „Watson, bau mir einen Ablauf, der …“.</div>
+        <div id="n8nState" class="muted" style="margin-bottom:10px">Prüfe n8n …</div>
+        <div class="row"><button class="primary" id="n8nOpen"><i class="ti ti-external-link"></i> Werkstatt öffnen</button><button id="n8nStart">Starten</button></div></div>
+      <details class="adv"><summary>Für Fortgeschrittene: Abläufe von Hand eintragen und n8n-Schlüssel</summary>
+        <div class="card"><h3>Ablauf von Hand eintragen</h3>
+          <div class="muted small" style="margin-bottom:10px">Nur für Abläufe mit „Webhook“-Start. Den <b>Pfad</b> findest du im Webhook-Baustein (z. B. <code>watson-test</code>).</div>
+          <div class="agentEdit"><input type="text" id="flowName" placeholder="Name, z. B. Morgenbericht"><input type="text" id="flowPath" placeholder="Pfad, z. B. morgenbericht"><button id="flowAdd">Hinzufügen</button>
+            <textarea id="flowDesc" placeholder="Was macht der Ablauf? (hilft Watson, ihn richtig zu benutzen)"></textarea></div></div>
+        <div class="card"><h3>n8n-Schlüssel (damit Watson selbst Abläufe bauen darf)</h3>
+          <div class="muted small" style="margin-bottom:10px">Werkstatt öffnen → unten links dein Profil → <b>Einstellungen → n8n API</b> → „API-Schlüssel erstellen“ → hier einfügen. Er bleibt nur auf deinem Laptop.</div>
+          <div class="row"><input type="password" id="n8nKey" placeholder="n8n-API-Schlüssel" style="min-width:340px"><button class="primary" id="n8nKeySave">Speichern</button></div>
+          <div id="n8nKeyState" class="muted small" style="margin-top:8px"></div></div>
+      </details>
+    </div>
+
+    <!-- ============ Gehirne ============ -->
+    <div id="pageGehirne" class="page">
+      <div class="pageHead"><h1><i class="ti ti-brain"></i>Gehirne</h1><p>Ein „Gehirn“ ist die KI, die für Watson denkt. Hier wählst du, welche – und ob es gratis bleibt.</p></div>
+      <div class="card"><h3><i class="ti ti-coin"></i>Gratis oder bezahlt?</h3>
+        <label style="display:flex;gap:10px;align-items:flex-start;font-size:15px"><input type="checkbox" id="gGratis" style="margin-top:5px"><span><b>💚 Nur kostenlose Gehirne</b><br><span class="muted small">Nichts kostet Geld. Bezahlte Gehirne werden immer übersprungen – auch als Ersatz und im Gehirn-Rat. Ausschalten = 💶 Bezahlt-Modus (Watson fragt vorher nach).</span></span></label></div>
+      <div class="card"><h3><i class="ti ti-brain"></i>Deine Gehirne</h3>
+        <div class="muted small" style="margin-bottom:12px"><b>Gehirn 1</b> antwortet dir immer. Auf Wunsch denken <b>weitere Gehirne</b> gleichzeitig mit – Gehirn 1 liest alle Antworten und gibt dir die beste. Leere Plätze füllt Watson automatisch.</div>
+        <div class="row" style="margin-bottom:10px"><span class="lbl">Gehirn 1</span><select id="g1Sel" style="max-width:460px"></select></div>
+        <div class="row" style="margin-bottom:10px"><span class="lbl">+ weitere Gehirne</span><input type="number" id="gRat" min="0" max="199" list="ratList2" style="width:90px"><span id="gRatInfo" class="muted small"></span>
+          <datalist id="ratList2"><option value="0"><option value="1"><option value="2"><option value="5"><option value="10"><option value="30"><option value="99"><option value="129"><option value="199"></datalist></div>
+        <div id="gSlots"></div>
+        <datalist id="allModels"></datalist>
+        <div class="row" style="margin-top:10px"><button class="primary" id="gSave">Speichern</button><span id="gState" class="muted small"></span></div></div>
+      <div class="card"><h3><i class="ti ti-sitemap"></i>Hermes – die Denkzentrale</h3>
+        <div class="muted small" style="margin-bottom:10px">Hermes zerlegt große Aufgaben, verteilt sie an Helfer und lernt dazu. Er schaltet automatisch mit, wenn du zwischen Gratis und Bezahlt wechselst.</div>
+        <div class="row" style="margin-bottom:6px"><span class="lbl">💚 im Gratis-Modus</span><select id="hFree" style="max-width:420px"></select></div>
+        <div class="row" style="margin-bottom:6px"><span class="lbl">💶 im Bezahlt-Modus</span><select id="hPaid" style="max-width:420px"></select></div>
+        <span id="hState" class="muted small"></span></div>
+      <div class="card"><h3><i class="ti ti-key"></i>Verbindung (OpenRouter-Schlüssel)</h3>
+        <div class="muted small" style="margin-bottom:10px">Watson holt die Gehirne über <b>OpenRouter</b> – ein Schlüssel für über 400 KIs. 1. Auf <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a> kostenlos anmelden und einen Schlüssel erstellen. 2. Hier einfügen. Er bleibt nur auf deinem Laptop – gib ihn niemandem weiter.</div>
+        <div class="row"><input type="password" id="keyInput" placeholder="sk-or-…" style="min-width:340px"><button class="primary" id="keySave">Speichern</button><button id="keyClear">Entfernen</button></div>
+        <div id="keyState" class="muted small" style="margin-top:8px"></div></div>
+      <details class="adv"><summary>Für Fortgeschrittene: Ersatz-Rangliste und Guthaben</summary>
+        <div class="card"><h3><i class="ti ti-trophy"></i>Ersatz-Rangliste</h3>
+          <div class="muted small" style="margin-bottom:10px">Fällt Gehirn 1 aus, springen diese der Reihe nach ein: Rang 1 zuerst, dann 2 … (1–99).</div>
+          <div id="rankEditor"></div>
+          <div class="row" style="margin-top:8px"><button id="rankAdd">+ Gehirn</button><button class="primary" id="rankSave">Speichern</button><button id="rankUse">Als Gehirn 1 benutzen</button><span id="rankState" class="muted small"></span></div></div>
+        <div class="card"><h3><i class="ti ti-wallet"></i>Guthaben bei OpenRouter</h3>
+          <div id="creditState" class="muted">…</div>
+          <div class="muted small" style="margin-top:8px">Die feste Obergrenze stellst du bei <a href="https://openrouter.ai/settings/keys" target="_blank">openrouter.ai → Keys</a> ein. Mehr kann Watson nie ausgeben.</div>
+          <div class="row" style="margin-top:8px"><button id="creditRefresh">Neu laden</button></div></div>
+      </details>
+    </div>
+
+    <!-- ============ Gedächtnis ============ -->
+    <div id="pageGedaechtnis" class="page">
+      <div class="pageHead"><h1><i class="ti ti-notebook"></i>Gedächtnis</h1><p>Was Watson sich merkt – du kannst alles ansehen, ändern oder vergessen lassen.</p></div>
+      <div class="card"><h3>So merkt sich Watson</h3>
+        <div class="muted small" style="margin-bottom:10px"><b>Kurzzeit</b> (das aktuelle Gespräch), <b>Merkzettel</b> (dauerhafte Fakten über dich, automatisch erkannt) und <b>Archiv</b> (jedes Gespräch, blitzschnell durchsuchbar).</div>
+        <div id="memStats" class="muted small" style="margin-bottom:10px"></div>
+        <div class="row"><label><input type="checkbox" id="memOn"> Gedächtnis benutzen</label><label><input type="checkbox" id="autoOn"> Automatisch merken</label></div></div>
+      <div class="card"><h3><i class="ti ti-search"></i>Suchen</h3>
+        <div class="row"><input type="text" id="memSearch" placeholder="z. B. Gemeinde, Urlaub, Stimme" style="flex:1;min-width:260px"><button id="memSearchBtn">Suchen</button></div>
+        <div id="memResults" style="margin-top:10px"></div></div>
+      <div class="card"><h3><i class="ti ti-note"></i>Merkzettel</h3>
+        <div class="row" style="margin-bottom:10px"><input type="text" id="factNew" placeholder="Etwas, das Watson sich merken soll" style="flex:1;min-width:260px"><button id="factAdd">Merken</button></div>
+        <div id="factList"></div></div>
+      <div class="card"><h3><i class="ti ti-school"></i>Wissensbuch – was Watson beigebracht wurde</h3>
+        <div class="muted small" style="margin-bottom:10px">Wissen aus der <b>Lehrer-Brücke</b>: Fragen, die du einer anderen KI (ChatGPT, Claude, Gemini …) gestellt und Watson beigebracht hast – immer mit Quelle und Datum. Passt eine neue Frage dazu, nutzt Watson dieses Wissen.</div>
+        <div id="wissenList"></div></div>
+      <div class="card"><h3><i class="ti ti-list-check"></i>Fertigkeiten – erprobte Vorgehensweisen</h3>
+        <div class="muted small" style="margin-bottom:10px">Wenn eine Aufgabe am Computer geklappt hat, kann Watson sich das Vorgehen als Fertigkeit merken. Du kannst Watson auch <b>selbst Fertigkeiten beibringen</b> – z. B. wie deine Briefe aussehen sollen. Passt eine neue Aufgabe dazu, nutzt Watson diese Fertigkeit.</div>
+        <div class="row" style="margin-bottom:10px"><button id="rezeptNeu"><i class="ti ti-plus"></i> Eigene Fertigkeit schreiben</button></div>
+        <div id="rezeptNeuForm"></div>
+        <div id="rezeptList"></div></div>
+      <div class="card"><h3><i class="ti ti-chart-dots"></i>Lernbuch – was Watson aus Erfahrung lernt</h3>
+        <div class="muted small" style="margin-bottom:10px">Bei jeder Antwort merkt sich Watson: Was für eine Aufgabe war es, welches Gehirn hat geantwortet, wie schnell – und wie du sie mit 👍/👎 bewertet hast. Der <b>🎼 Dirigent</b> wählt damit jedes Mal besser. Die KI-Gehirne selbst werden dabei nicht verändert – Watson lernt, <i>welches</i> Gehirn wofür am besten ist.</div>
+        <div id="lernStand"></div></div>
+      <div class="card"><h3><i class="ti ti-cloud-upload"></i>Sicherung</h3>
+        <div class="muted small" style="margin-bottom:10px">Einmal am Tag sichert Watson automatisch Gedächtnis, Gespräche und Abläufe nach <b>OneDrive</b> (die letzten 14 bleiben). Schlüssel werden <b>nie</b> mitgesichert.</div>
+        <div id="backupState" class="muted small" style="margin-bottom:10px"></div>
+        <div class="row"><button class="primary" id="backupNow">Jetzt sichern</button><button id="backupOpen">Ordner öffnen</button></div></div>
+      <details class="adv"><summary>Grundwissen aus dem Ordner „gedaechtnis“ ansehen</summary>
+        <div class="card"><pre class="mem" id="memText"></pre></div></details>
+    </div>
+
+    <!-- ============ Charakter ============ -->
+    <div id="pageCharakter" class="page">
+      <div class="pageHead"><h1><i class="ti ti-user-heart"></i>Charakter</h1><p>Stell selbst ein, wer dein Assistent ist und wie er mit dir redet.</p></div>
+      <div class="card"><h3>Namen und Anrede</h3>
+        <div class="row" style="margin-bottom:10px"><span class="lbl">Name des Assistenten</span><input type="text" id="cName" placeholder="Watson" style="width:240px"></div>
+        <div class="row" style="margin-bottom:10px"><span class="lbl">Dein Name</span><input type="text" id="cUser" placeholder="z. B. Maria" style="width:240px"></div>
+        <div class="row"><span class="lbl">Anrede</span><div class="seg" id="cAnrede"><button data-v="du">du</button><button data-v="Sie">Sie</button></div></div></div>
+      <div class="card"><h3>Sprache und Land</h3>
+        <div class="row" style="margin-bottom:10px"><span class="lbl">Menüs und Knöpfe</span><div class="seg" id="cUiSprache"><button data-v="de">Deutsch</button><button data-v="en">English</button></div></div>
+        <div class="row" style="margin-bottom:10px"><span class="lbl">Watson spricht</span><select id="cSprache" style="width:240px"></select></div>
+        <div class="row" style="margin-bottom:6px"><span class="lbl">Ich wohne in</span><input type="text" id="cLand" placeholder="z. B. Niederlande" style="width:240px"></div>
+        <div class="muted small">Watson achtet die Gesetze des Landes, in dem du wohnst. Er kennt nicht jedes Gesetz genau – bei heiklen Dingen warnt er und rät dir, offizielle Stellen oder eine Fachperson zu fragen.</div></div>
+      <div class="card"><h3>Grundhaltung</h3>
+        <div class="choice" id="cVorlage"></div></div>
+      <div class="card"><h3>Eigene Wünsche</h3>
+        <div class="muted small" style="margin-bottom:8px">Beschreibe in deinen Worten, wie dein Assistent sein soll – z. B. „Erkläre alles Schritt für Schritt“, „Sei humorvoll“ oder „Nenne mich Chef“.</div>
+        <textarea id="cEigenes" style="width:100%;min-height:110px" placeholder="So soll mein Assistent sein …"></textarea>
+        <div style="margin-top:14px"><b>Gewissen und Maßstab</b><div class="muted small" style="margin:4px 0 6px">Daran prüft der Assistent alles, was er tut und lernt – auch wenn er nachts selbstständig im Internet dazulernt. Leer lassen = Maßstab aus der Vorlage oben (bei „Christlich“: die Bibel).</div>
+        <textarea id="cMassstab" style="width:100%;min-height:80px" placeholder="z. B. Die Bibel ist dein Gewissen und Maßstab in allem, was du tust."></textarea></div>
+        <div class="row" style="margin-top:10px"><button class="primary" id="cSave">Charakter speichern</button><span id="cState" class="muted small"></span></div></div>
+      <details class="adv"><summary>Vorschau: So versteht das Gehirn den Charakter</summary>
+        <div class="card"><pre class="mem" id="cPreview"></pre></div></details>
+    </div>
+
+    <!-- ============ Wachstum ============ -->
+    <div id="pageWachstum" class="page">
+      <div class="pageHead"><h1><i class="ti ti-plant-2"></i>Wachstum</h1><p>Wie Watson lernt, nachdenkt und sich verbessert – vom Baby zum Professor. Alles ehrlich aus echten Zahlen.</p></div>
+      <div class="card"><h3><i class="ti ti-stairs-up"></i>Entwicklungsstufe</h3>
+        <div id="wsStufe"></div>
+        <div class="vtBar" style="margin-top:10px"><div id="wsBarFill"></div></div>
+        <div id="wsStufenLbl" class="vtBarLbl"></div>
+        <div id="wsFehlt" class="small" style="margin-top:10px"></div>
+        <div id="wsZahlen" class="muted small" style="margin-top:8px"></div></div>
+      <div class="card"><h3><i class="ti ti-moon-stars"></i>Abendrunde – Watson denkt über den Tag nach</h3>
+        <div class="muted small" style="margin-bottom:10px">Jede Nacht zwischen 1 und 5 Uhr (wenn der Computer an ist), lautlos: Tagesrückblick, offene Fragen selbst nachforschen (Wikipedia, mit Quelle), neue kostenlose Gehirne prüfen, das eigene Programm prüfen. <b>Vorschläge setzt Watson nur um, wenn du sie annimmst.</b></div>
+        <div class="row" style="gap:8px;margin-bottom:10px"><button id="wsRunde"><i class="ti ti-player-play"></i> Abendrunde jetzt starten</button><span id="wsRundeInfo" class="muted small"></span></div>
+        <div id="wsTagebuch"></div></div>
+      <div class="card"><h3><i class="ti ti-certificate"></i>Prüfung</h3>
+        <div class="muted small" style="margin-bottom:10px">12 Fragen aus Rechnen, Wissen, Sprache, Logik und Ehrlichkeit – mit festen richtigen Antworten. Einmal pro Woche in der Abendrunde, oder jetzt von Hand. So sieht man, ob Watson wirklich besser wird.</div>
+        <div class="row" style="gap:8px;margin-bottom:10px"><button id="wsPruefung"><i class="ti ti-pencil-check"></i> Prüfung jetzt</button><span id="wsPruefInfo" class="muted small"></span></div>
+        <div id="wsPruefungen"></div></div>
+      <div class="card"><h3><i class="ti ti-tool"></i>Selbst-Wartung – das Programm wird besser</h3>
+        <div class="muted small" style="margin-bottom:10px">Watson sammelt jeden Fehler, prüft nachts sein eigenes Programm und schreibt <b>Reparatur-Vorschläge</b>. Angewendet wird nur mit deinem OK – vorher macht er eine Sicherung, prüft die Änderung und startet probeweise. Geht etwas schief, holt er automatisch den alten Stand zurück. Größere Umbauten bleiben Sache des „Werkstattmeisters“ (Claude im Chat).</div>
+        <div class="row" style="gap:8px;margin-bottom:10px"><button id="wsCode"><i class="ti ti-stethoscope"></i> Programm jetzt prüfen</button><span id="wsCodeInfo" class="muted small"></span></div>
+        <div id="wsGesund" class="small" style="margin-bottom:8px"></div>
+        <div class="muted small" style="margin-bottom:8px"><b>Code-Rat:</b> Jede Reparatur prüfen drei „Programmierer“. Watson fragt dafür automatisch drei kostenlose Gehirne. Du kannst jeden Platz durch eine stärkere KI ersetzen (z. B. Claude, ChatGPT, Gemini): Textdatei erzeugen, dort einfügen, Antwort hier eintragen. <b>Angewendet wird erst, wenn mindestens 2 von 3 zustimmen.</b></div>
+        <div id="wsReparaturen"></div>
+        <div id="wsNetz" class="small" style="margin-top:10px"></div></div>
+    </div>
+
+    <!-- ============ Stimme ============ -->
+    <div id="pageStimme" class="page">
+      <div class="pageHead"><h1><i class="ti ti-microphone"></i>Stimme</h1><p>Mit Watson sprechen statt tippen – alles bleibt auf deinem Laptop.</p></div>
+      <div class="card"><h3><i class="ti ti-ear"></i>„Hey Watson“</h3>
+        <div class="muted small" style="margin-bottom:10px">Watson hört im Hintergrund zu und reagiert, wenn du „Hey Watson …“ sagst. Danach hört er 8 Sekunden weiter (Folgefragen). „Stopp“ unterbricht ihn.</div>
+        <div class="row"><label><input type="checkbox" id="wakeOn"> Auf „Hey Watson“ hören</label><span id="wakeState" class="muted small"></span></div>
+        <div class="muted small" style="margin-top:6px">Oder einfach im Gespräch auf das Mikrofon <i class="ti ti-microphone"></i> drücken.</div></div>
+      <div class="card"><h3><i class="ti ti-volume"></i>Watsons Stimme</h3>
+        <div class="row"><label><input type="checkbox" id="voiceOn"> Antworten immer vorlesen</label></div>
+        <div class="muted small" style="margin:4px 0 12px">Wenn du per Stimme fragst, antwortet Watson immer mit Stimme.</div>
+        <div class="row"><span class="lbl">Stimme</span>
+          <select id="piperVoice" style="min-width:300px"><option value="kokoro:martin">Martin (Kokoro) – natürlich und schnell</option><option value="ov:eigene">Meine eigene Stimme (schnell)</option><option value="vs:Watson">Meine eigene Stimme (über VoiceStudio, langsam)</option><option value="thorsten">Thorsten – männlich, ruhig</option><option value="kerstin">Kerstin – weiblich</option><option value="windows">Windows-Stimme</option></select>
+          <button id="voiceTest"><i class="ti ti-player-play"></i> Probe hören</button></div>
+        <div class="muted small" id="ovHint" style="margin-top:6px;display:none">Deine eigene Stimme, gerechnet direkt auf deinem Laptop (im Linux-Bereich, ohne Internet). Beim ersten Satz startet Watson den Sprachdienst, das dauert einen Moment. Danach etwa 3 Sekunden Rechenzeit pro Sekunde Sprache. Klappt es nicht, spricht Watson mit Thorsten.</div>
+        <div class="muted small" id="vsHint" style="margin-top:6px;display:none">Die eigene Stimme kommt aus VoiceStudio. Das Programm muss dafür geöffnet sein. Sie klingt am echtesten, ist auf diesem Laptop aber langsam (etwa 1 Minute pro Satz). Läuft VoiceStudio nicht, spricht Watson mit Thorsten.</div>
+        <div class="row" style="margin-top:10px" id="winVoiceRow"><span class="lbl">Windows-Stimme</span><select id="voiceSel" style="min-width:300px"></select></div></div>
+      <div class="card"><h3><i class="ti ti-user-check"></i>Eigene Stimme einrichten</h3>
+        <div class="muted small" style="margin-bottom:10px">Watson kann mit deiner eigenen Stimme sprechen, gerechnet auf deinem Computer, ohne Internet. Prüf zuerst, ob dein Gerät stark genug ist. Es wird dabei nichts verändert und nichts abgespielt.</div>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <button id="geraetBtn"><i class="ti ti-device-laptop"></i> 1. Gerät prüfen</button>
+          <button id="echtBtn"><i class="ti ti-player-record"></i> 2. Echttest</button>
+          <button id="vorratBtn"><i class="ti ti-database"></i> 3. Vorrat erzeugen</button>
+          <button id="anleitungBtn"><i class="ti ti-book"></i> Anleitung</button></div>
+        <div id="geraetErgebnis" class="small" style="margin-top:10px;white-space:pre-line"></div>
+        <div id="vorratStand" class="muted small" style="margin-top:6px"></div>
+        <div id="anleitungBox" class="anleitung" style="display:none"></div></div>
+    </div>
+
+    <!-- ============ Einstellungen ============ -->
+    <div id="pageEinstellungen" class="page">
+      <div class="pageHead"><h1><i class="ti ti-settings"></i>Einstellungen</h1><p>Aussehen und weitere Möglichkeiten.</p></div>
+      <div class="card"><h3><i class="ti ti-palette"></i>Aussehen</h3>
+        <div class="row" style="margin-bottom:12px"><span class="lbl">Farbschema</span>
+          <div class="seg"><button id="themeLight"><i class="ti ti-sun"></i>Hell</button><button id="themeDark"><i class="ti ti-moon"></i>Dunkel</button><button id="themeSystem"><i class="ti ti-device-desktop"></i>System</button></div></div>
+        <div class="row"><span class="lbl">Akzentfarbe</span><input type="color" id="accentPick" style="width:52px;height:34px;padding:2px;border-radius:8px;border:1px solid var(--line);background:var(--panel)"><button id="accentReset" class="ghost small">Standard</button></div></div>
+      <div class="card"><h3><i class="ti ti-lock"></i>Schlüsseltresor</h3>
+        <div class="muted small" style="margin-bottom:12px">Deine Schlüssel liegen <b>verschlüsselt</b> im Windows-Tresor. Du siehst nur ihre Namen. Ansehen, ändern oder löschen geht nur mit <b>Windows Hello</b> – Fingerabdruck, Gesicht, PIN oder Laptop-Passwort.</div>
+        <div id="keyList"></div>
+        <div class="row" style="margin-top:12px"><input type="text" id="kNewName" placeholder="Name, z. B. Grok oder Wetter-Dienst" style="width:240px"><input type="password" id="kNewVal" placeholder="Schlüssel" style="width:260px" autocomplete="off"><button id="kAdd"><i class="ti ti-plus"></i> Hinzufügen</button></div>
+        <div id="kState" class="muted small" style="margin-top:8px"></div></div>
+      <div class="card"><h3><i class="ti ti-device-mobile"></i>Watson auf dem Handy</h3>
+        <div class="muted small" style="margin-bottom:10px">Mit Watson auf dem Handy reden – von überall, über deinen <b>privaten, verschlüsselten Tunnel</b> (Tailscale, WireGuard). Die Handy-Seite läuft auf diesem Computer und ist nur für deine eigenen Geräte erreichbar, zusätzlich mit PIN geschützt. Erlaubnis-Fragen der Vertrauens-Stufen kommen dann auch aufs Handy.</div>
+        <div id="hdStand" class="small" style="margin-bottom:10px"></div>
+        <div class="row" style="gap:8px;margin-bottom:10px"><button id="hdAnleitungBtn"><i class="ti ti-book"></i> Anleitung: Watson aufs Handy holen</button></div>
+        <div id="hdAnleitungBox" class="anleitung" style="display:none;margin-bottom:12px"></div>
+        <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px"><span class="lbl">1. Passwort festlegen</span>
+          <input type="password" id="hdPin1" placeholder="mind. 12 Zeichen, Buchstaben + Ziffern" style="width:260px" autocomplete="new-password">
+          <input type="password" id="hdPin2" placeholder="nochmal" style="width:200px" autocomplete="new-password">
+          <button id="hdPinBtn">Passwort speichern</button><span id="hdPinMsg" class="small"></span></div>
+        <div id="hdFinger" class="small" style="margin:0 0 8px"></div>
+        <div class="row" style="gap:8px;flex-wrap:wrap"><span class="lbl">2. Tunnel</span>
+          <button id="hdAn" class="primary">Tunnel einschalten</button><button id="hdAus" class="ghost">Tunnel ausschalten</button><span id="hdMsg" class="small"></span></div>
+        <div class="muted small" style="margin-top:10px">Sicherheit: Die Seite hört nur auf diesem Computer (127.0.0.1). Freigegeben wird sie mit „tailscale serve“ nur für deine eigenen Geräte – nie öffentlich ins Internet. Nach 5 falschen Versuchen wird gesperrt: erst 15 Minuten, bei weiteren Fehlversuchen immer länger, bis 24 Stunden. Schlüssel, Tresor und Vertrauensstufe auf dem Handy brauchen zusätzlich jedes Mal den Fingerabdruck. Alles Weitere steht oben in der Anleitung.</div></div>
+      <div class="card"><h3><i class="ti ti-hand-finger"></i>Watson am Computer arbeiten lassen</h3>
+        <div class="row" style="margin-bottom:8px"><label><input type="checkbox" id="handsOn"> Watson darf klicken und tippen (Hände)</label></div>
+        <div class="row" style="margin-bottom:4px"><label><input type="checkbox" id="systemOn"> Watson darf System-Werkzeuge benutzen (Windows-Auskunft und PowerShell)</label></div>
+        <div class="muted small" style="margin-bottom:12px">Auch wenn das an ist, fragt Watson vor <b>jeder</b> Nutzung um Erlaubnis und erklärt kurz, was er tun will – auf jeder Vertrauens-Stufe. Gefährliche Befehle (Löschen, Registry ändern, Herunterladen, Benutzer, Sicherheit) sind immer gesperrt, und PowerShell läuft ohne Administratorrechte.</div>
+        <div class="muted small" style="margin-bottom:12px">Wie in einer Freundschaft wächst das Vertrauen Schritt für Schritt. Du bestimmst, wie selbstständig Watson am Computer arbeiten darf – Watson sagt dir ehrlich, wo er sich selbst sieht.</div>
+        <div id="vtHinweis" class="vtHinweis" style="display:none"></div>
+        <div id="vtStufen" class="vtStufen"></div>
+        <div class="vtGrenzen"><b><i class="ti ti-shield-lock"></i> Feste Grenzen – gelten auf jeder Stufe, auch auf Stufe 4:</b><ul id="vtGrenzen"></ul>
+          <div class="muted small">Außerdem immer: Mit <b>■ Stopp</b> hältst du Watson jederzeit an, und jede Handlung steht im Protokoll.</div></div>
+        <div class="vtBalken"><div class="row" style="justify-content:space-between;margin-bottom:6px"><b><i class="ti ti-chart-bar"></i> Watsons ehrliche Selbsteinschätzung</b><span id="vtEmpf" class="muted small"></span></div>
+          <div class="vtBar"><div id="vtBarFill"></div><span class="m1"></span><span class="m2"></span></div>
+          <div class="vtBarLbl"><span>🌱 1</span><span>🤝 2</span><span>👬 3</span><span>🔑 4</span></div>
+          <div id="vtSatz" class="small" style="margin-top:8px"></div>
+          <div id="vtZahlen" class="muted small" style="margin-top:4px"></div>
+          <div id="vtNaechstes" class="muted small" style="margin-top:4px"></div></div>
+        <div class="row" style="margin-top:12px;gap:8px"><button id="vtBerichtBtn"><i class="ti ti-report"></i> Was Watson heute getan hat</button><button id="logOpen"><i class="ti ti-list-details"></i> Ganzes Protokoll</button></div>
+        <div id="vtBericht" class="small" style="margin-top:10px;display:none"></div></div>
+      <div class="card"><h3><i class="ti ti-rocket"></i>Start &amp; Verknüpfung</h3>
+        <div class="row" style="margin-bottom:10px"><label><input type="checkbox" id="autostartOn"> Watson automatisch starten wenn ich den Laptop anmache</label></div>
+        <div class="muted small" id="autostartInfo"></div>
+        <div class="muted small" style="margin-top:8px"><i class="ti ti-keyboard"></i> Schnelltaste <b>Win+W</b> öffnet Watson von überall – läuft automatisch mit Watson.</div>
+      </div>
+
+      <div class="card"><h3><i class="ti ti-mail"></i>E-Mail</h3>
+        <p class="muted small" style="margin-bottom:12px">Damit Watson deine Mails lesen und schreiben kann. Passwort wird sicher im Windows-Tresor gespeichert.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <label class="small">E-Mail-Adresse<br><input id="mailAdresse" type="email" placeholder="dich@beispiel.de" style="width:100%;margin-top:4px"></label>
+          <label class="small">Passwort (App-Passwort)<br><input id="mailPasswort" type="password" placeholder="••••••••" style="width:100%;margin-top:4px"></label>
+          <label class="small">IMAP-Server (Posteingang)<br><input id="mailImap" type="text" placeholder="imap.gmail.com" style="width:100%;margin-top:4px"></label>
+          <label class="small">SMTP-Server (Postausgang)<br><input id="mailSmtp" type="text" placeholder="smtp.gmail.com" style="width:100%;margin-top:4px"></label>
+        </div>
+        <div class="row"><button id="mailSpeichern" class="primary"><i class="ti ti-device-floppy"></i> Speichern</button><span id="mailInfo" class="muted small" style="margin-left:10px"></span></div>
+        <div class="muted small" style="margin-top:8px">Gmail: IMAP = imap.gmail.com · SMTP = smtp.gmail.com · App-Passwort unter <a href="https://myaccount.google.com/apppasswords" target="_blank">myaccount.google.com/apppasswords</a></div>
+      </div>
+
+      <div class="card"><h3><i class="ti ti-adjustments"></i>Für Fortgeschrittene</h3>
+        <div class="muted small" style="margin-bottom:10px">Technische Bereiche – für normales Arbeiten nicht nötig.</div>
+        <div class="row"><button id="openTools"><i class="ti ti-plug"></i> Werkzeuge (MCP)</button><button id="openTeam"><i class="ti ti-users"></i> Agenten-Team</button></div></div>
+    </div>
+
+    <!-- ============ Werkzeuge (Fortgeschritten) ============ -->
+    <div id="pageWerkzeuge" class="page">
+      <button class="back ghost" data-go="einstellungen"><i class="ti ti-arrow-left"></i> Zurück zu Einstellungen</button>
+      <div class="pageHead"><h1><i class="ti ti-plug"></i>Werkzeuge</h1><p>Fertige Werkzeuge, die Watson benutzen kann (Webseiten lesen, Uhrzeit, Dateien, Browser, n8n …).</p></div>
+      <div class="card"><div class="row"><label><input type="checkbox" id="toolsOn"> Werkzeuge benutzen</label><span id="toolsCount" class="muted small"></span></div></div>
+      <div id="toolServers"></div>
+      <div class="card"><h3><i class="ti ti-world-search"></i>Werkzeuge online suchen</h3>
+        <div class="muted small" style="margin-bottom:10px">Sucht im offiziellen MCP-Verzeichnis (registry.modelcontextprotocol.io) – dort stehen Tausende Werkzeuge von vielen Anbietern. Das Verzeichnis ist englisch: Begriffe wie <i>weather, calendar, pdf, email, notes</i> finden am meisten. Häufige deutsche Wörter übersetzt Watson selbst.</div>
+        <div class="row" style="gap:8px"><input type="search" id="mcpSuchFeld" placeholder="Was suchst du? z. B. Wetter, pdf, calendar …" style="flex:1;min-width:220px" autocomplete="off"><button class="primary" id="mcpSuchBtn"><i class="ti ti-search"></i> Suchen</button></div>
+        <div id="mcpSuchInfo" class="muted small" style="margin-top:8px"></div>
+        <div id="mcpTreffer"></div>
+        <div class="row" style="margin-top:8px"><button id="mcpMehr" style="display:none">Mehr laden</button></div></div>
+      <div class="card"><h3>Neues Werkzeug einstecken</h3>
+        <div class="muted small">Werkzeuge stehen in <code>studio\mcp.json</code> (gleiches Format wie Claude Desktop). Am einfachsten: Sag Watson in Claude, welches Werkzeug du willst – er prüft es und trägt es sicher ein.</div>
+        <div class="row" style="margin-top:10px"><button id="mcpOpen">mcp.json öffnen</button><button class="primary" id="mcpReload">Neu verbinden</button></div></div>
+    </div>
+
+    <!-- ============ Agenten-Team (Fortgeschritten) ============ -->
+    <div id="pageAgenten" class="page">
+      <button class="back ghost" data-go="einstellungen"><i class="ti ti-arrow-left"></i> Zurück zu Einstellungen</button>
+      <div class="pageHead"><h1><i class="ti ti-users"></i>Agenten-Team</h1><p>Im Team-Modus arbeiten diese Helfer nacheinander an deinem Auftrag: Der erste plant, die mittleren arbeiten, der letzte prüft.</p></div>
+      <div class="card"><div id="teamList" class="small" style="margin-bottom:12px"></div>
+        <div id="agentEditor"></div>
+        <div class="row"><button id="agentAdd">+ Agent</button><button class="primary" id="agentSave">Team speichern</button><span id="agentState" class="muted small"></span></div></div>
+      <div id="flowSide" style="display:none"></div>
+    </div>
+
+    <!-- ============ Skills ============ -->
+    <div id="pageSkills" class="page">
+      <div class="pageHead"><h1><i class="ti ti-puzzle"></i>Skills</h1><p>Neue Fähigkeiten für Watson – such etwas, klick auf Hinzufügen, und Watson kann es sofort benutzen.</p></div>
+      <div class="card">
+        <div class="row" style="gap:10px;margin-bottom:4px">
+          <input type="search" id="skillSuchFeld" placeholder="Was soll Watson können? z. B. Wetter, Kalender, E-Mail, PDF …" style="flex:1;min-width:220px;font-size:1.05em" autocomplete="off">
+          <button class="primary" id="skillSuchBtn" style="padding:0 22px"><i class="ti ti-search"></i> Suchen</button>
+        </div>
+        <div id="skillSuchInfo" class="muted small" style="margin-top:6px"></div>
+      </div>
+      <div id="skillTreffer" style="display:flex;flex-direction:column;gap:10px;margin-top:4px"></div>
+      <div class="row" style="margin-top:8px"><button id="skillMehr" style="display:none" class="ghost">Mehr anzeigen …</button></div>
+    </div>
+
+    <!-- ============ Hilfe ============ -->
+    <div id="pageHilfe" class="page help">
+      <div class="pageHead"><h1><i class="ti ti-help-circle"></i>Hilfe und Anleitung</h1><p>Alles Wichtige in einfachen Schritten. Klick auf ein Thema, um es aufzuklappen.</p></div>
+      <details open><summary><i class="ti ti-rocket"></i>Erste Schritte</summary><div class="body">
+        <ol>
+          <li><b>Schlüssel holen:</b> Geh links auf <b>Gehirne</b> → „Verbindung“. Melde dich kostenlos auf openrouter.ai an, erstelle einen Schlüssel und füge ihn ein.</li>
+          <li><b>Charakter einstellen:</b> Unter <b>Charakter</b> gibst du deinem Assistenten einen Namen, sagst ihm deinen Namen und wählst, wie er sein soll.</li>
+          <li><b>Losreden:</b> Geh auf <b>Gespräch</b> und schreib unten ins Feld – oder klick auf einen Vorschlag.</li>
+        </ol></div></details>
+      <details><summary><i class="ti ti-message-circle"></i>Mit Watson reden</summary><div class="body">
+        <ul>
+          <li>Unten ins Feld schreiben und <b>Enter</b> drücken. Für eine neue Zeile: <b>Umschalt + Enter</b>.</li>
+          <li><b>Neues Gespräch</b> (oben links) beginnt ein frisches Thema. Alte Gespräche findest du links unter „Letzte Gespräche“.</li>
+          <li>Während Watson arbeitet, siehst du jeden Schritt im Gespräch. Mit <b>Stopp</b> hältst du ihn sofort an.</li>
+        </ul></div></details>
+      <details><summary><i class="ti ti-microphone"></i>Sprechen statt tippen</summary><div class="body">
+        <ul>
+          <li>Klick auf das <b>Mikrofon</b> neben dem Eingabefeld und sprich – Watson schreibt mit und antwortet.</li>
+          <li>Oder schalte unter <b>Stimme</b> „Hey Watson“ ein. Dann reicht: „Hey Watson, wie spät ist es?“</li>
+          <li>Wenn du sprichst, antwortet Watson auch mit Stimme. „Stopp“ unterbricht ihn.</li>
+        </ul></div></details>
+      <details><summary><i class="ti ti-eye"></i>Bildschirm zeigen und Watson arbeiten lassen</summary><div class="body">
+        <ul>
+          <li>Oben im Gespräch: <i class="ti ti-eye"></i> <b>Bildschirm</b> – Watson liest, was gerade offen ist, und erklärt es. <i class="ti ti-photo"></i> <b>Foto</b> – für Bilder.</li>
+          <li>Watson kann Programme öffnen, klicken und tippen („Öffne den Rechner und rechne 12 mal 4“). Er fragt vorher einmal pro Auftrag.</li>
+          <li>Passwörter, Bank- und Bezahlseiten bedient Watson <b>nie</b>.</li>
+        </ul></div></details>
+      <details><summary><i class="ti ti-coin"></i>Gratis oder bezahlt</summary><div class="body">
+        <ul>
+          <li>Oben im Gespräch siehst du <b>💚 Gratis</b> oder <b>💶 Bezahlt</b>. Ein Klick schaltet um.</li>
+          <li><b>Gratis:</b> nur kostenlose Gehirne, nichts kostet Geld. Sie sind manchmal langsamer und haben ein Tageslimit.</li>
+          <li><b>Bezahlt:</b> stärkere Gehirne wie Claude, GPT oder Grok. Watson fragt vorher. Mehr als die Obergrenze deines Schlüssels kann nie ausgegeben werden.</li>
+        </ul></div></details>
+      <details><summary><i class="ti ti-brain"></i>Gehirne, Gehirn-Rat und Hermes</summary><div class="body">
+        <ul>
+          <li><b>Gehirn 1</b> antwortet dir immer. Du wählst es oben im Gespräch oder unter Gehirne.</li>
+          <li><b>+ weitere Gehirne:</b> Gib eine Zahl ein (z. B. 3). Dann denken so viele Gehirne gleichzeitig mit, und Gehirn 1 gibt dir die beste Antwort.</li>
+          <li><b>Hermes</b> ist die Denkzentrale: Er zerlegt große Aufgaben, verteilt sie an Helfer und lernt mit der Zeit dazu.</li>
+        </ul></div></details>
+      <details><summary><i class="ti ti-notebook"></i>Gedächtnis und Sicherung</summary><div class="body">
+        <ul>
+          <li>Watson merkt sich Wichtiges automatisch und zeigt es mit „📒 Gemerkt“.</li>
+          <li>Unter <b>Gedächtnis</b> kannst du suchen, Merkzettel ändern oder Dinge vergessen lassen.</li>
+          <li>Jeden Tag wird automatisch nach OneDrive gesichert – ohne deine Schlüssel.</li>
+        </ul></div></details>
+      <details><summary><i class="ti ti-bolt"></i>Abläufe</summary><div class="body">
+        <ul>
+          <li>Abläufe sind Aufgaben, die immer gleich laufen – z. B. „Bibelvers des Tages“.</li>
+          <li>Sag „Watson, starte den Ablauf Bibelvers des Tages“ oder „Watson, bau mir einen Ablauf, der …“.</li>
+        </ul></div></details>
+      <details><summary><i class="ti ti-shield-check"></i>Sicherheit und Ehrlichkeit</summary><div class="body">
+        <ul>
+          <li>Deine Schlüssel bleiben nur auf deinem Laptop und werden nie angezeigt oder gesichert.</li>
+          <li>Watson sagt ehrlich, wenn er etwas nicht weiß oder nicht tun konnte. Prüfe trotzdem wichtige Dinge selbst.</li>
+          <li>Texte auf Webseiten oder dem Bildschirm sind für Watson nie Befehle – nur du gibst Aufträge.</li>
+        </ul></div></details>
+      <details><summary><i class="ti ti-question-mark"></i>Häufige Fragen</summary><div class="body">
+        <ul>
+          <li><b>Das Fenster ist beim Start leer?</b> Watson braucht beim Starten 15–30 Sekunden. Bitte nur einmal klicken und kurz warten.</li>
+          <li><b>„Zu viele Anfragen“?</b> Gratis-Gehirne haben Grenzen. Kurz warten – Watson nimmt automatisch ein anderes.</li>
+          <li><b>Watson antwortet nicht?</b> Prüfe unter Gehirne, ob ein Schlüssel gespeichert ist, und ob das Internet geht.</li>
+        </ul></div></details>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+let cfg = {}, models = [], teamMode = false, busy = false, chatId = null;
+const P = () => window.pywebview.api;
+async function call(fn, ...args) { const j = await P()[fn](...args); if (j && j.error) { const e = new Error(j.error); e.data = j; throw e; } return j; }
+const routes = {
+  "GET /api/config": a => a.get_config(), "POST /api/config": (a, d) => a.save_config(d),
+  "GET /api/models": a => a.get_models(), "GET /api/memory": a => a.get_memory(),
+};
+async function api(path, data) {
+  const j = await routes[(data ? "POST " : "GET ") + path](window.pywebview.api, data);
+  if (j && j.error) throw new Error(j.error);
+  return j;
+}
+document.addEventListener("click", e => {
+  const a = e.target.closest("a[href^='https://']");
+  if (a) { e.preventDefault(); window.pywebview.api.open_link(a.href); }
+});
+function esc(t) { return String(t).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c])); }
+function fmt(t) {
+  return esc(t)
+    .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+    .replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s).,!?:;]|$)/g, "$1<i>$2</i>")
+    .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+    .replace(/^&gt;\s?(.*)$/gm, "<span style='display:block;border-left:3px solid var(--accent);padding-left:10px;color:var(--muted)'>$1</span>")
+    .replace(/^#{1,4}\s*(.+)$/gm, "<b>$1</b>")
+    .replace(/^(\s*)[-•]\s+/gm, "$1• ");          // Aufzählung mit Punkt statt Strich
+}
+// Einfache Markdown-Seite (Überschriften, Listen, Tabellen, Code, Zitate, Linien) – für Anleitungen
+function mdSeite(text) {
+  const zeilen = text.replace(/\r/g, "").split("\n"), out = [];
+  let i = 0;
+  const inl = t => fmt(t);
+  while (i < zeilen.length) {
+    let z = zeilen[i];
+    if (/^\s*```/.test(z)) {
+      const code = []; i++;
+      while (i < zeilen.length && !/^\s*```/.test(zeilen[i])) code.push(zeilen[i++].trim());
+      i++; out.push(`<pre><code>${esc(code.join("\n"))}</code></pre>`); continue;
+    }
+    if (/^\|/.test(z)) {
+      const rows = [];
+      while (i < zeilen.length && /^\|/.test(zeilen[i])) rows.push(zeilen[i++]);
+      const cells = r => r.replace(/^\||\|$/g, "").split("|").map(c => c.trim());
+      const body = rows.slice(2).map(r => "<tr>" + cells(r).map(c => `<td>${inl(c)}</td>`).join("") + "</tr>").join("");
+      out.push(`<table><tr>${cells(rows[0]).map(c => `<th>${inl(c)}</th>`).join("")}</tr>${body}</table>`); continue;
+    }
+    if (/^\s*([-*]|\d+\.)\s/.test(z)) {
+      const ol = /^\s*\d+\./.test(z), items = [];
+      while (i < zeilen.length && (/^\s*([-*]|\d+\.)\s/.test(zeilen[i]) || /^\s{2,}\S/.test(zeilen[i]) && !/^\s*```/.test(zeilen[i]))) {
+        if (/^\s*([-*]|\d+\.)\s/.test(zeilen[i])) items.push(zeilen[i].replace(/^\s*([-*]|\d+\.)\s/, ""));
+        else items[items.length - 1] += " " + zeilen[i].trim();
+        i++;
+      }
+      out.push(`<${ol ? "ol" : "ul"}>${items.map(t => `<li>${inl(t)}</li>`).join("")}</${ol ? "ol" : "ul"}>`); continue;
+    }
+    const h = z.match(/^(#{1,4})\s+(.*)$/);
+    if (h) { out.push(`<h${h[1].length + 1}>${inl(h[2])}</h${h[1].length + 1}>`); i++; continue; }
+    if (/^---\s*$/.test(z)) { out.push("<hr>"); i++; continue; }
+    if (!z.trim()) { i++; continue; }
+    const para = [];
+    while (i < zeilen.length && zeilen[i].trim() && !/^(#{1,4}\s|\||---\s*$|\s*```|\s*([-*]|\d+\.)\s)/.test(zeilen[i])) para.push(zeilen[i++]);
+    out.push(`<p>${inl(para.join("\n")).replace(/\n/g, "<br>")}</p>`);
+  }
+  return out.join("");
+}
+function status(t) { $("#status").textContent = t; }
+const RANK_ID = "watson/rangliste", HERMES_ID = "watson/hermes", DIRIGENT_ID = "watson/dirigent";
+const userName = () => (cfg.charakter && cfg.charakter.nutzer) || "";
+const botName = () => (cfg.charakter && cfg.charakter.name) || "Watson";
+function modelOptions(selected, onlyFree, noRank) {
+  const list = models.filter(m => !onlyFree || m.free || m.id === selected);
+  if (!noRank) list.unshift({id: RANK_ID, name: "🏆 Rangliste (bestes zuerst)", free: true, price: 0});
+  if (!noRank) list.unshift({id: HERMES_ID, name: "🧠 Hermes (zerlegt, verteilt, lernt)", free: true, price: 0});
+  if (!noRank) list.unshift({id: DIRIGENT_ID, name: "🎼 Dirigent (wählt selbst das passende Gehirn, lernt dazu)", free: true, price: 0});
+  if (!list.find(m => m.id === selected)) list.unshift({id: selected, name: selected, free: false, price: 0});
+  return list.map(m => `<option value="${m.id}" ${m.id === selected ? "selected" : ""}>${esc(m.name)}${m.free ? " — gratis" : (m.price ? " — ca. $" + m.price : "")}</option>`).join("");
+}
+
+function renderTopbar() {
+  const gratis = cfg.nur_gratis !== false;
+  $("#ribbon").innerHTML = `
+    <span class="title" id="chatTitle">${chatId ? "Gespräch" : "Neues Gespräch"}</span>
+    <button class="pill ${gratis ? "gratis" : "paid"}" id="rbPay" title="Klicken zum Umschalten zwischen Gratis und Bezahlt">${gratis ? "💚 Gratis" : "💶 Bezahlt"}</button>
+    <span class="pill" title="Gehirn 1 – die KI, die antwortet"><i class="ti ti-brain"></i><select id="rbModel">${modelOptions(cfg.model, false)}</select></span>
+    <span class="pill" title="So viele weitere Gehirne denken gleichzeitig mit (0 = nur Gehirn 1)"><i class="ti ti-users-group"></i>+<input type="number" id="rbRat" min="0" max="199" list="ratList" value="${cfg.rat_anzahl || 0}"><span id="rbRatInfo" class="muted" style="font-size:12px;white-space:nowrap"></span></span>
+    <datalist id="ratList">${[0, 1, 2, 5, 10, 30, 99, 129, 199].map(v => `<option value="${v}">`).join("")}</datalist>
+    <button class="iconBtn" id="rbLook" title="Bildschirm zeigen – Watson liest, was gerade offen ist"><i class="ti ti-eye"></i></button>
+    <button class="iconBtn" id="rbFoto" title="Foto vom Bildschirm – für Bilder"><i class="ti ti-photo"></i></button>
+    <button class="iconBtn ${teamMode ? "on" : ""}" id="rbTeam" title="Team-Modus: mehrere Helfer arbeiten nacheinander"><i class="ti ti-users"></i></button>
+    <button class="iconBtn ${cfg.voice ? "on" : ""}" id="rbVoice" title="Antworten vorlesen"><i class="ti ti-volume"></i></button>`;
+  $("#rbLook").onclick = () => send("text");
+  $("#rbFoto").onclick = () => send("foto");
+  $("#rbTeam").onclick = () => { teamMode = !teamMode; renderTopbar(); status(teamMode ? "Team-Modus an" : "Einzel-Modus"); };
+  $("#rbVoice").onclick = () => { cfg.voice = !cfg.voice; save({voice: cfg.voice}); renderTopbar(); $("#voiceOn").checked = cfg.voice; };
+  $("#rbModel").onchange = e => { cfg.model = e.target.value; save({model: cfg.model}); ratInfo(); };
+  $("#rbPay").onclick = () => setPayMode(cfg.nur_gratis === false);
+  let ratTimer;
+  $("#rbRat").oninput = e => {
+    cfg.rat_anzahl = Math.max(0, Math.min(199, parseInt(e.target.value) || 0));
+    clearTimeout(ratTimer); ratTimer = setTimeout(() => { save({rat_anzahl: cfg.rat_anzahl}); ratInfo(); }, 400);
+  };
+  ratInfo();
+}
+
+const pages = {start: "pageChat", ablaeufe: "pageAblaeufe", gehirne: "pageGehirne", gedaechtnis: "pageGedaechtnis", charakter: "pageCharakter",
+  wachstum: "pageWachstum", stimme: "pageStimme", skills: "pageSkills", einstellungen: "pageEinstellungen", werkzeuge: "pageWerkzeuge", agenten: "pageAgenten", hilfe: "pageHilfe"};
+let currentTab = "start";
+function showTab(t) {
+  currentTab = t;
+  const navTab = t === "werkzeuge" || t === "agenten" ? "einstellungen" : t;
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === navTab));
+  Object.values(pages).forEach(p => { const el = document.getElementById(p); el.classList.remove("on"); el.style.display = "none"; });
+  const pg = document.getElementById(pages[t]); pg.classList.add("on"); pg.style.display = t === "start" ? "flex" : "block";
+  if (t === "start") renderTopbar();
+  if (t === "agenten") { renderAgentEditor(); renderTeam(); }
+  if (t === "gehirne") { renderBrains(); renderRank(); renderCredit(); }
+  if (t === "gedaechtnis") { api("/api/memory").then(j => $("#memText").textContent = j.text || "(leer)"); renderFacts(); renderBackup(); }
+  if (t === "werkzeuge") P().mcp_status().then(renderTools);
+  if (t === "ablaeufe") renderFlows();
+  if (t === "charakter") renderCharakter();
+  if (t === "wachstum") renderWachstum();
+  if (t === "skills") { $("#skillSuchFeld").focus(); }
+  if (t === "einstellungen") { markTheme(); renderKeys(); handyZeigen().catch(() => {}); }
+}
+
+async function save(part) { await api("/api/config", part); }
+
+function renderTeam(states = {}) {
+  $("#teamList").innerHTML = (cfg.agents || []).map(a =>
+    `<div class="agent"><span class="dot ${states[a.name] || ""}"></span>${esc(a.name)} <span class="muted" style="font-size:12px">(${esc(shortName(a.model))})</span></div>`).join("");
+}
+function shortName(id) { if (id === RANK_ID) return "🏆 Rangliste"; if (id === HERMES_ID) return "🧠 Hermes"; if (id === DIRIGENT_ID) return "🎼 Dirigent"; const m = models.find(x => x.id === id); return (m ? m.name : String(id)).split(":")[0].slice(0, 24); }
+
+async function renderBrains() {
+  $("#g1Sel").innerHTML = modelOptions(cfg.model, false);
+  $("#gGratis").checked = cfg.nur_gratis !== false;
+  const freeOnly = models.filter(m => m.free && !m.id.startsWith("openrouter/"));
+  const opt = (list, sel) => list.map(m => `<option value="${m.id}" ${m.id === sel ? "selected" : ""}>${esc(m.name)}${m.free ? " — gratis" : (m.price ? " — ca. $" + m.price : "")}</option>`).join("");
+  $("#hFree").innerHTML = opt(freeOnly, cfg.hermes_gratis || "nvidia/nemotron-3-ultra-550b-a55b:free");
+  $("#hPaid").innerHTML = opt(models.filter(m => !m.id.startsWith("openrouter/")), cfg.hermes_bezahlt || "anthropic/claude-sonnet-5.5");
+  $("#gRat").value = cfg.rat_anzahl || 0;
+  $("#allModels").innerHTML = models.map(m => `<option value="${m.id}">${esc(m.name)}${m.free ? " — gratis" : (m.price ? " — ca. $" + m.price : "")}</option>`).join("");
+  await renderSlots();
+}
+async function renderSlots() {
+  const n = cfg.rat_anzahl || 0, picks = cfg.rat_gehirne || [];
+  let auto = [];
+  try { auto = n ? await call("council_preview", n) : []; } catch (e) {}
+  $("#gSlots").innerHTML = Array.from({length: n}, (_, i) => `
+    <div class="row" style="margin-bottom:6px"><span class="lbl muted" style="font-weight:400">Platz ${i + 2}</span>
+      <input type="text" list="allModels" data-slot="${i}" value="${esc(picks[i] || "")}" placeholder="automatisch: ${esc(shortName(auto[i] || "–"))}" style="min-width:340px"></div>`).join("");
+  $("#gSlots").querySelectorAll("[data-slot]").forEach(el => el.onchange = () => {
+    const ok = !el.value || models.some(m => m.id === el.value);
+    el.style.borderColor = ok ? "" : "var(--err)";
+    el.title = ok ? "" : "Dieses Gehirn gibt es nicht – bitte aus der Liste wählen";
+  });
+  const el = $("#gRatInfo");
+  if (!n) { el.textContent = "nur Gehirn 1"; return; }
+  try {
+    const r = await call("council_estimate", n);
+    el.textContent = `${r.gratis} gratis` + (r.bezahlt ? ` + ${r.bezahlt} bezahlt · ca. $${r.kosten < 0.01 ? "<0.01" : r.kosten.toFixed(2)} pro Frage` : " · 0 $");
+  } catch (e) { el.textContent = ""; }
+}
+async function saveBrains() {
+  const picks = (cfg.rat_gehirne || []).slice();
+  $("#gSlots").querySelectorAll("[data-slot]").forEach(el => { picks[+el.dataset.slot] = models.some(m => m.id === el.value) ? el.value : ""; });
+  cfg.model = $("#g1Sel").value;
+  cfg.rat_anzahl = Math.max(0, Math.min(199, parseInt($("#gRat").value) || 0));
+  cfg.rat_gehirne = picks;
+  await save({model: cfg.model, rat_anzahl: cfg.rat_anzahl, rat_gehirne: picks});
+  await renderSlots();
+  $("#gState").textContent = "✓ gespeichert";
+}
+async function setPayMode(gratis) {
+  if (!gratis && !(await frage("💶 Bezahlt-Modus einschalten?", "Dann dürfen auch bezahlte Gehirne (z. B. Claude, GPT, Grok) antworten – auch in Hermes.\n\nDas kostet Geld von deinem OpenRouter-Guthaben, höchstens bis zur Obergrenze deines Schlüssels.\n\nEinschalten?"))) return;
+  cfg.nur_gratis = gratis;
+  await save({nur_gratis: gratis});
+  status(gratis ? "💚 Gratis: nichts kostet Geld" : "💶 Bezahlt: bezahlte Gehirne erlaubt");
+  showTab(currentTab);
+}
+async function ratInfo() {
+  const el = $("#rbRatInfo"); if (!el) return;
+  const n = cfg.rat_anzahl || 0;
+  if (!n) { el.textContent = ""; return; }
+  el.textContent = "…";
+  try {
+    const r = await call("council_estimate", n);
+    el.textContent = r.bezahlt ? `ca. $${r.kosten < 0.01 ? "<0.01" : r.kosten.toFixed(2)}` : "gratis";
+  } catch (e) { el.textContent = ""; }
+}
+function renderRank() {
+  const rows = cfg.rangliste || [];
+  $("#rankEditor").innerHTML = rows.map((r, i) => `
+    <div class="row" style="margin-bottom:6px">
+      <input type="number" min="1" max="99" value="${r.rang}" data-ri="${i}" data-rk="rang" style="width:70px" title="Rang 1–99 (1 = zuerst)">
+      <select data-ri="${i}" data-rk="model" style="max-width:420px">${modelOptions(r.model, false, true)}</select>
+      <button data-rdel="${i}" class="ghost"><i class="ti ti-trash"></i></button>
+    </div>`).join("") || `<div class="muted">Noch leer – füge ein Gehirn hinzu.</div>`;
+  $("#rankEditor").querySelectorAll("[data-rk]").forEach(el => el.oninput = el.onchange = () => {
+    const r = rows[el.dataset.ri];
+    r[el.dataset.rk] = el.dataset.rk === "rang" ? Math.max(1, Math.min(99, parseInt(el.value) || 1)) : el.value;
+  });
+  $("#rankEditor").querySelectorAll("[data-rdel]").forEach(b => b.onclick = () => { rows.splice(+b.dataset.rdel, 1); renderRank(); });
+}
+async function saveRank() {
+  cfg.rangliste = (cfg.rangliste || []).slice().sort((a, b) => a.rang - b.rang);
+  await save({rangliste: cfg.rangliste}); renderRank();
+  $("#rankState").textContent = "✓ gespeichert";
+}
+async function renderCredit() {
+  $("#creditState").textContent = "lädt …";
+  try {
+    const c = await call("credit");
+    const f = v => (v === null || v === undefined) ? "–" : "$" + Number(v).toFixed(2);
+    $("#creditState").innerHTML = `Verbraucht insgesamt: <b>${f(c.usage)}</b> · diesen Monat: <b>${f(c.usage_month)}</b><br>` +
+      (c.limit === null || c.limit === undefined ? "⚠ Für diesen Schlüssel ist <b>keine Obergrenze</b> eingestellt." : `Obergrenze: <b>${f(c.limit)}</b> · noch übrig: <b>${f(c.remaining)}</b>`);
+  } catch (e) { $("#creditState").textContent = e.message; }
+}
+function renderAgentEditor() {
+  $("#agentEditor").innerHTML = cfg.agents.map((a, i) => `
+    <div class="agentEdit">
+      <input type="text" value="${esc(a.name)}" data-i="${i}" data-k="name">
+      <select data-i="${i}" data-k="model">${modelOptions(a.model, false)}</select>
+      <button data-del="${i}" class="ghost"><i class="ti ti-trash"></i></button>
+      <textarea data-i="${i}" data-k="role">${esc(a.role)}</textarea>
+    </div>`).join("");
+  $("#agentEditor").querySelectorAll("[data-k]").forEach(el => el.oninput = el.onchange = () => { cfg.agents[el.dataset.i][el.dataset.k] = el.value; });
+  $("#agentEditor").querySelectorAll("[data-del]").forEach(b => b.onclick = () => { cfg.agents.splice(+b.dataset.del, 1); renderAgentEditor(); });
+}
+
+// ---------- Schlüsseltresor ----------
+async function renderKeys() {
+  const list = await P().keys_list();
+  $("#keyList").innerHTML = list.map(k => `
+    <div class="hit"><div class="row">
+      <i class="ti ${k.gespeichert ? "ti-key" : "ti-key-off"}" style="color:${k.gespeichert ? "var(--ok)" : "var(--muted)"}"></i>
+      <span style="flex:1;min-width:200px"><b>${esc(k.name)}</b><br><span class="muted small" data-kval="${k.id}">${k.gespeichert ? "●●●●●●●●●●●●" + (k.geaendert ? " · geändert " + esc(k.geaendert) : "") : "noch nicht gespeichert"}</span></span>
+      ${k.gespeichert ? `<button data-kshow="${k.id}" title="Mit Windows Hello anzeigen"><i class="ti ti-eye"></i> Anzeigen</button>` : ""}
+      <button data-kedit="${k.id}" data-kname="${esc(k.name)}" title="${k.gespeichert ? "Mit Windows Hello ändern" : "Speichern"}"><i class="ti ti-pencil"></i> ${k.gespeichert ? "Ändern" : "Eintragen"}</button>
+      ${k.gespeichert || k.eigener ? `<button data-kdel="${k.id}" class="ghost" title="Mit Windows Hello löschen"><i class="ti ti-trash"></i></button>` : ""}
+    </div><div data-kform="${k.id}"></div></div>`).join("");
+  const msg = t => { $("#kState").textContent = t; };
+  $("#keyList").querySelectorAll("[data-kshow]").forEach(b => b.onclick = async () => {
+    const id = b.dataset.kshow; msg("🔐 Bitte mit Windows Hello bestätigen …");
+    const r = await P().key_reveal(id);
+    if (r.error) { msg(r.error); return; }
+    msg("");
+    const el = document.querySelector(`[data-kval="${id}"]`);
+    el.innerHTML = `<code style="user-select:all">${esc(r.wert)}</code> <span class="muted">· verschwindet in 30 s</span>`;
+    setTimeout(renderKeys, 30000);
+  });
+  $("#keyList").querySelectorAll("[data-kedit]").forEach(b => b.onclick = () => {
+    const id = b.dataset.kedit, box = document.querySelector(`[data-kform="${id}"]`);
+    box.innerHTML = `<div class="row" style="margin-top:8px"><input type="password" autocomplete="off" placeholder="Neuer Schlüssel" style="flex:1;min-width:260px"><button class="primary">Speichern</button><button class="ghost">Abbrechen</button></div>`;
+    const [inp, ok, cancel] = box.querySelectorAll("input,button");
+    inp.focus();
+    cancel.onclick = () => { box.innerHTML = ""; };
+    ok.onclick = async () => {
+      msg("🔐 Bitte mit Windows Hello bestätigen …");
+      const r = await P().key_set(id, inp.value, b.dataset.kname);
+      if (r.error) { msg(r.error); return; }
+      msg("✓ Sicher gespeichert"); if (id === "api_key") cfg.has_key = true; renderKeys();
+    };
+  });
+  $("#keyList").querySelectorAll("[data-kdel]").forEach(b => b.onclick = async () => {
+    if (!(await frage("Schlüssel löschen?", "Der Schlüssel wird aus dem Tresor gelöscht. Danach musst du ihn neu eintragen."))) return;
+    msg("🔐 Bitte mit Windows Hello bestätigen …");
+    const r = await P().key_delete(b.dataset.kdel);
+    if (r.error) { msg(r.error); return; }
+    msg("✓ Gelöscht"); if (b.dataset.kdel === "api_key") cfg.has_key = false; renderKeys();
+  });
+}
+
+// ---------- Charakter ----------
+let charData = null;
+async function renderCharakter() {
+  charData = await P().charakter();
+  const c = charData.charakter;
+  $("#cName").value = c.name || ""; $("#cUser").value = c.nutzer || ""; $("#cEigenes").value = c.eigenes || ""; $("#cMassstab").value = c.massstab || "";
+  document.querySelectorAll("#cAnrede button").forEach(b => { b.classList.toggle("on", b.dataset.v === c.anrede); b.onclick = () => { c.anrede = b.dataset.v; document.querySelectorAll("#cAnrede button").forEach(x => x.classList.toggle("on", x === b)); }; });
+  const icons = {christlich: "ti-heart-handshake", freundlich: "ti-mood-smile", eigene: "ti-pencil"};
+  $("#cVorlage").innerHTML = Object.entries(charData.vorlagen).map(([k, v]) => {
+    const [title, desc] = v.split(" – ");
+    return `<label><input type="radio" name="cVorlage" value="${k}" ${k === c.vorlage ? "checked" : ""}><span><i class="ti ${icons[k] || "ti-user"}"></i> <b>${esc(title)}</b><br><span class="small muted">${esc(desc || "")}</span></span></label>`;
+  }).join("");
+  $("#cPreview").textContent = charData.vorschau;
+  // Sprache und Land
+  const en = (cfg.ui_sprache || "de") === "en";
+  $("#cSprache").innerHTML = (charData.sprachen || []).map(s => `<option value="${s.code}" ${s.code === (c.sprache || "de") ? "selected" : ""}>${esc(en ? s.en : s.de)} – ${esc(s.nativ)}</option>`).join("");
+  $("#cLand").value = c.land_name || "";
+  document.querySelectorAll("#cUiSprache button").forEach(b => {
+    b.classList.toggle("on", b.dataset.v === (cfg.ui_sprache || "de"));
+    b.onclick = async () => {
+      await save({ui_sprache: b.dataset.v}); cfg.ui_sprache = b.dataset.v;
+      document.querySelectorAll("#cUiSprache button").forEach(x => x.classList.toggle("on", x === b));
+      if (b.dataset.v === "en") window.watsonSprache && window.watsonSprache("en");
+      else location.reload();                    // zurück auf Deutsch: Seite frisch laden
+    };
+  });
+}
+async function saveCharakter() {
+  const c = charData.charakter;
+  c.name = $("#cName").value.trim() || "Watson"; c.nutzer = $("#cUser").value.trim(); c.eigenes = $("#cEigenes").value; c.massstab = $("#cMassstab").value;
+  c.vorlage = (document.querySelector("input[name=cVorlage]:checked") || {}).value || "christlich";
+  c.sprache = $("#cSprache").value || "de";
+  if ($("#cLand").value.trim() !== (c.land_name || "")) { c.land_name = $("#cLand").value.trim(); c.land = ""; }
+  await save({charakter: c}); cfg.charakter = c;
+  await renderCharakter();
+  $("#cState").textContent = "✓ gespeichert – gilt ab der nächsten Nachricht";
+}
+
+// ---------- Gespräch ----------
+function addMsg(text, who, cls = "") {
+  const welcome = $("#chat .welcome"); if (welcome) welcome.remove();
+  const d = document.createElement("div");
+  d.className = "msg " + (cls || "bot");
+  const bot = cls !== "user" && who;
+  d.innerHTML = (who ? `<div class="who">${bot ? '<img src="assets/watson-logo.svg" alt="">' : ""}${esc(who)}</div>` : "") + fmt(text);
+  $("#chat").appendChild(d); $("#chat").scrollTop = 1e9;
+  return d;
+}
+// ---------- Lernbuch: 👍/👎 unter jeder Antwort ----------
+function lernLeiste(bubble, r, frageText) {
+  if (!r || !r.lern_id) return;
+  const bar = document.createElement("div"); bar.className = "lernBar";
+  bar.innerHTML = `<button class="ghost small" data-w="1" title="Gute Antwort – Watson lernt daraus">👍</button>
+    <button class="ghost small" data-w="-1" title="Schlechte Antwort – Watson lernt daraus">👎</button>
+    <button class="ghost small" data-l="1" title="Diese Frage einer anderen KI stellen und Watson die Antwort beibringen">🌉 Lehrer fragen</button>
+    <span class="muted small lernInfo"></span>`;
+  bar.querySelectorAll("[data-w]").forEach(b => b.onclick = async () => {
+    const w = +b.dataset.w; await P().bewerten(r.lern_id, w);
+    bar.querySelectorAll("[data-w]").forEach(x => x.classList.toggle("an", x === b));
+    bar.querySelector(".lernInfo").textContent = w > 0 ? "Danke! Watson merkt sich, dass das gut war." : "Danke für die Ehrlichkeit – Watson lernt daraus.";
+  });
+  bar.querySelector("[data-l]").onclick = async () => {
+    bar.querySelector(".lernInfo").textContent = "Watson formuliert die Frage …";
+    const q = await P().lehrer_frage(frageText);
+    bar.querySelector(".lernInfo").textContent = "";
+    lehrerKarte(q.frage);
+  };
+  bubble.after(bar);
+}
+
+// ---------- Lehrer-Brücke: Frage an eine andere KI, Antwort zurück ins Wissensbuch ----------
+async function kopieren(text) {
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch (e) { const t = document.createElement("textarea"); t.value = text; document.body.appendChild(t); t.select();
+    const ok = document.execCommand("copy"); t.remove(); return ok; }
+}
+function lehrerKarte(frage) {
+  const welcome = $("#chat .welcome"); if (welcome) welcome.remove();
+  const d = document.createElement("div"); d.className = "lehrer";
+  d.innerHTML = `<div class="lehrerKopf">🌉 <b>Lehrer-Brücke</b> – hier bin ich mir nicht sicher. Magst du meine Lehrerin oder mein Lehrer sein?</div>
+    <div class="muted small">1. Frage kopieren · 2. in deiner KI-App einfügen (z. B. ChatGPT, Claude, Gemini) · 3. Antwort hier einfügen · 4. „Watson beibringen“</div>
+    <textarea class="lFrage" rows="3"></textarea>
+    <div class="row" style="gap:8px;margin:6px 0 10px"><button class="lKopie"><i class="ti ti-copy"></i> Frage kopieren</button><span class="muted small lKopieOk"></span></div>
+    <textarea class="lAntwort" rows="5" placeholder="Hier die Antwort der anderen KI einfügen …"></textarea>
+    <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap"><span class="small">Woher kommt die Antwort?</span>
+      <select class="lQuelle"><option>ChatGPT</option><option>Claude</option><option>Gemini</option><option>Copilot</option><option>Grok</option><option>Andere KI</option><option>Ein Mensch / Buch</option></select>
+      <button class="primary lLehren"><i class="ti ti-school"></i> Watson beibringen</button><button class="ghost lZu">Schließen</button></div>
+    <div class="small lErgebnis" style="margin-top:8px;white-space:pre-line"></div>`;
+  d.querySelector(".lFrage").value = frage;
+  d.querySelector(".lKopie").onclick = async () => { d.querySelector(".lKopieOk").textContent = (await kopieren(d.querySelector(".lFrage").value)) ? "✓ kopiert" : "Bitte von Hand markieren und kopieren"; };
+  d.querySelector(".lZu").onclick = () => d.remove();
+  d.querySelector(".lLehren").onclick = async () => {
+    const btn = d.querySelector(".lLehren"); btn.disabled = true;
+    d.querySelector(".lErgebnis").textContent = "Watson liest und prüft die Antwort …";
+    try {
+      const r = await P().lehrer_antwort(d.querySelector(".lFrage").value, d.querySelector(".lAntwort").value, d.querySelector(".lQuelle").value);
+      d.querySelector(".lErgebnis").textContent = r.error ? r.error : `✅ Gelernt und ins Wissensbuch geschrieben (Quelle: ${d.querySelector(".lQuelle").value}).\n\n${r.kurz || ""}`;
+      if (!r.error) { d.querySelectorAll("textarea,select,.lKopie").forEach(x => x.disabled = true); return; }
+    } catch (e) { d.querySelector(".lErgebnis").textContent = "Fehler: " + e; }
+    btn.disabled = false;
+  };
+  $("#chat").appendChild(d); $("#chat").scrollTop = 1e9;
+}
+
+// ---------- Rezepte ----------
+function rezeptFormular(ziel, r, quelle, nachher) {
+  ziel.innerHTML = `<input type="text" class="rTitel" placeholder="Titel, z. B. Brief an die Gemeinde schreiben" style="width:100%;box-sizing:border-box">
+    <input type="text" class="rWann" placeholder="Wofür gilt das? Stichworte, z. B. Brief, Gemeinde, Einladung" style="width:100%;box-sizing:border-box;margin-top:6px">
+    <textarea class="rSchritte" rows="6" placeholder="Ein Schritt pro Zeile" style="width:100%;box-sizing:border-box;margin-top:6px"></textarea>
+    <div class="row" style="gap:8px;margin-top:8px"><button class="primary rMerken"><i class="ti ti-device-floppy"></i> Fertigkeit merken</button><button class="ghost rAbbr">Abbrechen</button><span class="small rOk"></span></div>`;
+  ziel.querySelector(".rTitel").value = r.titel || ""; ziel.querySelector(".rWann").value = r.wann || "";
+  ziel.querySelector(".rSchritte").value = (r.schritte || []).join("\n");
+  ziel.querySelector(".rAbbr").onclick = () => nachher(false);
+  ziel.querySelector(".rMerken").onclick = async () => {
+    const res = await P().rezept_speichern(ziel.querySelector(".rTitel").value, ziel.querySelector(".rWann").value, ziel.querySelector(".rSchritte").value, r.id || null, quelle);
+    if (res.error) { ziel.querySelector(".rOk").textContent = res.error; return; }
+    nachher(true);
+  };
+}
+function rezeptKarte(v) {
+  const d = document.createElement("div"); d.className = "lehrer";
+  d.innerHTML = `<div class="lehrerKopf">📜 <b>Das hat geklappt!</b> Soll ich mir das Vorgehen als <b>Fertigkeit</b> merken? Dann geht es beim nächsten Mal schneller und sicherer.</div>
+    <div class="row" style="gap:8px;margin-top:6px"><button class="primary rJa">Ja, Fertigkeit entwerfen</button><button class="ghost rNein">Nein danke</button></div><div class="rForm" style="margin-top:8px"></div>`;
+  d.querySelector(".rNein").onclick = () => d.remove();
+  d.querySelector(".rJa").onclick = async () => {
+    d.querySelector(".rJa").disabled = true; d.querySelector(".rForm").textContent = "Watson schreibt den Entwurf …";
+    const e = await P().rezept_entwurf(v.aufgabe, v.schritte);
+    rezeptFormular(d.querySelector(".rForm"), e, "Watson", ok => { d.innerHTML = ok ? "📜 ✅ Fertigkeit gemerkt. Du findest sie unter &bdquo;Gedächtnis → Fertigkeiten&ldquo;." : ""; if (!ok) d.remove(); });
+  };
+  $("#chat").appendChild(d); $("#chat").scrollTop = 1e9;
+}
+async function renderRezepte() {
+  const r = await P().rezepte_liste();
+  $("#rezeptList").innerHTML = r.rezepte.map(x => `<div class="hit"><div class="row" style="align-items:flex-start"><span style="flex:1">
+      <b>${esc(x.titel)}</b> <span class="muted small">· ${x.quelle === "Watson" ? "selbst gelernt" : "von dir geschrieben"} · ${esc(x.erstellt)} · ${x.benutzt || 0}× benutzt</span>
+      ${x.wann ? `<div class="muted small">Gilt für: ${esc(x.wann)}</div>` : ""}
+      <ol class="small" style="margin:4px 0 0;padding-left:20px">${x.schritte.map(s => `<li>${esc(s)}</li>`).join("")}</ol><div class="rEdit"></div></span>
+      <button data-redit="${x.id}" class="ghost" title="Ändern"><i class="ti ti-pencil"></i></button><button data-rdel="${x.id}" class="ghost" title="Löschen"><i class="ti ti-trash"></i></button></div></div>`).join("")
+    || `<div class="muted">Noch keine Fertigkeiten. Watson schlägt eine vor, wenn eine Aufgabe am Computer geklappt hat – oder du schreibst selbst eine, z. B. „So möchte ich meine Briefe haben“.</div>`;
+  $("#rezeptList").querySelectorAll("[data-rdel]").forEach(b => b.onclick = async () => {
+    if (!(await frage("Fertigkeit löschen?", "Diese Fertigkeit wird gelöscht.", {ja: "Löschen"}))) return;
+    await P().rezept_loeschen(+b.dataset.rdel); renderRezepte();
+  });
+  $("#rezeptList").querySelectorAll("[data-redit]").forEach(b => b.onclick = () => {
+    const x = r.rezepte.find(y => y.id === +b.dataset.redit);
+    rezeptFormular(b.closest(".hit").querySelector(".rEdit"), x, x.quelle, () => renderRezepte());
+  });
+}
+
+// ---------- Wachstum ----------
+let wsUhr = null;
+async function renderWachstum() {
+  const w = await P().wachstum_status();
+  $("#wsStufe").innerHTML = `<div class="row" style="gap:14px;align-items:center"><span style="font-size:44px">${w.icon}</span><div>
+      <div style="font-size:20px;font-weight:700">Stufe ${w.stufe}: ${esc(w.name)}</div>
+      <div class="muted small">${w.naechste ? `Auf dem Weg zu ${w.naechste.icon} ${esc(w.naechste.name)} – ${w.fortschritt} % geschafft` : "Höchste Stufe erreicht – und trotzdem lernt Watson weiter."}</div></div></div>`;
+  $("#wsBarFill").style.width = Math.max(3, Math.round(((w.stufe + (w.naechste ? w.fortschritt / 100 : 0)) / (w.stufen.length - 1)) * 100)) + "%";
+  $("#wsStufenLbl").innerHTML = w.stufen.map(s => `<span>${s.icon} ${esc(s.name)}</span>`).join("");
+  $("#wsFehlt").innerHTML = w.fehlt.length ? `<b>Was mir für die nächste Stufe noch fehlt:</b><ul style="margin:4px 0;padding-left:20px">${w.fehlt.map(f => `<li>${esc(f)}</li>`).join("")}</ul>` : "";
+  const z = w.zahlen;
+  $("#wsZahlen").textContent = `Antworten ${z.antworten} · bewertet ${z.bewertet} (${z.gut_quote} % gut) · Prüfung ${z.pruefung} % · Fertigkeiten ${z.rezepte} · Wissensbuch ${z.wissen} · Abendrunden ${z.abendrunden} · Selbst-Reparaturen ${z.reparaturen}`;
+  // Tagebuch der Abendrunden
+  $("#wsRundeInfo").textContent = w.laeuft ? "⏳ Die Abendrunde läuft gerade …" : (w.offene_fragen.length ? `${w.offene_fragen.length} offene Fragen warten aufs Nachforschen.` : "");
+  $("#wsRunde").disabled = w.laeuft;
+  $("#wsTagebuch").innerHTML = w.tagebuch.map(t => {
+    const r = t.rueckblick || {};
+    const liste = (titel, xs) => xs && xs.length ? `<div><b>${titel}</b><ul>${xs.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : "";
+    const vor = (r.vorschlaege || []).map((v, i) => `<div class="wsVorschlag"><span>${{merkzettel: "📒", rezept: "📜", charakter: "🙂"}[v.art] || "💡"} ${esc(v.text)}</span>
+      ${v.status === "offen" ? `<span><button class="small" data-va="${esc(t.zeit)}|${i}|1">Annehmen</button><button class="ghost small" data-va="${esc(t.zeit)}|${i}|0">Nein</button></span>` : `<span class="muted small">${v.status === "angenommen" ? "✅ angenommen" : "✖ abgelehnt"}</span>`}</div>`).join("");
+    const ng = Array.isArray(t.neugier) ? t.neugier.map(n => `<li>${n.gefunden ? "✅" : "❔"} ${esc(n.frage)}${n.gefunden ? " – <span class='muted'>ins Wissensbuch</span>" : ""}</li>`).join("") : "";
+    const gh = t.gehirne && t.gehirne.getestet && t.gehirne.getestet.length ? `<div><b>Neue Gehirne geprüft:</b> ${t.gehirne.getestet.map(g => esc(g.modell.split("/").pop()) + " " + g.note + " %").join(" · ")}</div>` : "";
+    const wa = t.wartung && t.wartung.code ? `<div><b>Programm geprüft:</b> ${t.wartung.code.probleme.length ? "⚠ " + t.wartung.code.probleme.length + " Probleme" : "✅ keine Fehler im Code"} · ${t.wartung.fehlerarten || 0} Fehlerarten ausgewertet</div>` : "";
+    const pr = t.pruefung && t.pruefung.note !== undefined ? `<div><b>Prüfung:</b> ${t.pruefung.note} %</div>` : "";
+    return `<details class="wsTag"><summary>🌙 ${esc(t.zeit)} <span class="muted small">(${esc(t.grund)}, ${t.dauer || 0} s)</span></summary>
+      ${r.ruhig ? `<div class="muted">${esc(r.text)}</div>` : ""}${liste("👍 Gut gelaufen", r.gut)}${liste("👎 Nicht gut", r.schlecht)}${liste("💡 Gelernt", r.gelernt)}
+      ${vor ? `<div><b>Vorschläge – nur mit deinem OK:</b>${vor}</div>` : ""}${ng ? `<div><b>Selbst nachgeforscht:</b><ul>${ng}</ul></div>` : ""}${gh}${wa}${pr}</details>`;
+  }).join("") || `<div class="muted">Noch keine Abendrunde. Die erste kommt heute Nacht – oder starte sie jetzt von Hand.</div>`;
+  const ersteTag = $("#wsTagebuch details"); if (ersteTag) ersteTag.open = true;
+  $("#wsTagebuch").querySelectorAll("[data-va]").forEach(b => b.onclick = async () => {
+    const [zeit, i, ja] = b.dataset.va.split("|");
+    const r = await P().tagebuch_vorschlag(zeit, +i, ja === "1");
+    if (r.error) { status(r.error); return; }
+    if (ja === "1" && r.art === "rezept") { showTab("gedaechtnis"); setTimeout(() => rezeptFormular($("#rezeptNeuForm"), {titel: "", wann: "", schritte: [r.text]}, "Watson", ok => { $("#rezeptNeuForm").innerHTML = ""; if (ok) renderRezepte(); }), 400); return; }
+    renderWachstum();
+  });
+  // Prüfungen
+  $("#wsPruefungen").innerHTML = w.pruefungen.length ? `<div class="wsNoten">${w.pruefungen.map(p => `<div class="wsNote" title="${esc(p.datum)}"><div class="wsSaeule" style="height:${Math.max(4, p.note)}%"></div><span>${p.note}</span></div>`).join("")}</div>
+      <div class="muted small">Letzte Prüfung: ${esc(w.pruefungen[w.pruefungen.length - 1].datum)} · ${w.pruefungen[w.pruefungen.length - 1].note} % richtig</div>` +
+      (Object.keys(w.modell_noten).length ? `<div class="muted small" style="margin-top:4px">Geprüfte neue Gehirne: ${Object.entries(w.modell_noten).map(([m, n]) => esc(m.split("/").pop()) + " " + n + " %").join(" · ")}</div>` : "")
+    : `<div class="muted">Noch keine Prüfung gemacht.</div>`;
+  // Selbst-Wartung
+  const g = w.gesundheit;
+  $("#wsGesund").innerHTML = g.anzahl ? `<b>Fehler der letzten ${g.tage} Tage: ${g.anzahl}</b><ul style="margin:4px 0;padding-left:20px">${g.arten.slice(0, 6).map(a => `<li>${esc(a.ort)}: ${esc(a.fehler)} <span class="muted">(${a.anzahl}×)</span></li>`).join("")}</ul>` : "✅ In den letzten 7 Tagen keine Fehler aufgezeichnet.";
+  $("#wsReparaturen").innerHTML = w.wartung.vorschlaege.map(v => `<div class="hit"><div><b>${esc(v.datei)}</b> · ${esc(v.datum)} · <span class="muted">${esc(v.status)}</span></div>
+      <div class="small" style="margin:4px 0">${esc(v.erklaerung)}</div><div class="muted small">Fehler: ${esc(v.fehler)} (${v.anzahl}×)</div>
+      <details class="small"><summary>Änderung ansehen</summary><pre class="wsDiff alt">${esc(v.alt)}</pre><pre class="wsDiff neu">${esc(v.neu)}</pre></details>
+      ${codeRat(v)}
+      ${v.status === "vorgeschlagen" ? `<div class="row" style="gap:8px;margin-top:6px"><button class="primary small" data-rep="${v.id}|an" ${v.ja >= 2 ? "" : "disabled title='Mindestens 2 von 3 Gutachtern müssen zustimmen'"}>Anwenden${v.ja >= 2 ? "" : " (erst ab 2 von 3 Ja)"}</button><button class="ghost small" data-rep="${v.id}|ab">Ablehnen</button></div>` : ""}
+      ${v.status === "angewendet" ? `<div class="row" style="margin-top:6px"><button class="ghost small" data-rep="${v.id}|zu">Rückgängig machen</button></div>` : ""}</div>`).join("")
+    || `<div class="muted">Noch keine Reparatur-Vorschläge.</div>`;
+  $("#wsReparaturen").querySelectorAll("[data-rep]").forEach(b => b.onclick = async () => {
+    const [id, was] = b.dataset.rep.split("|");
+    if (was === "an" && !(await frage("🔧 Reparatur anwenden?", "Watson ändert damit sein eigenes Programm. Vorher macht er eine Sicherung, prüft die Änderung und startet probeweise. Geht etwas schief, holt er automatisch den alten Stand zurück.\n\nAktiv wird die Änderung nach dem nächsten Neustart von Watson.", {ja: "Anwenden", art: "warnung"}))) return;
+    const r = was === "an" ? await P().reparatur_anwenden(+id) : was === "ab" ? await P().reparatur_ablehnen(+id) : await P().reparatur_rueckgaengig(+id);
+    status(r.error || r.hinweis || "Erledigt"); renderWachstum();
+  });
+  // Code-Rat: Gutachten anfordern, Textdatei für andere KI, Antwort eintragen
+  $("#wsReparaturen").querySelectorAll("[data-rat]").forEach(b => b.onclick = async () => {
+    const [id, was, platz] = b.dataset.rat.split("|");
+    if (was === "auto") { await P().code_rat_fragen(+id); status("Der Code-Rat wird gefragt … (1–3 Minuten)"); setTimeout(renderWachstum, 60000); return; }
+    if (was === "datei") {
+      const r = await P().code_rat_datei(+id);
+      if (r.error) { status(r.error); return; }
+      const ok = await kopieren(r.text);
+      const box = b.closest(".hit").querySelector(".ratInfo");
+      box.innerHTML = `📄 Gespeichert als <b>${esc(r.pfad.split("\\").pop())}</b> in deiner Ablage${ok ? " – und in die Zwischenablage kopiert" : ""}.<br>Füge sie in Claude, ChatGPT oder Gemini ein und trag die Antwort unten bei einem Platz ein. <button class="ghost small" data-zeig="${esc(r.pfad)}">Im Ordner zeigen</button>`;
+      box.querySelector("[data-zeig]").onclick = e => P().ablage_oeffnen(e.target.dataset.zeig);
+      return;
+    }
+    if (was === "extern") {
+      const form = b.closest(".hit").querySelector(".ratForm");
+      form.innerHTML = `<div class="small" style="margin-top:6px"><b>Platz ${platz}:</b> Antwort einer anderen KI eintragen</div>
+        <select class="rq"><option>Claude</option><option>ChatGPT</option><option>Gemini</option><option>Copilot</option><option>Grok</option><option>Andere KI</option></select>
+        <textarea class="ra" rows="5" placeholder="Die ganze Antwort einfügen – mit „URTEIL: JA“ oder „URTEIL: NEIN“" style="width:100%;box-sizing:border-box;margin-top:6px"></textarea>
+        <div class="row" style="gap:8px;margin-top:6px"><button class="primary small rs">Urteil eintragen</button><span class="small rm"></span></div>`;
+      form.querySelector(".rs").onclick = async () => {
+        const r = await P().code_rat_extern(+id, +platz, form.querySelector(".rq").value, form.querySelector(".ra").value);
+        if (r.error) { form.querySelector(".rm").textContent = r.error; return; }
+        renderWachstum();
+      };
+    }
+  });
+  $("#wsNetz").innerHTML = (w.wartung.netz_lehren || []).length ? `<b>Zuletzt im Netz gelernt (Programmieren):</b><ul style="margin:4px 0;padding-left:20px">${w.wartung.netz_lehren.map(l => `<li>${esc(l.lehre)} <a class="muted small" href="${esc(l.quelle)}" target="_blank">Quelle</a></li>`).join("")}</ul>` : "";
+  if (w.laeuft && !wsUhr) wsUhr = setInterval(() => { if (currentTab === "wachstum") renderWachstum(); else { clearInterval(wsUhr); wsUhr = null; } }, 8000);
+  if (!w.laeuft && wsUhr) { clearInterval(wsUhr); wsUhr = null; }
+}
+// ---------- Watson auf dem Handy ----------
+async function handyZeigen() {
+  const s = await P().handy_status();
+  const zeilen = [
+    `${s.server ? "✅" : "⚠"} Handy-Seite auf diesem Computer: ${s.server ? "läuft (nur intern)" : "läuft nicht – Port " + s.port + " ist belegt"}`,
+    `${s.pin_gesetzt ? "✅" : "⬜"} Passwort: ${s.pin_gesetzt ? "festgelegt" : "noch nicht festgelegt"}`,
+    `${s.installiert ? "✅" : "⬜"} Tailscale: ${!s.installiert ? "noch nicht installiert (siehe Anleitung)" : s.angemeldet ? "installiert und verbunden" : "installiert, aber nicht angemeldet/verbunden"}`,
+    `${s.tunnel_an ? "✅" : "⬜"} Tunnel: ${s.tunnel_an ? "an" : "aus"}`];
+  if (s.tunnel_an && s.adresse) zeilen.push(`📱 <b>Adresse fürs Handy:</b> <a href="https://${esc(s.adresse)}" target="_blank">https://${esc(s.adresse)}</a>`);
+  if (s.angemeldet) zeilen.push("📲 Gerade ist ein Handy angemeldet.");
+  $("#hdStand").innerHTML = zeilen.join("<br>");
+  const f = await P().handy_fingerabdruecke();
+  $("#hdFinger").innerHTML = `<b>👆 Fingerabdruck:</b> ` + (f.liste.length ? f.liste.map(p => `<span class="pill" style="cursor:default">${esc(p.name)} · seit ${esc(p.datum.slice(0, 10))}${p.zuletzt ? " · zuletzt " + esc(p.zuletzt) : ""} <button class="ghost small" data-fdel="${esc(p.id)}" title="Entfernen">✕</button></span>`).join(" ")
+    : `<span class="muted">noch kein Handy eingerichtet – das geht auf dem Handy nach der ersten Anmeldung mit PIN.</span>`);
+  $("#hdFinger").querySelectorAll("[data-fdel]").forEach(b => b.onclick = async () => {
+    if (!(await frage("Fingerabdruck entfernen?", "Dieses Handy kann sich danach nur noch mit der PIN anmelden (oder du richtest den Fingerabdruck neu ein). Sinnvoll, wenn ein Handy verloren ging oder ersetzt wurde.", {ja: "Entfernen"}))) return;
+    await P().handy_fingerabdruck_loeschen(b.dataset.fdel); handyZeigen();
+  });
+  $("#hdAn").disabled = !s.installiert || s.tunnel_an;   // PIN kann man auch beim ersten Mal auf dem Handy festlegen
+  $("#hdAus").disabled = !s.tunnel_an;
+}
+function handyKnoepfe() {
+  $("#hdPinBtn").onclick = async () => {
+    const r = await P().handy_pin($("#hdPin1").value, $("#hdPin2").value);
+    $("#hdPinMsg").textContent = r.error || "✓ Passwort gespeichert (sicher im Windows-Tresor)";
+    if (!r.error) { $("#hdPin1").value = $("#hdPin2").value = ""; handyZeigen(); }
+  };
+  $("#hdAn").onclick = async () => {
+    if (!(await frage("📱 Tunnel einschalten?", "Damit wird Watsons Handy-Seite für deine eigenen Geräte im Tailscale-Netz freigegeben (verschlüsselt, nicht öffentlich). Zum Anmelden braucht man deine PIN." + (($("#hdStand").textContent || "").includes("Passwort: noch nicht") ? "\n\nDu hast noch kein Passwort: Das kannst du gleich beim ersten Öffnen auf dem Handy festlegen (nur einmal möglich)." : ""), {ja: "Einschalten"}))) return;
+    $("#hdMsg").textContent = "Schalte ein …"; const r = await P().handy_tunnel(true);
+    $("#hdMsg").textContent = r.error || "✓ Tunnel ist an";
+    if (r.freigabe_link && /^https:\/\/login\.tailscale\.com\//.test(r.freigabe_link)) {
+      $("#hdMsg").innerHTML = `${esc(r.error)}<br>👉 <a href="${esc(r.freigabe_link)}" target="_blank">Serve jetzt freigeben</a> <span class="muted">(den Link kannst du auch auf dem Handy öffnen)</span>`;
+      const uhr = setInterval(async () => { const s = await P().handy_status(); if (s.tunnel_an) { clearInterval(uhr); $("#hdMsg").textContent = "✓ Freigegeben – der Tunnel ist an"; handyZeigen(); } }, 5000);
+      setTimeout(() => clearInterval(uhr), 1800000);
+    }
+    handyZeigen();
+  };
+  $("#hdAnleitungBtn").onclick = async () => {
+    const box = $("#hdAnleitungBox");
+    if (box.style.display !== "none") { box.style.display = "none"; return; }
+    const r = await P().anleitung_text("handy");
+    box.innerHTML = r.error ? esc(r.error) : mdSeite(r.text);
+    box.style.display = ""; box.scrollIntoView({behavior: "smooth", block: "start"});
+  };
+  $("#hdAus").onclick = async () => { const r = await P().handy_tunnel(false); $("#hdMsg").textContent = r.error || "✓ Tunnel ist aus"; handyZeigen(); };
+}
+function codeRat(v) {
+  const g = v.gutachten || [null, null, null];
+  const plaetze = [0, 1, 2].map(i => {
+    const x = g[i];
+    return `<div class="ratPlatz">${x ? (x.urteil ? "✅" : "❌") : "⏳"} <b>Platz ${i + 1}:</b> ${x ? esc(x.wer.split("/").pop()) + (x.art === "extern" ? " <span class='muted'>(von dir eingetragen)</span>" : "") : "<span class='muted'>noch offen</span>"}
+      ${x ? `<details class="small"><summary>Begründung</summary><div style="white-space:pre-wrap">${esc(x.grund)}</div></details>` : ""}
+      ${v.status === "vorgeschlagen" ? `<button class="ghost small" data-rat="${v.id}|extern|${i + 1}">Andere KI eintragen</button>` : ""}</div>`;
+  }).join("");
+  return `<div class="ratBox"><div><b>🧑‍💻 Code-Rat: ${v.ja || 0} von 3 sagen Ja</b> <span class="muted small">– mindestens 2 müssen zustimmen${v.ja === 3 ? ", hier sogar einstimmig 🎉" : ""}</span></div>${plaetze}
+    ${v.status === "vorgeschlagen" ? `<div class="row" style="gap:8px;margin-top:6px;flex-wrap:wrap"><button class="small" data-rat="${v.id}|auto">Freie Plätze automatisch fragen</button><button class="small" data-rat="${v.id}|datei">📄 Als Textdatei für Claude, ChatGPT, Gemini …</button></div>` : ""}
+    <div class="small ratInfo" style="margin-top:6px"></div><div class="ratForm"></div></div>`;
+}
+function wachstumKnoepfe() {
+  $("#wsRunde").onclick = async () => { const r = await P().abendrunde_starten(); $("#wsRundeInfo").textContent = r.error || "⏳ Die Abendrunde läuft – das dauert ein paar Minuten."; setTimeout(renderWachstum, 1500); };
+  $("#wsPruefung").onclick = async () => { await P().pruefung_starten(); $("#wsPruefInfo").textContent = "⏳ Watson schreibt die Prüfung (1–3 Minuten) – danach diese Seite neu öffnen."; };
+  $("#wsCode").onclick = async () => { $("#wsCodeInfo").textContent = "Prüfe …"; const r = await P().wartung_code_pruefen();
+    $("#wsCodeInfo").textContent = r.probleme.length ? `⚠ ${r.probleme.length} Probleme: ` + r.probleme.map(p => p.datei + (p.zeile ? ":" + p.zeile : "") + " " + p.fehler).join(" · ") : `✅ ${r.dateien} Programmteile geprüft – keine Fehler im Code.${r.js_geprueft ? "" : " (Oberfläche nicht geprüft: Node fehlt)"}`; };
+}
+
+// Fehler der Oberfläche sammeln (für die Selbst-Wartung)
+window.addEventListener("error", e => { try { P().js_fehler(`${e.message} @ ${e.lineno}:${e.colno}`); } catch (_) {} });
+window.addEventListener("unhandledrejection", e => { try { P().js_fehler("Promise: " + (e.reason && e.reason.message || e.reason)); } catch (_) {} });
+
+// Nutzer klickt oder tippt am Laptop -> Handy-Modus aus (dann darf der Laptop wieder sprechen und fragen)
+let laptopZuletzt = 0;
+["pointerdown", "keydown"].forEach(ev => document.addEventListener(ev, e => {
+  if (!e.isTrusted || Date.now() - laptopZuletzt < 30000) return;
+  laptopZuletzt = Date.now(); try { P().laptop_benutzt(); } catch (_) {}
+}, true));
+
+let voices = [];
+function loadVoices() {
+  voices = speechSynthesis.getVoices().filter(v => v.lang.startsWith("de"));
+  $("#voiceSel").innerHTML = voices.map((v, i) => `<option value="${i}">${esc(v.name)}</option>`).join("") || "<option>Keine deutsche Stimme gefunden</option>";
+  let saved = ""; try { saved = localStorage.getItem("voiceName"); } catch (e) {}
+  const idx = voices.findIndex(v => v.name === saved); if (idx >= 0) $("#voiceSel").value = idx;
+}
+let fromVoice = false;
+function speak(text, force = false) {
+  const spoken = fromVoice; fromVoice = false;
+  if (gespraechAn && spoken) {                       // Gesprächsmodus: immer Watsons eigene Stimme, danach hört er wieder zu
+    gGesprochen = true;
+    $("#gWatson").innerHTML = "<b>" + esc(botName()) + ":</b> " + esc(text.replace(/[*#`_>|]/g, "").slice(0, 400));
+    P().voice_speak(text, true); return;
+  }
+  if (!cfg.voice && !spoken && !force) return;
+  const engine = cfg.tts_engine === "windows" ? "windows" : "piper";
+  if (engine === "piper") { P().voice_speak(text, spoken); return; }   // Watson prüft selbst: am Handy -> still
+  if (!voices.length) return;
+  Promise.resolve(P().handy_still ? P().handy_still() : false).catch(() => false).then(still => {
+    if (still) return;                                                  // Nutzer ist am Handy -> kein Ton am Laptop
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text.replace(/[*#`_>]/g, ""));
+    u.voice = voices[+$("#voiceSel").value || 0]; u.lang = "de-DE";
+    speechSynthesis.speak(u);
+  });
+}
+window.voiceCommand = text => { if (busy) return; showTab("start"); fromVoice = true; $("#input").value = text; send(false); };
+window.voiceState = s => { if (!busy) status(s); const w = document.querySelector("#wakeState"); if (w) w.textContent = s; };
+
+// ---------- Gesprächsmodus: dauerhaft zuhören, wie bei Claude ----------
+let gespraechAn = false, gGesprochen = false;
+const G_TEXT = {hoert: "Ich höre zu …", versteht: "Einen Moment, ich verstehe …", denkt: "Ich denke nach …",
+                spricht: "", stumm: "Mikrofon ist stumm", fehler: ""};
+window.gespraechPhase = (phase, text) => {
+  if (phase === "aus") { gespraechZu(false); return; }
+  if (!gespraechAn) return;
+  $("#gespraech").dataset.p = phase;
+  $("#gStatus").textContent = phase === "spricht" ? botName() + " spricht …" : (phase === "fehler" ? text : G_TEXT[phase] || "");
+  if (phase === "denkt" && text) { $("#gDu").innerHTML = "<b>Du:</b> " + esc(text); $("#gWatson").textContent = ""; }
+  if (phase !== "spricht") $("#gKugel").style.transform = "";
+};
+window.gespraechPegel = p => {
+  if (!gespraechAn || $("#gespraech").dataset.p !== "hoert") return;
+  $("#gKugel").style.transform = `scale(${(1 + Math.min(p, 1) * 0.18).toFixed(3)})`;
+};
+window.gespraechBefehl = async text => {
+  if (!gespraechAn || busy) { P().gespraech_weiter(); return; }
+  gGesprochen = false; fromVoice = true; $("#input").value = text;
+  try { await send(false); } catch (e) {}
+  fromVoice = false;
+  if (!gGesprochen) {                              // keine Antwort zum Vorlesen (Fehler/Stopp) -> wieder zuhören
+    $("#gWatson").textContent = "(Keine Antwort – sag es gern nochmal.)";
+    P().gespraech_weiter();
+  }
+};
+async function gespraechAuf() {
+  if (gespraechAn) return;
+  showTab("start");
+  const r = await P().gespraech_start();
+  if (r.error) { status(r.error); return; }
+  gespraechAn = true;
+  $("#gDu").textContent = ""; $("#gWatson").textContent = "";
+  $("#gStumm").classList.remove("an"); $("#gStumm").innerHTML = '<i class="ti ti-microphone"></i>';
+  $("#gespraech").dataset.p = "hoert"; $("#gStatus").textContent = "Einen Moment …";
+  $("#gespraech").classList.add("offen"); $("#gespraechBtn").classList.add("on");
+}
+function gespraechZu(melden = true) {
+  if (!gespraechAn && !$("#gespraech").classList.contains("offen")) return;
+  gespraechAn = false;
+  $("#gespraech").classList.remove("offen"); $("#gespraechBtn").classList.remove("on");
+  if (melden) P().gespraech_stop();
+  if (busy) P().stop && P().stop();
+  status("Bereit");
+}
+function setupGespraech() {
+  $("#gespraechBtn").onclick = () => gespraechAn ? gespraechZu() : gespraechAuf();
+  $("#gEnde").onclick = () => gespraechZu();
+  $("#gKugel").onclick = async () => {               // unterbrechen: Watson hört auf zu reden und hört wieder zu
+    const p = $("#gespraech").dataset.p;
+    if (p === "spricht") { await P().gespraech_unterbrechen(); }
+    else if (p === "denkt" && busy) { P().stop && P().stop(); await P().gespraech_unterbrechen(); }
+  };
+  $("#gStumm").onclick = async () => {
+    const stumm = !$("#gStumm").classList.contains("an");
+    await P().gespraech_stumm(stumm);
+    $("#gStumm").classList.toggle("an", stumm);
+    $("#gStumm").innerHTML = stumm ? '<i class="ti ti-microphone-off"></i>' : '<i class="ti ti-microphone"></i>';
+    if (!stumm) { $("#gespraech").dataset.p = "hoert"; $("#gStatus").textContent = G_TEXT.hoert; }
+  };
+  document.addEventListener("keydown", e => {
+    if (!gespraechAn) return;
+    if (e.key === "Escape") { e.preventDefault(); gespraechZu(); }
+    else if (e.key === " " && e.target.tagName !== "TEXTAREA" && e.target.tagName !== "INPUT") { e.preventDefault(); $("#gKugel").click(); }
+  });
+}
+
+let aktivDokument = null;   // eingelesene Datei(en)/Ordner für die nächste Nachricht
+async function send(look = false) {
+  let text = $("#input").value.trim();
+  if (look && !text) text = "Was siehst du gerade auf meinem Bildschirm? Erkläre es mir kurz.";
+  if (!text || busy) return;
+  // Dokument anhängen wenn vorhanden
+  let volltext = text;
+  if (aktivDokument) {
+    volltext = `${text}\n\n[Dokument „${aktivDokument.name}"]\n${aktivDokument.text}`;
+    aktivDokument = null;
+    $("#input").placeholder = 'Schreib Watson etwas – oder sag Hey Watson …';
+  }
+  $("#input").value = ""; autoGrow(); setBusy(true);
+  addMsg((look === "foto" ? "📷 " : look ? "👁 " : "") + text, "", "user");
+  try {
+    if (teamMode && !look && cfg.agents.length >= 2) await runTeam(volltext);
+    else {
+      status(look ? botName() + " schaut auf deinen Bildschirm …" : botName() + " denkt nach …");
+      try {
+        const r = await call("chat", {chat_id: chatId, text: volltext, model: cfg.model, look});
+        chatId = r.chat_id;
+        toolNote(r.tools);
+        const bubble = addMsg(r.text, botName() + " · " + shortName(r.model));
+        lernLeiste(bubble, r, text);
+        if (r.lehrer) lehrerKarte(r.lehrer);
+        if (r.rezept_vorschlag) rezeptKarte(r.rezept_vorschlag);
+        speak(r.text);
+        // Windows-Benachrichtigung wenn Watson antwortet (nur wenn Fenster nicht im Vordergrund)
+        if (!document.hasFocus()) P().benachrichtigung(botName() + " antwortet", r.text.replace(/\n+/g," ").slice(0,120));
+      } catch (e) { if (e.data && e.data.chat_id) chatId = e.data.chat_id; throw e; }
+    }
+    status("Bereit");
+    renderChats();
+    rememberLater();
+    P().n8n_status().then(s => { cfg.ablaeufe = s.ablaeufe; renderFlowSide(); });
+  } catch (e) { addMsg(e.message, "Hinweis", "err"); status("Fehler"); }
+  setBusy(false);
+}
+async function renderFlows() {
+  const s = await P().n8n_status();
+  cfg.ablaeufe = s.ablaeufe;
+  $("#n8nState").innerHTML = !s.installed ? "Die Werkstatt ist noch nicht installiert."
+    : s.running ? `<span class="dot ok" style="margin-right:6px"></span>Läuft (nur auf diesem Laptop)`
+    : `<span class="dot" style="margin-right:6px"></span>Aus – „Starten“ oder einfach „Werkstatt öffnen“`;
+  $("#flowList").innerHTML = s.ablaeufe.map((a, i) => `<div class="hit"><div class="row"><span style="flex:1"><b>${esc(a.name)}</b><br><span class="muted small">${esc(a.beschreibung || a.pfad)}</span></span>
+      <button data-test="${i}"><i class="ti ti-player-play"></i> Testen</button><button data-rm="${i}" class="ghost" title="Aus der Liste entfernen"><i class="ti ti-trash"></i></button></div><div data-out="${i}" class="muted small"></div></div>`).join("")
+    || `<div class="muted">Noch keine Abläufe. Sag z. B. „Watson, bau mir einen Ablauf, der mir jeden Morgen einen Bibelvers schickt.“</div>`;
+  $("#flowList").querySelectorAll("[data-test]").forEach(b => b.onclick = async () => {
+    const i = +b.dataset.test, out = document.querySelector(`[data-out="${i}"]`);
+    out.textContent = "läuft …"; const r = await P().n8n_test(s.ablaeufe[i].pfad); out.textContent = r.error || r.text; });
+  $("#flowList").querySelectorAll("[data-rm]").forEach(b => b.onclick = async () => {
+    cfg.ablaeufe.splice(+b.dataset.rm, 1); await save({ablaeufe: cfg.ablaeufe}); renderFlows(); });
+  renderFlowSide();
+}
+function renderFlowSide() { $("#flowSide").innerHTML = (cfg.ablaeufe || []).map(a => `<div class="flow">🔁 ${esc(a.name)}</div>`).join(""); }
+async function renderBackup() {
+  const s = await P().backup_status();
+  $("#backupState").textContent = s.letzte ? `Letzte Sicherung: ${s.letzte} · ${s.anzahl} Sicherungen` : "Noch keine Sicherung vorhanden.";
+}
+const VT_FALLBACK = {1: "🌱 Kennenlernen", 2: "🤝 Mit Kontrolle", 3: "👬 Freund", 4: "🔑 Volles Vertrauen"};
+function showTrust() {
+  const st = cfg.vertrauen_stufe || ({jede: 1, auftrag: 2}[cfg.hands_mode || "auftrag"] || (cfg.risky_ask === false ? 4 : 3));
+  $("#trust").textContent = cfg.use_hands === false ? "" : "Vertrauen: Stufe " + st + " " + VT_FALLBACK[st];
+}
+
+// ---------- Fragen im Watson-Aussehen ----------
+let frageOffen = Promise.resolve();
+function frageZeigen(d) {
+  return new Promise(resolve => {
+    const ov = document.createElement("div"); ov.className = "wfOverlay";
+    const art = d.art || "frage";
+    ov.innerHTML = `<div class="wfBox wf-${art}" role="dialog" aria-modal="true">
+      <div class="wfKopf"><img src="assets/watson-logo.svg" alt=""><div><div class="wfTitel"></div>
+      ${d.stufe ? `<div class="wfStufe">${d.stufe_icon || ""} Vertrauens-Stufe ${d.stufe}: ${esc(d.stufe_name || "")}</div>` : ""}</div></div>
+      ${art === "grenze" ? `<div class="wfGrenze"><i class="ti ti-shield-lock"></i> Feste Grenze – hier fragt Watson auf jeder Stufe</div>` : ""}
+      ${art === "kritisch" ? `<div class="wfKritisch"><i class="ti ti-alert-circle"></i> Kritischer Moment – Watson fragt dich um Rat</div>` : ""}
+      ${art === "warnung" ? `<div class="wfGrenze"><i class="ti ti-alert-triangle"></i> Wichtige Entscheidung – bitte in Ruhe überlegen</div>` : ""}
+      <div class="wfText"></div>
+      ${(d.schritte || []).length ? `<ol class="wfSchritte">${d.schritte.map(s => `<li>${esc(s)}</li>`).join("")}</ol>` : ""}
+      <div class="wfKnoepfe"><button class="wfNein"></button><button class="wfJa primary"></button></div></div>`;
+    ov.querySelector(".wfTitel").textContent = d.titel || "";
+    ov.querySelector(".wfText").textContent = d.text || "";
+    ov.querySelector(".wfJa").textContent = d.ja || "Erlauben";
+    ov.querySelector(".wfNein").textContent = d.nein || "Nicht erlauben";
+    const fertig = ok => { document.removeEventListener("keydown", taste); ov.remove(); resolve(ok); };
+    const taste = e => { if (e.key === "Escape") fertig(false); };
+    ov.querySelector(".wfJa").onclick = () => fertig(true);
+    ov.querySelector(".wfNein").onclick = () => fertig(false);
+    document.addEventListener("keydown", taste);
+    document.body.appendChild(ov);
+    ov.querySelector(art === "grenze" || art === "warnung" ? ".wfNein" : ".wfJa").focus();
+  });
+}
+// Fragen nacheinander zeigen (nie zwei übereinander)
+function frage(titel, text, opt = {}) {
+  const p = frageOffen.then(() => frageZeigen({titel, text, ja: opt.ja || "Ja", nein: opt.nein || "Abbrechen", art: opt.art}));
+  frageOffen = p.catch(() => {});
+  return p;
+}
+window.watsonFrage = d => {
+  const p = frageOffen.then(() => frageZeigen(d));
+  frageOffen = p.catch(() => {});
+  p.then(ok => P().frage_antwort(d.id, ok));
+};
+
+// ---------- Vertrauens-Stufen (Einstellungen) ----------
+async function vertrauenZeigen() {
+  let v;
+  try { v = await P().vertrauen_status(); } catch (e) { return; }
+  cfg.vertrauen_stufe = v.stufe; showTrust();
+  const e = v.einschaetzung;
+  $("#vtStufen").innerHTML = [1, 2, 3, 4].map(n => {
+    const s = v.stufen[n];
+    const extra = n === 4 && v.christlich ? `<div class="vtBibel">Wie Josef in der Bibel: Ihm wurde alles anvertraut – mit einer Grenze (1. Mose 39,8–9).</div>` : "";
+    return `<div class="vtStufe ${n === v.stufe ? "aktiv" : ""}" data-st="${n}">
+      <div class="vtKopf"><span class="vtIcon">${s.icon}</span><div><div class="vtName">Stufe ${n}: ${esc(s.name)}</div><div class="small">${esc(s.kurz)}</div></div>
+        ${n === v.stufe ? `<span class="vtAktiv">Eingestellt</span>` : (n === e.empfohlen ? `<span class="vtEmpfohlen">Watson empfiehlt</span>` : "")}</div>
+      <div class="vtDetails small"><div><b>Watson darf:</b> ${esc(s.darf)}</div><div><b>Watson fragt:</b> ${esc(s.fragt)}</div><div><b>Gedacht für:</b> ${esc(s.fuer)}</div>${extra}</div></div>`;
+  }).join("");
+  $("#vtGrenzen").innerHTML = v.grenzen.map(g => `<li>${esc(g)}</li>`).join("");
+  $("#vtBarFill").style.width = Math.max(3, e.fortschritt) + "%";
+  $("#vtEmpf").textContent = "Watson sieht sich bei Stufe " + e.empfohlen;
+  $("#vtSatz").textContent = e.satz;
+  $("#vtZahlen").textContent = e.anzahl ? `Gezählt: ${e.anzahl} Aufträge · ${e.gut} ohne Probleme · ${e.fehler} mit Fehlern · ${e.stopps}× gestoppt · ${e.korrekturen}× etwas nicht erlaubt` : "";
+  $("#vtNaechstes").textContent = e.naechstes;
+  const h = $("#vtHinweis");
+  if (e.hinweis) { h.innerHTML = `<i class="ti ti-arrow-down-circle"></i> ${esc(e.hinweis)} <button class="ghost small" id="vtHinweisOk">Verstanden</button>`; h.style.display = "";
+    $("#vtHinweisOk").onclick = async () => { await P().vertrauen_hinweis_gelesen(); h.style.display = "none"; }; }
+  else h.style.display = "none";
+  document.querySelectorAll(".vtStufe").forEach(el => el.onclick = async () => {
+    const n = +el.dataset.st;
+    if (n === v.stufe) return;
+    const s = v.stufen[n];
+    let text = `${s.kurz}\n\nWatson darf: ${s.darf}\n\nWatson fragt: ${s.fragt}\n\nDie festen Grenzen (Senden, endgültig Löschen, Kaufen/Bezahlen, Passwort- und Bankfenster) gelten weiter.`;
+    if (n > e.empfohlen) text += `\n\nEhrlicher Hinweis von Watson: Nach meinen bisherigen Zahlen sehe ich mich erst bei Stufe ${e.empfohlen}. ` +
+      (e.anzahl ? `Von ${e.anzahl} Aufträgen habe ich ${e.gut} ohne Probleme erledigt.` : "Ich habe für dich noch keine Aufgabe am Computer erledigt.") +
+      " Ich kann mich irren – bitte schau anfangs genau hin.";
+    if (n === 4) text += '\n\nAuf Stufe 4 handelt Watson ohne Rückfrage. Wenn er sich irrt, merkst du es vielleicht erst später. Schau regelmäßig in „Was Watson heute getan hat“.';
+    if (!(await frage(`${s.icon} Stufe ${n} „${s.name}“ einstellen?`, text, {ja: "Stufe " + n + " einstellen", nein: "Abbrechen", art: n === 4 ? "warnung" : "frage"}))) return;
+    await P().vertrauen_setzen(n); vertrauenZeigen();
+  });
+}
+function setBusy(on) {
+  busy = on;
+  $("#stopBtn").style.display = on ? "" : "none";
+  $("#sendBtn").style.display = on ? "none" : "";
+}
+window.liveStep = text => {
+  const welcome = $("#chat .welcome"); if (welcome) welcome.remove();
+  const d = document.createElement("div"); d.className = "note"; d.textContent = text;
+  $("#chat").appendChild(d); $("#chat").scrollTop = 1e9; status(text.replace(/^\S+\s/, ""));
+};
+function toolNote(tools) {
+  if (!tools || !tools.length) return;
+  const d = document.createElement("div"); d.className = "note";
+  const warn = tools.filter(t => t.startsWith("⚠")), used = tools.filter(t => !t.startsWith("⚠"));
+  d.textContent = (used.length ? "🔧 " + used.join(" · ") : "") + (warn.length ? (used.length ? "  ·  " : "") + warn.join(" ") : "");
+  if (warn.length) { d.style.color = "var(--err)"; d.style.background = "var(--errSoft)"; }
+  $("#chat").appendChild(d); $("#chat").scrollTop = 1e9;
+}
+function renderTools(r) {
+  if (r.error) { $("#toolServers").innerHTML = `<div class="card" style="border-color:var(--err)">${esc(r.error)}</div>`; return; }
+  $("#toolsCount").textContent = `${r.count} Werkzeuge bereit`;
+  $("#toolServers").innerHTML = r.servers.map(s => `
+    <div class="card"><h3><span class="dot ${s.ok ? "ok" : "err"}"></span>${esc(s.name)}
+      <span class="muted small" style="font-weight:400">${s.trusted ? "· läuft ohne Nachfrage" : s.safe_count ? "· harmlose Schritte direkt, sonst mit Nachfrage" : "· fragt vor jeder Benutzung"}</span></h3>
+      ${s.ok ? s.tools.map(t => `<div class="hit">${t.asks ? "🔒" : "✅"} <b>${esc(t.name)}</b> <span class="muted">– ${esc(t.description)}</span></div>`).join("") : `<div class="muted">Nicht verbunden: ${esc(s.error)}</div>`}
+    </div>`).join("") || `<div class="card muted">Noch keine Werkzeuge eingesteckt.</div>`;
+}
+function rememberLater() {
+  const id = chatId; if (!id || !cfg.use_memory || cfg.auto_remember === false) return;
+  P().remember(id).then(r => {
+    const items = [...(r.new || []), ...(r.changed || [])];
+    if (!items.length || id !== chatId) return;
+    const d = document.createElement("div"); d.className = "note";
+    d.textContent = "📒 Gemerkt: " + items.join(" · ");
+    $("#chat").appendChild(d); $("#chat").scrollTop = 1e9;
+  }).catch(() => {});
+}
+async function renderChats() {
+  const list = await P().list_chats();
+  $("#chatList").innerHTML = list.slice(0, 30).map(c =>
+    `<div class="chatItem ${c.id === chatId ? "on" : ""}" data-id="${c.id}"><span>${esc(c.title)}</span><b data-del="${c.id}" title="Löschen">×</b></div>`).join("")
+    || `<div class="muted small" style="padding:0 12px">Noch keine Gespräche</div>`;
+  $("#chatList").querySelectorAll(".chatItem").forEach(el => el.onclick = async e => {
+    const del = e.target.dataset.del;
+    if (del) { if (await frage("Gespräch löschen?", "Dieses Gespräch wird endgültig gelöscht.")) { await P().delete_chat(+del); if (+del === chatId) newChat(); renderChats(); } return; }
+    openChat(+el.dataset.id);
+  });
+}
+async function openChat(id) {
+  chatId = id; showTab("start"); $("#chat").innerHTML = "";
+  (await P().load_chat(id)).forEach(m => addMsg(m.content, m.role === "user" ? "" : (m.name || botName()) + (m.model ? " · " + shortName(m.model) : ""), m.role === "user" ? "user" : ""));
+  const t = document.querySelector(`.chatItem[data-id="${id}"] span`); if ($("#chatTitle") && t) $("#chatTitle").textContent = t.textContent;
+  renderChats();
+}
+async function renderWissen() {
+  const w = await P().wissen_liste();
+  $("#wissenList").innerHTML = w.eintraege.map(e => `<div class="hit"><div class="row" style="align-items:flex-start"><span style="flex:1">
+      <b>${esc(e.frage.slice(0, 160))}</b><br><span class="muted small">${esc(e.quelle)} · ${esc(e.datum)}</span>
+      <div class="small" style="margin-top:4px;white-space:pre-line">${esc((e.kurz || e.antwort).slice(0, 600))}</div></span>
+      <button data-wdel="${e.id}" class="ghost" title="Vergessen"><i class="ti ti-trash"></i></button></div></div>`).join("")
+    || `<div class="muted">Noch leer. Wenn Watson unsicher ist, erscheint im Gespräch die 🌉 Lehrer-Brücke – oder drück unter einer Antwort auf „🌉 Lehrer fragen“.</div>`;
+  $("#wissenList").querySelectorAll("[data-wdel]").forEach(b => b.onclick = async () => {
+    if (!(await frage("Wissen vergessen?", "Dieser Eintrag wird aus dem Wissensbuch gelöscht.", {ja: "Vergessen", art: "frage"}))) return;
+    await P().wissen_loeschen(+b.dataset.wdel); renderWissen();
+  });
+  const s = await P().lernbuch_status();
+  const namen = {einfach: "Kurze Fragen", normal: "Normale Fragen", schwer: "Anspruchsvolle Aufgaben", computer: "Arbeit am Computer"};
+  $("#lernStand").innerHTML = !s.anzahl ? `<div class="muted">Noch keine Erfahrung gesammelt. Jede Antwort zählt – bewerte sie mit 👍/👎, dann lernt Watson schneller.</div>` :
+    `<div class="small" style="margin-bottom:8px">${s.anzahl} Antworten erlebt · ${s.bewertet} von dir bewertet (👍 ${s.gut} · 👎 ${s.schlecht})</div>` +
+    Object.entries(s.kategorien).map(([k, ms]) => `<div style="margin:8px 0 4px"><b>${esc(namen[k] || k)}</b></div>` +
+      Object.entries(ms).sort((a, b) => b[1].anzahl - a[1].anzahl).map(([m, v]) =>
+        `<div class="small lernZeile"><span>${esc(shortName(m))}</span><span class="muted">${v.anzahl}× · Ø ${v.dauer} s · 👍 ${v.gut} · 👎 ${v.schlecht}${v.fehler ? " · ⚠ " + v.fehler + " ausgefallen" : ""}</span></div>`).join("")).join("");
+}
+async function renderFacts() {
+  renderWissen().catch(() => {});
+  renderRezepte().catch(() => {});
+  $("#rezeptNeu").onclick = () => rezeptFormular($("#rezeptNeuForm"), {}, "Nutzer", ok => { $("#rezeptNeuForm").innerHTML = ""; if (ok) renderRezepte(); });
+  const r = await P().facts();
+  $("#memStats").textContent = `Im Gedächtnis: ${r.stats.facts} Fakten · ${r.stats.chats} Gespräche · ${r.stats.messages} Nachrichten`;
+  $("#factList").innerHTML = r.facts.map(f => `<div class="fact"><input type="text" value="${esc(f.text)}" data-id="${f.id}"><button data-del="${f.id}" class="ghost" title="Vergessen"><i class="ti ti-trash"></i></button></div>`).join("")
+    || `<div class="muted">Noch nichts auf dem Merkzettel. Watson merkt sich Wichtiges automatisch, während ihr redet.</div>`;
+  $("#factList").querySelectorAll("input").forEach(i => i.onchange = () => P().update_fact(+i.dataset.id, i.value));
+  $("#factList").querySelectorAll("[data-del]").forEach(b => b.onclick = async () => { await P().delete_fact(+b.dataset.del); renderFacts(); });
+}
+async function memSearch() {
+  const q = $("#memSearch").value.trim(); if (!q) return;
+  const r = await P().search(q);
+  const day = ts => new Date(ts * 1000).toLocaleDateString("de-DE");
+  $("#memResults").innerHTML =
+    (r.facts.length ? `<div class="muted small" style="margin:6px 0">Merkzettel</div>` + r.facts.map(f => `<div class="hit">📒 ${esc(f.text)}</div>`).join("") : "") +
+    (r.messages.length ? `<div class="muted small" style="margin:12px 0 6px">Gespräche</div>` + r.messages.map(m => `<div class="hit" style="cursor:pointer" data-chat="${m.chat_id}"><span class="muted">${day(m.ts)} · ${esc(m.title)} · ${m.role === "user" ? "Du" : botName()}:</span> ${esc(m.snip).replace(/\[(.+?)\]/g, "<b>$1</b>")}</div>`).join("") : "")
+    || `<div class="muted">Nichts gefunden.</div>`;
+  $("#memResults").querySelectorAll("[data-chat]").forEach(el => el.onclick = () => openChat(+el.dataset.chat));
+}
+async function runTeam(task) {
+  const team = cfg.agents, states = {}, results = [];
+  chatId = (await P().log_message(chatId, "user", task)).chat_id;
+  const chips = document.createElement("div"); chips.className = "chips"; $("#chat").appendChild(chips);
+  const mark = (name, s) => { states[name] = s; renderTeam(states);
+    chips.innerHTML = team.map(a => `<span class="chip ${states[a.name] || ""}">${esc(a.name)}${states[a.name] === "ok" ? " fertig" : states[a.name] === "busy" ? " arbeitet" : ""}</span>`).join(""); };
+  const run = async (agent, prompt) => {
+    mark(agent.name, "busy"); status(agent.name + " arbeitet …");
+    try {
+      const r = await call("agent", {model: agent.model, role: agent.role, prompt, task, chat_id: chatId});
+      mark(agent.name, "ok"); toolNote(r.tools); addMsg(r.text, agent.name + " · " + shortName(r.model));
+      await P().log_message(chatId, "assistant", r.text, agent.name, r.model);
+      return r.text;
+    } catch (e) { mark(agent.name, "err"); throw e; }
+  };
+  const chef = team[0], workers = team.slice(1);
+  const plan = await run(chef, `Auftrag: ${task}\n\nDein Team: ${workers.map(w => w.name + " (" + w.role + ")").join("; ")}.\nSchreib einen kurzen Plan: Was soll jedes Teammitglied tun? Höchstens 6 Zeilen.`);
+  for (const w of workers) {
+    const prev = results.map(r => `--- ${r.name} ---\n${r.text}`).join("\n\n");
+    const text = await run(w, `Auftrag: ${task}\n\nPlan vom Chef:\n${plan}\n\n${prev ? "Bisherige Ergebnisse:\n" + prev + "\n\n" : ""}Erledige jetzt deinen Teil als ${w.name}. Fasse dich klar und nicht zu lang.`);
+    results.push({name: w.name, text});
+  }
+  const final = await run(chef, `Auftrag: ${task}\n\nErgebnisse des Teams:\n${results.map(r => `--- ${r.name} ---\n${r.text}`).join("\n\n")}\n\nFasse alles in einer klaren, freundlichen Antwort zusammen. Nenne am Ende die nächsten 3 Schritte.`);
+  speak(final);
+}
+const SUGGESTIONS = [
+  ["ti-book", "Bibelvers für heute", "Gib mir einen ermutigenden Bibelvers für heute und erkläre ihn kurz."],
+  ["ti-pencil", "Brief schreiben", "Hilf mir, einen freundlichen Brief zu schreiben. Frag mich zuerst, an wen und worum es geht."],
+  ["ti-eye", "Was ist auf meinem Bildschirm?", "__look__"],
+  ["ti-list-check", "Meinen Tag planen", "Hilf mir, meinen Tag zu planen. Frag mich, was heute ansteht."],
+];
+function greet() {
+  const h = new Date().getHours();
+  const tag = h < 11 ? "Guten Morgen" : h < 18 ? "Guten Tag" : "Guten Abend";
+  const name = userName();
+  const w = document.createElement("div"); w.className = "welcome";
+  if (!cfg.has_key) {
+    w.innerHTML = `<img src="assets/watson-logo.svg" alt=""><h2>Willkommen bei ${esc(botName())}</h2>
+      <div class="muted">Damit ich antworten kann, brauche ich einmal einen Schlüssel für die Gehirne. Das dauert 2 Minuten.</div>
+      <div class="row" style="margin-top:14px;justify-content:center"><button class="primary" id="goKey"><i class="ti ti-key"></i> Jetzt einrichten</button><button id="goHelp"><i class="ti ti-help-circle"></i> Anleitung</button></div>`;
+  } else {
+    w.innerHTML = `<img src="assets/watson-logo.svg" alt=""><h2>${tag}${name ? ", " + esc(name) : ""}</h2>
+      <div class="muted">Wobei kann ich dir heute helfen?</div>
+      <div class="sugg">${SUGGESTIONS.map((s, i) => `<button data-s="${i}"><i class="ti ${s[0]}"></i>${esc(s[1])}</button>`).join("")}</div>`;
+  }
+  $("#chat").innerHTML = ""; $("#chat").appendChild(w);
+  const gk = $("#goKey"); if (gk) gk.onclick = () => showTab("gehirne");
+  const gh = $("#goHelp"); if (gh) gh.onclick = () => showTab("hilfe");
+  w.querySelectorAll("[data-s]").forEach(b => b.onclick = () => {
+    const s = SUGGESTIONS[+b.dataset.s];
+    if (s[2] === "__look__") { send("text"); return; }
+    $("#input").value = s[2]; send(false);
+  });
+}
+function newChat() { chatId = null; teamMode = false; showTab("start"); greet(); renderChats(); $("#input").focus(); }
+function autoGrow() { const t = $("#input"); t.style.height = "42px"; t.style.height = Math.min(180, t.scrollHeight) + "px"; t.style.overflowY = t.scrollHeight > 180 ? "auto" : "hidden"; }
+function setupMic() {
+  $("#micBtn").onclick = async () => {
+    if (busy) return;
+    $("#micBtn").classList.add("on"); $("#micBtn").innerHTML = '<i class="ti ti-player-record"></i>'; status("🎙 Ich höre zu … (sprich jetzt)");
+    const r = await P().voice_listen();
+    $("#micBtn").classList.remove("on"); $("#micBtn").innerHTML = '<i class="ti ti-microphone"></i>';
+    if (r.error) { status(r.error); return; }
+    if (!r.text) { status("Ich habe nichts gehört."); return; }
+    fromVoice = true; $("#input").value = r.text; send(false);
+  };
+}
+// ---------- Aussehen ----------
+const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+function applyLook() {
+  const theme = cfg.theme || "system";
+  const dark = theme === "dunkel" || (theme === "system" && darkQuery.matches);
+  document.body.classList.toggle("dark", dark);
+  document.documentElement.style.setProperty("--accent", cfg.accent || "#185FA5");
+  $("#accentPick").value = cfg.accent || "#185FA5";
+  markTheme();
+}
+function markTheme() {
+  const t = cfg.theme || "system";
+  $("#themeLight").classList.toggle("on", t === "hell");
+  $("#themeDark").classList.toggle("on", t === "dunkel");
+  $("#themeSystem").classList.toggle("on", t === "system");
+}
+darkQuery.addEventListener("change", applyLook);
+
+async function init() {
+  try { setupPlusMenu(); } catch (e) { console.error("Plus-Menü:", e); }
+  cfg = await api("/api/config");
+  if (cfg.theme !== "hell" && cfg.theme !== "dunkel" && cfg.theme !== "system") cfg.theme = "system";
+  if (!cfg.accent || cfg.accent === "#378ADD") cfg.accent = "#185FA5";
+  applyLook();
+  if (cfg.ui_sprache === "en" && window.watsonSprache) window.watsonSprache("en");   // Menüs auf Englisch
+  try { models = await api("/api/models"); } catch (e) { status("Gehirn-Liste nicht ladbar – Internet?"); }
+  document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => showTab(b.dataset.tab));
+  document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => showTab(b.dataset.go));
+  $("#newChat").onclick = newChat;
+  $("#openTools").onclick = () => showTab("werkzeuge");
+  $("#openTeam").onclick = () => showTab("agenten");
+  $("#sendBtn").onclick = () => send(false);
+  $("#input").oninput = autoGrow;
+  $("#input").onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(false); } };
+  $("#keySave").onclick = async () => { const k = $("#keyInput").value.trim(); if (!k) { $("#keyState").textContent = "Bitte zuerst einen Schlüssel einfügen."; return; }
+    await save({api_key: k}); $("#keyInput").value = ""; cfg.has_key = true; $("#keyState").textContent = 'Gespeichert ✓ – geh jetzt auf „Gespräch“ und schreib etwas.'; chatId = null; greet(); };
+  $("#keyClear").onclick = async () => { if (!(await frage("Schlüssel entfernen?", "Ohne Schlüssel kann Watson nicht mehr antworten, bis du einen neuen einträgst."))) return;
+    await save({clear_key: true}); cfg.has_key = false; $("#keyState").textContent = "Schlüssel entfernt."; };
+  $("#keyState").textContent = cfg.has_key ? "Ein Schlüssel ist gespeichert ✓" : "Noch kein Schlüssel gespeichert.";
+  $("#rankAdd").onclick = () => { const r = cfg.rangliste = cfg.rangliste || []; r.push({model: "openrouter/free", rang: Math.min(99, (r.reduce((a, x) => Math.max(a, x.rang), 0) || 0) + 1)}); renderRank(); };
+  $("#rankSave").onclick = saveRank;
+  $("#gSave").onclick = saveBrains;
+  $("#gGratis").onchange = async () => { const want = $("#gGratis").checked; $("#gGratis").checked = !want; await setPayMode(want); };
+  $("#hFree").onchange = () => { cfg.hermes_gratis = $("#hFree").value; save({hermes_gratis: cfg.hermes_gratis}); $("#hState").textContent = "✓ gespeichert"; };
+  $("#hPaid").onchange = () => { cfg.hermes_bezahlt = $("#hPaid").value; save({hermes_bezahlt: cfg.hermes_bezahlt}); $("#hState").textContent = "✓ gespeichert"; };
+  let gTimer;
+  $("#gRat").oninput = () => { cfg.rat_anzahl = Math.max(0, Math.min(199, parseInt($("#gRat").value) || 0)); clearTimeout(gTimer); gTimer = setTimeout(renderSlots, 400); };
+  $("#g1Sel").onchange = () => { cfg.model = $("#g1Sel").value; save({model: cfg.model}); $("#gState").textContent = "✓ Gehirn 1: " + shortName(cfg.model); };
+  $("#rankUse").onclick = async () => { await saveRank(); cfg.model = RANK_ID; await save({model: RANK_ID}); showTab("gehirne"); $("#rankState").textContent = "✓ Watson benutzt jetzt die Rangliste"; };
+  $("#creditRefresh").onclick = renderCredit;
+  $("#agentAdd").onclick = () => { cfg.agents.splice(cfg.agents.length - 1, 0, {name: "Neuer Agent", model: "openrouter/free", role: "Beschreibe hier die Aufgabe dieses Agenten."}); renderAgentEditor(); };
+  $("#agentSave").onclick = async () => { await save({agents: cfg.agents}); renderTeam(); $("#agentState").textContent = "Gespeichert ✓"; };
+  $("#cSave").onclick = saveCharakter;
+  $("#kAdd").onclick = async () => {
+    const name = $("#kNewName").value.trim(), val = $("#kNewVal").value;
+    if (!name || !val.trim()) { $("#kState").textContent = "Bitte Name und Schlüssel eingeben."; return; }
+    const r = await P().key_set("", val, name);
+    if (r.error) { $("#kState").textContent = r.error; return; }
+    $("#kNewName").value = ""; $("#kNewVal").value = ""; $("#kState").textContent = "✓ Sicher im Tresor gespeichert"; renderKeys();
+  };
+  $("#voiceOn").checked = cfg.voice; $("#voiceOn").onchange = e => { cfg.voice = e.target.checked; save({voice: cfg.voice}); };
+  $("#voiceSel").onchange = () => { try { localStorage.setItem("voiceName", voices[+$("#voiceSel").value]?.name || ""); } catch (e) {} };
+  const curVoice = cfg.tts_engine === "windows" ? "windows" : (cfg.piper_voice || "thorsten");
+  $("#piperVoice").value = curVoice;
+  $("#winVoiceRow").style.display = curVoice === "windows" ? "" : "none";
+  $("#vsHint").style.display = curVoice.startsWith("vs:") ? "" : "none";
+  $("#ovHint").style.display = curVoice.startsWith("ov:") ? "" : "none";
+  $("#piperVoice").onchange = e => {
+    const v = e.target.value;
+    $("#vsHint").style.display = v.startsWith("vs:") ? "" : "none";
+    $("#ovHint").style.display = v.startsWith("ov:") ? "" : "none";
+    cfg.tts_engine = v === "windows" ? "windows" : "piper";
+    if (v !== "windows") cfg.piper_voice = v;
+    $("#winVoiceRow").style.display = v === "windows" ? "" : "none";
+    save({tts_engine: cfg.tts_engine, piper_voice: cfg.piper_voice || "thorsten"});
+  };
+  $("#voiceTest").onclick = () => speak(`Hallo${userName() ? " " + userName() : ""}, ich bin ${botName()}. So klinge ich.`, true);
+  P().voice_status().then(v => {
+    $("#wakeOn").checked = v.wake;
+    if (!v.available) { $("#wakeState").textContent = "Stimme nicht verfügbar"; $("#wakeOn").disabled = true; }
+  });
+  $("#wakeOn").onchange = async e => { const r = await P().voice_wake(e.target.checked); if (r.error) { status(r.error); e.target.checked = false; } };
+  // Eigene Stimme: Gerätetest (Schätzung) -> Echttest (echte Messung) -> Vorrat an Kurzsätzen
+  const zeigeTest = e => {
+    const zeichen = {true: "✔", false: "✘", null: "•"};
+    const weg = {gut: "\n➡ Weiter mit Weg A in der Anleitung.", mittel: "\n➡ Weiter mit Weg B in der Anleitung.",
+                 nein: "\n➡ Weg C in der Anleitung: Thorsten/Kerstin nutzen."}[e.stufe] || "";
+    $("#geraetErgebnis").textContent = [e.titel, ...(e.punkte || []).map(p => `  ${zeichen[p[0]]} ${p[1]}`),
+      e.hinweis ? "\n" + e.hinweis : ""].join("\n") + weg;
+  };
+  const testKnopf = (id, fn, warte) => $(id).onclick = async () => {
+    $(id).disabled = true; $("#geraetErgebnis").textContent = warte;
+    try { zeigeTest(await fn()); } catch (err) { $("#geraetErgebnis").textContent = "Fehler: " + err; }
+    $(id).disabled = false;
+  };
+  testKnopf("#geraetBtn", () => P().geraet_pruefen(), "Ich prüfe dein Gerät … (etwa 10 Sekunden)");
+  testKnopf("#echtBtn", () => P().geraet_echttest(), "Ich rechne einen echten Satz mit deiner Stimme … (beim ersten Mal bis 2 Minuten)");
+  let vorratUhr = null;
+  const vorratZeigen = async () => {
+    const s = await P().vorrat_status();
+    $("#vorratStand").textContent = `Vorrat: ${s.anzahl} Kurzsätze fertig.` + (s.laeuft ? ` Läuft gerade … ${s.zeile}` : (s.zeile.startsWith("FERTIG") ? " " + s.zeile : ""));
+    if (!s.laeuft && vorratUhr) { clearInterval(vorratUhr); vorratUhr = null; }
+    return s;
+  };
+  $("#vorratBtn").onclick = async () => {
+    if (!(await frage("Vorrat erzeugen?", "Watson erzeugt jetzt die Kurzsätze mit deiner Stimme und prüft jeden selbst. Das dauert etwa 30–40 Minuten, der Computer kann dabei normal weiterlaufen. Starten?"))) return;
+    await P().vorrat_erzeugen(); vorratZeigen(); if (!vorratUhr) vorratUhr = setInterval(vorratZeigen, 5000);
+  };
+  $("#anleitungBtn").onclick = async () => {
+    const box = $("#anleitungBox");
+    if (box.style.display !== "none") { box.style.display = "none"; return; }
+    try {
+      const r = await P().anleitung_text();
+      box.innerHTML = r.error ? esc(r.error) : mdSeite(r.text);
+      box.style.display = ""; box.scrollIntoView({behavior: "smooth", block: "start"});
+    } catch (err) { $("#geraetErgebnis").textContent = "Anleitung konnte nicht geladen werden: " + err; }
+  };
+  vorratZeigen().then(s => { if (s.laeuft && !vorratUhr) vorratUhr = setInterval(vorratZeigen, 5000); });
+  speechSynthesis.onvoiceschanged = loadVoices; loadVoices();
+  $("#memOn").checked = cfg.use_memory; $("#memOn").onchange = e => { cfg.use_memory = e.target.checked; save({use_memory: cfg.use_memory}); };
+  $("#autoOn").checked = cfg.auto_remember !== false; $("#autoOn").onchange = e => { cfg.auto_remember = e.target.checked; save({auto_remember: cfg.auto_remember}); };
+  $("#memSearchBtn").onclick = memSearch; $("#memSearch").onkeydown = e => { if (e.key === "Enter") memSearch(); };
+  $("#factAdd").onclick = async () => { const t = $("#factNew").value.trim(); if (!t) return; await P().add_fact(t); $("#factNew").value = ""; renderFacts(); };
+  $("#toolsOn").checked = cfg.use_tools !== false; $("#toolsOn").onchange = e => { cfg.use_tools = e.target.checked; save({use_tools: cfg.use_tools}); };
+  $("#systemOn").checked = !!cfg.use_system;
+  $("#systemOn").onchange = async e => {
+    if (e.target.checked && !(await frage("System-Werkzeuge erlauben?", "Watson darf dann Windows-Informationen abfragen und einzelne PowerShell-Befehle ausführen.\n\nVor JEDER Nutzung fragt er dich und erklärt, was er tun will. Gefährliche Befehle bleiben gesperrt.", {ja: "Erlauben", nein: "Abbrechen", art: "warnung"}))) { e.target.checked = false; return; }
+    cfg.use_system = e.target.checked; save({use_system: cfg.use_system});
+  };
+  $("#handsOn").checked = cfg.use_hands !== false; $("#handsOn").onchange = e => { cfg.use_hands = e.target.checked; save({use_hands: cfg.use_hands}); };
+  vertrauenZeigen();
+  wachstumKnoepfe();
+  handyKnoepfe();
+  $("#vtBerichtBtn").onclick = async () => {
+    const box = $("#vtBericht");
+    if (box.style.display !== "none") { box.style.display = "none"; return; }
+    const r = await P().vertrauen_bericht();
+    box.innerHTML = !r.auftraege.length ? "<span class='muted'>Heute hat Watson noch nichts am Computer getan.</span>" :
+      r.auftraege.map(a => `<div class="vtBerichtEintrag"><b>${esc(a.zeit)}</b> · ${esc(a.auftrag)} <span class="muted">(Stufe ${a.stufe})</span> ${a.erfolgreich ? "✅" : (a.gestoppt ? "■ gestoppt" : "⚠")}` +
+        `<ul>${a.schritte.map(s => `<li>${esc(s)}</li>`).join("")}</ul></div>`).join("");
+    box.style.display = "";
+  };
+  $("#logOpen").onclick = () => P().open_log();
+  $("#backupOpen").onclick = () => P().backup_open();
+  $("#backupNow").onclick = async () => {
+    $("#backupState").textContent = "Sichere … (bis zu 1 Minute)";
+    const r = await P().backup_now();
+    if (r.error) { $("#backupState").textContent = r.error; return; }
+    $("#backupState").textContent = `Gesichert ✓ ${r.zeit} · ${r.groesse_kb} KB · ${r.geprueft ? "geprüft ✓" : "⚠ Prüfung fehlgeschlagen"}`;
+  };
+  $("#n8nOpen").onclick = async () => { $("#n8nState").textContent = "Öffne die Werkstatt … (beim ersten Mal bis zu 1 Minute)"; const r = await P().n8n_open(); if (r.error) $("#n8nState").textContent = r.error; else renderFlows(); };
+  $("#n8nStart").onclick = async () => { $("#n8nState").textContent = "Starte … (bis zu 1 Minute)"; await P().n8n_start(); renderFlows(); };
+  $("#n8nKeyState").textContent = cfg.has_n8n_key ? "Ein n8n-Schlüssel ist gespeichert ✓" : "Noch kein n8n-Schlüssel gespeichert.";
+  $("#n8nKeySave").onclick = async () => {
+    const k = $("#n8nKey").value.trim();
+    if (!k) { $("#n8nKeyState").textContent = "Bitte zuerst den Schlüssel einfügen."; return; }
+    await save({n8n_api_key: k}); $("#n8nKey").value = ""; cfg.has_n8n_key = true;
+    $("#n8nKeyState").textContent = "Gespeichert ✓ – verbinde …";
+    await P().mcp_reload(); $("#n8nKeyState").textContent = "Gespeichert ✓"; };
+  $("#flowAdd").onclick = async () => {
+    const name = $("#flowName").value.trim(), pfad = $("#flowPath").value.trim();
+    if (!name || !pfad) { $("#n8nState").textContent = "Bitte Name und Pfad eintragen."; return; }
+    cfg.ablaeufe = [...(cfg.ablaeufe || []), {name, pfad, beschreibung: $("#flowDesc").value.trim()}];
+    await save({ablaeufe: cfg.ablaeufe}); $("#flowName").value = $("#flowPath").value = $("#flowDesc").value = ""; renderFlows(); };
+  renderFlowSide();
+  showTrust();
+  $("#stopBtn").onclick = () => { P().stop(); P().voice_stop(); status(botName() + " hält an …"); };
+  $("#mcpOpen").onclick = () => P().mcp_open_config();
+  // ---------- MCP-Werkzeuge online suchen ----------
+  let mcpWeiter = null, mcpBegriff = "";
+  const ART = {npm: "📦 Programm-Paket", python: "🐍 Python", docker: "🐳 Docker", online: "🌐 Online-Dienst", "?": "❔ unbekannt"};
+  const mcpKarte = t => {
+    const d = document.createElement("div"); d.className = "hit";
+    d.innerHTML = `<div class="row" style="align-items:flex-start"><span style="flex:1;min-width:220px">
+        <b></b> <span class="muted small">· ${esc(ART[t.art] || t.art)}${t.version ? " · v" + esc(t.version) : ""}${t.datum ? " · " + esc(t.datum) : ""}</span>
+        <div class="small bs" style="margin-top:3px"></div>
+        <div class="muted small" style="margin-top:3px">${esc(t.id)}${t.quelle ? ` · <a href="${esc(t.quelle)}" target="_blank">Quellcode</a>` : ""}${t.webseite ? ` · <a href="${esc(t.webseite)}" target="_blank">Webseite</a>` : ""}</div>
+        <div class="small msg2" style="margin-top:4px"></div></span>
+        <span class="knopf"></span></div>`;
+    d.querySelector("b").textContent = t.titel; d.querySelector(".bs").textContent = t.beschreibung || "(keine Beschreibung)";
+    const k = d.querySelector(".knopf"), m = d.querySelector(".msg2");
+    if (t.drin) k.innerHTML = `<span class="small" style="color:var(--ok)">✓ steckt schon drin</span>`;
+    else if (t.einsteckbar) {
+      k.innerHTML = `<button><i class="ti ti-plug"></i> Einstecken</button>`;
+      if ((t.schluessel || []).length) m.innerHTML = `<span class="muted">🔑 Braucht einen Schlüssel: ${t.schluessel.map(s => esc(s.env)).join(", ")}</span>`;
+      k.querySelector("button").onclick = async () => {
+        const ok = await frage("🔌 Werkzeug einstecken?",
+          `„${t.titel}“ kommt von einem fremden Anbieter (${t.id}), nicht von Watson.\n\nEhrlich gesagt: Das MCP-Verzeichnis prüft Werkzeuge nicht auf Qualität oder Sicherheit. ` +
+          (t.art === "online" ? `Das ist ein Online-Dienst: Was Watson diesem Werkzeug schickt, geht an den Anbieter im Internet. Manche Dienste verlangen außerdem eine Anmeldung, die Watson noch nicht kann – dann zeigt die Liste oben einen Fehler.` : `Das Werkzeug wird beim ersten Start aus dem Internet geladen und läuft auf diesem Computer.`) +
+          `\n\nWatson fragt vor JEDER Benutzung um Erlaubnis. Steck es nur ein, wenn du dem Anbieter vertraust – schau dir im Zweifel vorher den Quellcode oder die Webseite an.` + ((t.schluessel || []).length ? `\n\nDanach brauchst du noch einen Schlüssel vom Anbieter: ${t.schluessel.map(s => s.env).join(", ")}.` : ""),
+          {ja: "Einstecken", nein: "Lieber nicht", art: "warnung"});
+        if (!ok) return;
+        k.innerHTML = `<span class="muted small">⏳ Stecke ein …</span>`;
+        const r = await P().mcp_einstecken(t.id);
+        if (r.error) { k.innerHTML = ""; m.innerHTML = `<span style="color:var(--err)">${esc(r.error)}</span>`; return; }
+        k.innerHTML = `<span class="small" style="color:var(--ok)">✓ eingesteckt</span>`;
+        m.innerHTML = `✓ Eingesteckt als „${esc(r.name)}“. ` + (t.art === "online" ? "Watson verbindet sich jetzt mit dem Dienst – in ca. 30 Sekunden siehst du oben, ob es geklappt hat." : "Beim ersten Mal wird das Werkzeug aus dem Internet geladen – das kann eine Minute dauern.") + ` Es fragt vor jeder Benutzung.` +
+          ((r.schluessel || []).length ? `<br>🔑 <b>Noch nötig:</b> Trag deinen Schlüssel unter <b>Einstellungen → Schlüsseltresor</b> bei „${esc(r.name)}: ${r.schluessel.map(s => esc(s.env)).join("“, „")}“ ein und drück dann hier auf „Neu verbinden“.` : "");
+        setTimeout(async () => renderTools(await P().mcp_status()), 25000);
+      };
+    } else m.innerHTML = `<span class="muted">ℹ️ ${esc(t.grund || "Kann nicht automatisch eingesteckt werden.")}</span>`;
+    return d;
+  };
+  const mcpSuchen = async (mehr = false) => {
+    const begriff = mehr ? mcpBegriff : $("#mcpSuchFeld").value.trim();
+    if (!begriff) { $("#mcpSuchInfo").textContent = "Bitte gib einen Suchbegriff ein."; return; }
+    if (!mehr) { mcpBegriff = begriff; mcpWeiter = null; $("#mcpTreffer").innerHTML = ""; }
+    $("#mcpSuchInfo").textContent = "🔎 Suche im MCP-Verzeichnis …"; $("#mcpSuchBtn").disabled = $("#mcpMehr").disabled = true;
+    try {
+      const r = await P().mcp_suchen(begriff, mehr ? mcpWeiter : null);
+      if (r.error) { $("#mcpSuchInfo").textContent = r.error; return; }
+      r.treffer.forEach(t => $("#mcpTreffer").appendChild(mcpKarte(t)));
+      const n = $("#mcpTreffer").children.length;
+      $("#mcpSuchInfo").textContent = (r.uebersetzt ? r.uebersetzt + " " : "") + (n ? `${n} Werkzeuge gefunden.` : "Nichts gefunden – versuch einen anderen (englischen) Begriff.");
+      mcpWeiter = r.weiter || null; $("#mcpMehr").style.display = mcpWeiter && r.treffer.length ? "" : "none";
+    } catch (e) { $("#mcpSuchInfo").textContent = "Suche fehlgeschlagen: " + e; }
+    finally { $("#mcpSuchBtn").disabled = $("#mcpMehr").disabled = false; }
+  };
+  $("#mcpSuchBtn").onclick = () => mcpSuchen(false);
+  $("#mcpSuchFeld").onkeydown = e => { if (e.key === "Enter") mcpSuchen(false); };
+  $("#mcpMehr").onclick = () => mcpSuchen(true);
+  $("#mcpReload").onclick = async () => { $("#toolsCount").textContent = "Verbinde …"; renderTools(await P().mcp_reload()); };
+
+  // ---- Skills-Seite ----
+  let skillBegriff = "", skillWeiter = null;
+  const skillKarte = t => {
+    const d = document.createElement("div");
+    d.className = "card";
+    d.style.cssText = "display:flex;flex-direction:column;gap:8px";
+    const kopf = document.createElement("div");
+    kopf.style.cssText = "display:flex;align-items:flex-start;gap:10px";
+    kopf.innerHTML = `<div style="flex:1"><b style="font-size:1.05em">${esc(t.titel)}</b>` +
+      (t.datum ? `<span class="muted small" style="margin-left:8px">${esc(t.datum)}</span>` : "") +
+      `<div class="muted small" style="margin-top:3px">${esc(t.beschreibung)}</div></div>` +
+      `<div class="knopf" style="flex-shrink:0"></div>`;
+    d.appendChild(kopf);
+    const msg = document.createElement("div");
+    msg.className = "msg2 small";
+    d.appendChild(msg);
+    if (t.quelle || t.webseite) {
+      const links = document.createElement("div");
+      links.className = "muted small";
+      if (t.quelle) links.innerHTML += `<a href="${esc(t.quelle)}" target="_blank">GitHub</a> `;
+      if (t.webseite) links.innerHTML += `<a href="${esc(t.webseite)}" target="_blank">Webseite</a>`;
+      d.appendChild(links);
+    }
+    const k = kopf.querySelector(".knopf");
+    if (t.drin) {
+      k.innerHTML = `<span class="small" style="color:var(--ok);white-space:nowrap">✓ Schon dabei</span>`;
+    } else if (t.einsteckbar) {
+      const btn = document.createElement("button");
+      btn.className = "primary";
+      btn.style.cssText = "white-space:nowrap;padding:6px 16px";
+      btn.innerHTML = `<i class="ti ti-plus"></i> Hinzufügen`;
+      if ((t.schluessel || []).length) msg.innerHTML = `<span class="muted">🔑 Braucht einen Zugangscode: ${t.schluessel.map(s => esc(s.env)).join(", ")}</span>`;
+      btn.onclick = async () => {
+        const ok = await frage("Skill hinzufügen?",
+          `„${t.titel}" kommt von einem fremden Anbieter. Watson fragt dich vor JEDER Benutzung um Erlaubnis.` +
+          (t.art === "online" ? " Das ist ein Online-Dienst: Deine Anfragen gehen an den Anbieter im Internet." : " Das Programm wird beim ersten Start aus dem Internet geladen.") +
+          ((t.schluessel || []).length ? `\n\nDu brauchst danach noch einen Zugangscode vom Anbieter (${t.schluessel.map(s => s.env).join(", ")}).` : ""),
+          {ja: "Hinzufügen", nein: "Abbrechen", art: "warnung"});
+        if (!ok) return;
+        btn.disabled = true; btn.textContent = "⏳ Wird hinzugefügt …";
+        const r = await P().mcp_einstecken(t.id);
+        if (r.error) { btn.disabled = false; btn.innerHTML = `<i class="ti ti-plus"></i> Hinzufügen`; msg.innerHTML = `<span style="color:var(--err)">${esc(r.error)}</span>`; return; }
+        k.innerHTML = `<span class="small" style="color:var(--ok);white-space:nowrap">✓ Hinzugefügt!</span>`;
+        msg.innerHTML = `Watson kann den Skill jetzt benutzen.` + ((r.schluessel || []).length ? ` Trag deinen Zugangscode unter <b>Einstellungen → Schlüsseltresor</b> ein.` : "");
+        setTimeout(async () => P().mcp_reload(), 5000);
+      };
+      k.appendChild(btn);
+    } else {
+      k.innerHTML = `<span class="muted small">Noch nicht automatisch hinzufügbar</span>`;
+      if (t.grund) msg.innerHTML = `<span class="muted">${esc(t.grund)}</span>`;
+    }
+    return d;
+  };
+  const skillSuchen = async (mehr = false) => {
+    const begriff = mehr ? skillBegriff : $("#skillSuchFeld").value.trim();
+    if (!begriff) { $("#skillSuchInfo").textContent = "Gib ein Wort ein, was Watson können soll."; return; }
+    if (!mehr) { skillBegriff = begriff; skillWeiter = null; $("#skillTreffer").innerHTML = ""; }
+    $("#skillSuchInfo").textContent = "🔎 Suche …"; $("#skillSuchBtn").disabled = $("#skillMehr").disabled = true;
+    try {
+      const r = await P().mcp_suchen(begriff, mehr ? skillWeiter : null);
+      if (r.error) { $("#skillSuchInfo").textContent = r.error; return; }
+      r.treffer.forEach(t => $("#skillTreffer").appendChild(skillKarte(t)));
+      const n = $("#skillTreffer").children.length;
+      $("#skillSuchInfo").textContent = (r.uebersetzt ? r.uebersetzt + " " : "") +
+        (n ? `${n} Skills gefunden.` : "Nichts gefunden – versuch ein anderes Wort (z. B. auf Englisch: weather, calendar, pdf).");
+      skillWeiter = r.weiter || null;
+      $("#skillMehr").style.display = skillWeiter && r.treffer.length ? "" : "none";
+    } catch(e) { $("#skillSuchInfo").textContent = "Suche fehlgeschlagen: " + e; }
+    finally { $("#skillSuchBtn").disabled = $("#skillMehr").disabled = false; }
+  };
+  $("#skillSuchBtn").onclick = () => skillSuchen(false);
+  $("#skillSuchFeld").onkeydown = e => { if (e.key === "Enter") skillSuchen(false); };
+  $("#skillMehr").onclick = () => skillSuchen(true);
+
+  const setTheme = t => { cfg.theme = t; applyLook(); save({theme: t}); };
+  $("#themeLight").onclick = () => setTheme("hell");
+  $("#themeDark").onclick = () => setTheme("dunkel");
+  $("#themeSystem").onclick = () => setTheme("system");
+  $("#accentPick").oninput = e => { cfg.accent = e.target.value; applyLook(); };
+  $("#accentPick").onchange = () => save({accent: cfg.accent});
+  $("#accentReset").onclick = () => { cfg.accent = "#185FA5"; applyLook(); save({accent: cfg.accent}); };
+  // ---- Autostart ----
+  P().autostart_status().then(r => {
+    const cb = $("#autostartOn");
+    if (cb) {
+      cb.checked = !!r.aktiv;
+      cb.onchange = async () => {
+        const res = await P().autostart_setzen(cb.checked);
+        const info = $("#autostartInfo");
+        if (res.error) { cb.checked = !cb.checked; if(info) info.textContent = "Fehler: " + res.error; }
+        else if(info) info.textContent = cb.checked ? "✓ Watson startet beim nächsten Hochfahren automatisch." : "Watson startet nicht mehr automatisch.";
+      };
+    }
+  });
+
+  // ---- E-Mail Einstellungen ----
+  P().mail_einstellungen_holen().then(r => {
+    if (!r) return;
+    if (r.adresse)   { const el = $("#mailAdresse"); if(el) el.value = r.adresse; }
+    if (r.imap_host) { const el = $("#mailImap");    if(el) el.value = r.imap_host; }
+    if (r.smtp_host) { const el = $("#mailSmtp");    if(el) el.value = r.smtp_host; }
+  }).catch(()=>{});
+  const mailSpeichernBtn = $("#mailSpeichern");
+  if (mailSpeichernBtn) mailSpeichernBtn.onclick = async () => {
+    const adresse = ($("#mailAdresse")||{}).value||"";
+    const passwort = ($("#mailPasswort")||{}).value||"";
+    const imap = ($("#mailImap")||{}).value||"";
+    const smtp = ($("#mailSmtp")||{}).value||"";
+    const info = $("#mailInfo");
+    if (!adresse||!imap||!smtp) { if(info) info.textContent = "Bitte alle Felder ausfüllen."; return; }
+    if(info) info.textContent = "Speichere …";
+    const r = await P().mail_einstellungen_setzen(adresse, imap, smtp, passwort);
+    if(info) info.textContent = r.ok ? "✓ Gespeichert – Watson kann jetzt deine Mails lesen und schreiben." : "Fehler: "+(r.error||"?");
+  };
+
+  // ---- Dokument einlesen ----
+  $("#docBtn").onclick = dateienEinlesen;
+
+  // ---- Morgengruß ----
+  const jetzt = new Date().getHours();
+  if (jetzt >= 5 && jetzt < 11) {
+    P().morgengruss().then(r => {
+      if (!r || !r.datum) return;
+      let txt = `Guten Morgen, ${(cfg.charakter && cfg.charakter.nutzer) || ""}! 🌅 Heute ist ${r.datum}.`.replace(", !", "!");
+      if (r.offen && r.offen.length) txt += `\n\nNoch offen von gestern:\n` + r.offen.map(o => `• ${o}`).join("\n");
+      addMsg(txt, "assistant");
+    });
+  }
+
+  renderChats();
+  setupMic(); setupGespraech(); renderTeam(); showTab("start"); greet();
+
+}
+
+// ================= Plus-Menü (wie in Claude) =================
+// Unabhängig vom restlichen Start eingerichtet – damit es auch funktioniert, wenn beim Laden etwas anderes hakt.
+// Dateien über den echten Windows-Dialog wählen (der Browser in Watson kennt keine vollen Pfade)
+async function dateienEinlesen() {
+  const w = await P().dateien_waehlen();
+  const liste = (w && w.pfade) || [];
+  if (!liste.length) { status("📄 Keine Datei ausgewählt."); return; }
+  const teile = [], namen = [];
+  for (const pfad of liste) {
+    const name = pfad.split("\\").pop();
+    status(`📄 Lese „${name}“ …`);
+    const r = await P().dokument_lesen(pfad);
+    if (r.error) { status(`❌ ${name}: ${r.error}`); continue; }
+    namen.push(r.name); teile.push(`--- ${r.name} ---\n${r.text}`);
+  }
+  if (!namen.length) return;
+  aktivDokument = {name: namen.join(", "), text: teile.join("\n\n").slice(0, 40000)};
+  status(`📄 ${namen.length === 1 ? "„" + namen[0] + "“ eingelesen" : namen.length + " Dateien eingelesen"} – stell Watson jetzt eine Frage dazu.`);
+  $("#input").placeholder = `Frag mich etwas zu „${aktivDokument.name}“ …`;
+  $("#input").focus();
+}
+
+let plusMenuBereit = false;
+function setupPlusMenu() {
+  if (plusMenuBereit) return; plusMenuBereit = true;
+  const plusBtn = $("#plusBtn"), plusMenu = $("#plusMenu");
+  plusBtn.onclick = e => { e.stopPropagation(); plusMenu.classList.toggle("open"); };
+  document.addEventListener("click", () => plusMenu.classList.remove("open"));
+  plusMenu.addEventListener("click", e => e.stopPropagation());
+
+  // Tastenkürzel Strg+U
+  document.addEventListener("keydown", e => { if (e.ctrlKey && (e.key === "u" || e.key === "U")) { e.preventDefault(); plusMenu.classList.remove("open"); dateienEinlesen(); } });
+
+  // 1. Dateien hochladen
+  $("#pmDatei").onclick = () => { plusMenu.classList.remove("open"); dateienEinlesen(); };
+
+  // 2. Google Drive (noch nicht verbunden → Hinweis)
+  $("#pmDrive").onclick = () => {
+    plusMenu.classList.remove("open");
+    status("☁️ Google Drive ist noch nicht verbunden. Verbinde es unter Einstellungen → Konnektoren.");
+  };
+
+  // 3. Ordner hinzufügen → Windows-Ordnerauswahl, Watson liest die Dokumente darin
+  $("#pmOrdner").onclick = async () => {
+    plusMenu.classList.remove("open");
+    status("📁 Ordner wählen …");
+    const r = await P().ordner_oeffnen();
+    if (!r || !r.pfad) { status("📁 Kein Ordner ausgewählt."); return; }
+    if (r.error) { status("❌ " + r.error); return; }
+    aktivDokument = {name: "Ordner " + r.name, text: r.text};
+    status(`📁 Ordner „${r.name}“ hinzugefügt (${r.anzahl} Dateien gelesen) – stell Watson jetzt eine Frage dazu.`);
+    $("#input").placeholder = `Frag mich etwas zum Ordner „${r.name}“ …`;
+    $("#input").focus();
+  };
+
+  // 4. Skill aufnehmen → Skills-Seite
+  $("#pmSkillAufnehmen").onclick = () => { plusMenu.classList.remove("open"); showTab("skills"); status("🎬 Du kannst Watson hier neue Skills beibringen."); };
+
+
+  // 6. Konnektoren → Einstellungen (Werkzeuge)
+  $("#pmKonnektoren").onclick = () => { plusMenu.classList.remove("open"); showTab("werkzeuge"); };
+
+  // 7. Designsystem → Einstellungen
+  $("#pmDesign").onclick = () => { plusMenu.classList.remove("open"); showTab("einstellungen"); status("🎨 Designsystem-Einstellungen findest du unter Einstellungen."); };
+
+  // 8. Plugins
+  $("#pmPlugins").onclick = () => { plusMenu.classList.remove("open"); showTab("skills"); status("🔌 Plugins hinzufügen: Such einen Skill und füge ihn hinzu."); };
+
+  // 9. Recherche
+  $("#pmRecherche").onclick = () => { plusMenu.classList.remove("open"); $("#input").value = "Recherchiere für mich: "; $("#input").focus(); $("#input").setSelectionRange(999,999); };
+}
+if (window.pywebview && window.pywebview.api) init();
+else window.addEventListener("pywebviewready", init);
+</script>
+</body>
+</html>

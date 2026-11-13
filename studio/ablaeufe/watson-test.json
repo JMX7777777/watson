@@ -1,0 +1,39 @@
+{
+  "id": "WatsonTest0000001",
+  "name": "Watson Test",
+  "active": true,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "watson-test",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "6f0f6f1a-1111-4a6b-9a8e-0a0a0a0a0001",
+      "name": "Watson klingelt",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "6f0f6f1a-2222-4a6b-9a8e-0a0a0a0a0002"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ nachricht: 'Hallo! Dein erster n8n-Ablauf funktioniert.', zeit: $now.setZone('Europe/Berlin').toFormat('dd.MM.yyyy HH:mm'), empfangen: $json.body }) }}",
+        "options": {}
+      },
+      "id": "6f0f6f1a-3333-4a6b-9a8e-0a0a0a0a0003",
+      "name": "Antwort an Watson",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [300, 0]
+    }
+  ],
+  "connections": {
+    "Watson klingelt": {
+      "main": [[{ "node": "Antwort an Watson", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" }
+}

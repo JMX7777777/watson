@@ -1,0 +1,37 @@
+# Never upload personal data, environments or build output
+.venv/
+__pycache__/
+*.pyc
+.webview/
+browser-profil/
+mcp-pakete/
+node_modules/
+installer/bau/
+installer/Ausgabe/
+installer/payload.zip
+
+# Personal data (in case it ever lands in this folder)
+einstellungen.json
+watson.db*
+*.log
+mcp.json
+handy_*.json
+handy_zuletzt.txt
+lernbuch.json
+wissensbuch.json
+wachstum.json
+reparaturen.json
+vertrauen.json
+dirigent_extra.json
+rezepte.json
+fehler.jsonl
+stimmen/
+stimm-training/
+hermes-austausch/
+code-sicherungen/
+gedaechtnis/
+ablage/
+*.wav
+*.m4a
+*.mp3
+CLAUDE.md

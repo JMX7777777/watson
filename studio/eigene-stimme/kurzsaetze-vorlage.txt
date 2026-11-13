@@ -1,0 +1,53 @@
+# Vorlage: Watsons Vorrat an kurzen Sätzen (eigene Stimme).
+# Jede Zeile = ein Satz. Zeilen mit # werden ignoriert.
+# Neue Sätze einfach hinzufügen und vorrat_erzeugen.py laufen lassen.
+Gern geschehen, {NAME}.
+Gern geschehen.
+Bitte schön.
+Danke, {NAME}.
+Vielen Dank.
+Guten Morgen, {NAME}.
+Guten Tag, {NAME}.
+Guten Abend, {NAME}.
+Gute Nacht, {NAME}.
+Schlaf gut, {NAME}.
+Hallo, {NAME}.
+Ja.
+Nein.
+Ja, gerne.
+Ja, natürlich.
+Alles klar.
+In Ordnung.
+Okay.
+Verstanden.
+Erledigt.
+Fertig.
+Gemacht.
+Einen Moment bitte.
+Einen Moment, ich schaue nach.
+Ich bin hier.
+Ich höre.
+Ja, {NAME}?
+Wie kann ich helfen?
+Was kann ich für dich tun?
+Das habe ich nicht verstanden.
+Kannst du das bitte wiederholen?
+Wie bitte?
+Das weiß ich leider nicht.
+Ich bin mir nicht sicher.
+Das tut mir leid.
+Entschuldigung.
+Kein Problem.
+Gute Idee.
+Sehr gut.
+Das freut mich.
+Bis später, {NAME}.
+Bis morgen, {NAME}.
+Tschüss, {NAME}.
+Ich denke kurz nach.
+Ich bin gleich fertig.
+Das hat leider nicht geklappt.
+Ich versuche es noch einmal.
+Soll ich das machen?
+Möchtest du das?
+Ist gut.
