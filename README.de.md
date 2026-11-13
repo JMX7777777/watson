@@ -24,13 +24,18 @@ Er hört zu, spricht, merkt sich Dinge für dich, kann deinen Bildschirm lesen u
 
 ## Installation
 
-1. Installer bauen: `installer\bauen.ps1` in PowerShell ausführen (erzeugt `installer\Ausgabe\Watson-Setup.exe`).
-2. `Watson-Setup.exe` starten. Administrator-Rechte sind nicht nötig. Der Einrichtungs-Assistent fragt, wo du wohnst,
-   welche Sprache Watson sprechen soll, deinen Namen und welche Grundlage Watson haben soll, zeigt einen
-   Datenschutz-Hinweis und installiert dann alles (meist wenige Minuten, mit Zeitanzeige).
-3. Beim ersten Start hilft Watson dir, einen kostenlosen OpenRouter-Schlüssel anzulegen (etwa 2 Minuten).
+1. **Herunterladen:** `Watson-Setup.exe` aus der neuesten Version:
+   **[Releases → neueste Version](../../releases/latest)**
+2. `Watson-Setup.exe` starten. Windows SmartScreen zeigt eventuell *„Der Computer wurde durch Windows geschützt“*,
+   weil der Installer nicht digital signiert ist – dann auf **Weitere Informationen → Trotzdem ausführen** klicken.
+3. Administrator-Rechte sind nicht nötig. Der Einrichtungs-Assistent fragt, wo du wohnst, welche Sprache Watson
+   sprechen soll, deinen Namen und welche Grundlage Watson haben soll, zeigt einen Datenschutz-Hinweis und
+   installiert dann alles (meist wenige Minuten, mit Zeitanzeige). Internet ist dabei nötig.
+4. Beim ersten Start hilft Watson dir, einen kostenlosen OpenRouter-Schlüssel anzulegen (etwa 2 Minuten).
 
-Windows warnt eventuell vor einem unbekannten Herausgeber, weil der Installer nicht digital signiert ist.
+Voraussetzungen: Windows 10 oder 11 (64 Bit), etwa 3 GB freier Speicher, Mikrofon und Lautsprecher für die Stimme.
+
+*Selbst bauen:* `installer\bauen.ps1` in PowerShell ausführen – erzeugt `installer\Ausgabe\Watson-Setup.exe`.
 
 ## Datenschutz
 

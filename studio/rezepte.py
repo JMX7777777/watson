@@ -17,7 +17,7 @@ DATEI = pfade.DATEN / "rezepte.json"
 _lock = threading.Lock()
 STOP = set("der die das ein eine einer eines und oder aber ich du er sie es wir mir mich dir dich ist sind war wie was "
            "wer wo wann warum mit von zu zum zur im in am an auf für bei über unter nach vor aus bitte kannst kann "
-           "soll mein meine dein deine jim watson nicht noch auch nur schon sehr mal dann wenn als so ja nein".split())
+           "soll mein meine dein deine watson nicht noch auch nur schon sehr mal dann wenn als so ja nein".split())
 
 
 def _woerter(t):

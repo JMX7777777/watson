@@ -112,7 +112,7 @@ def statistik():
 # ---------------- Wissensbuch ----------------
 STOP = set("der die das ein eine einer eines und oder aber ich du er sie es wir ihr mir mich dir dich ist sind war "
            "wie was wer wo wann warum wieso welche welcher welches mit von zu zum zur im in am an auf für bei über "
-           "unter nach vor aus bitte kannst kann können soll sollte mein meine dein deine jim watson nicht noch auch "
+           "unter nach vor aus bitte kannst kann können soll sollte mein meine dein deine watson nicht noch auch "
            "nur schon sehr mal denn dann wenn ob als so ja nein".split())
 
 

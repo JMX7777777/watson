@@ -24,13 +24,18 @@ You can also talk to him from your phone through a private, encrypted tunnel.
 
 ## Installation
 
-1. Build the installer: run `installer\bauen.ps1` in PowerShell (creates `installer\Ausgabe\Watson-Setup.exe`).
-2. Start `Watson-Setup.exe`. No administrator rights are needed. The setup assistant asks where you live,
-   which language Watson should speak, your name and the basis Watson should have, shows a privacy note and
-   then installs everything (usually a few minutes, with a time estimate).
-3. On first start Watson helps you to create a free OpenRouter key (about 2 minutes).
+1. **Download** `Watson-Setup.exe` from the latest release:
+   **[Releases → latest version](../../releases/latest)**
+2. Start `Watson-Setup.exe`. Windows SmartScreen may say *"Windows protected your PC"* because the installer is
+   not code-signed – click **More info → Run anyway**.
+3. No administrator rights are needed. The setup assistant asks where you live, which language Watson should speak,
+   your name and the basis Watson should have, shows a privacy note and then installs everything
+   (usually a few minutes, with a time estimate). An internet connection is needed.
+4. On first start Watson helps you to create a free OpenRouter key (about 2 minutes).
 
-Windows may warn that the publisher is unknown, because the installer is not code-signed.
+Requirements: Windows 10 or 11 (64-bit), about 3 GB free disk space, microphone and speakers for voice.
+
+*Build it yourself:* run `installer\bauen.ps1` in PowerShell – it creates `installer\Ausgabe\Watson-Setup.exe`.
 
 ## Privacy
 
