@@ -19,8 +19,10 @@ You can also talk to him from your phone through a private, encrypted tunnel.
 - **Memory**: conversations, a notepad of facts, a knowledge book and learned abilities – all stored locally.
 - **Eyes and hands**: read the screen as text, open programs, click and type – with four trust levels and fixed limits (never passwords, banking or payments; sending, deleting and buying are always confirmed).
 - **Tools**: plug in tools via the Model Context Protocol (MCP), optional automations with n8n.
-- **Phone**: chat, voice and permission questions on your phone via Tailscale, protected by password and fingerprint (passkeys).
-- **Grows over time**: nightly reflection, self-test, checking new free models and careful self-repair (only with your OK).
+- **Phone**: chat, voice and permission questions on your phone via Tailscale, protected by password and fingerprint (passkeys) – optionally with two-step sign-in (authenticator app or email code, plus backup codes).
+- **Video Studio**: trim and join clips, automatic subtitles (you can correct them first), music, logo and text, and the right format for 14 social channels – a human always presses "Post". Also on the phone. Includes an overview of AI video platforms (free and paid) for people who don't know what exists.
+- **Learns like a human**: Watson forms his own views from what he has experienced and checked, and changes them openly when new evidence appears. Sources are checked critically – a majority is no proof, and Wikipedia is not used as a source. Always measured against the standard you chose.
+- **Grows over time**: nightly reflection and self-study, self-test, checking new free models and careful self-repair (only with your OK).
 
 ## Installation
 

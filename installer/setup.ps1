@@ -31,6 +31,7 @@ $T = @{
   p5t = "What stays on your computer: your conversations, memory, settings, voice and recordings.`r`n`r`nWhat goes to the internet: the questions you ask Watson are sent to the AI service OpenRouter (and the AI models it uses) so that Watson can think. Do not share passwords or very private data in conversations.`r`n`r`nYour keys are stored encrypted in the Windows vault. You can uninstall Watson at any time under Settings → Apps."
   p5ok = "I have read and understood this"; p5voice = "Install a voice for the chosen language"; p5desk = "Icon on the desktop"
   p5auto = "Start Watson automatically when I turn on the computer"
+  p5video = "Also install the video tool for the video studio (FFmpeg, about 140 MB)"; s_video = "Loading the video tool (FFmpeg) …"
   p6h = "Installing …"; p6est = "Estimating the time …"; p6left = "About {0} minutes left"; p6min = "Less than a minute left"
   p7h = "Done!"; p7t = "Watson is installed.`n`nWhen Watson starts for the first time, it may take 15–30 seconds. He will then help you to get a free key for the AI brains (takes about 2 minutes)."
   needOk = "Please confirm that you have read the privacy note."; needName = "Please enter your name."
@@ -58,6 +59,7 @@ $T = @{
   p5t = "Was auf deinem Computer bleibt: deine Gespräche, das Gedächtnis, Einstellungen, Stimme und Aufnahmen.`r`n`r`nWas ins Internet geht: die Fragen, die du Watson stellst, gehen an den KI-Dienst OpenRouter (und die KI-Modelle, die er nutzt), damit Watson denken kann. Teile in Gesprächen keine Passwörter oder sehr privaten Daten.`r`n`r`nDeine Schlüssel liegen verschlüsselt im Windows-Tresor. Du kannst Watson jederzeit unter Einstellungen → Apps deinstallieren."
   p5ok = "Ich habe das gelesen und verstanden"; p5voice = "Stimme für die gewählte Sprache installieren"; p5desk = "Symbol auf dem Desktop"
   p5auto = "Watson automatisch starten, wenn ich den Computer anmache"
+  p5video = "Video-Werkzeug fürs Video-Studio gleich mitinstallieren (FFmpeg, ca. 140 MB)"; s_video = "Video-Werkzeug (FFmpeg) wird geladen …"
   p6h = "Wird installiert …"; p6est = "Die Zeit wird geschätzt …"; p6left = "Noch etwa {0} Minuten"; p6min = "Noch weniger als eine Minute"
   p7h = "Fertig!"; p7t = "Watson ist installiert.`n`nBeim ersten Start braucht Watson 15–30 Sekunden. Danach hilft er dir, einen kostenlosen Schlüssel für die KI-Gehirne zu holen (dauert etwa 2 Minuten)."
   needOk = "Bitte bestätige, dass du den Datenschutz-Hinweis gelesen hast."; needName = "Bitte gib deinen Namen ein."
@@ -149,6 +151,7 @@ $ok5 = Ctl CheckBox 8 206 580 24 $seiten[4]; $ok5.Font = New-Object System.Drawi
 $cbStimme = Ctl CheckBox 8 244 580 24 $seiten[4]; $cbStimme.Checked = $true
 $cbDesk = Ctl CheckBox 8 270 580 24 $seiten[4]; $cbDesk.Checked = $true
 $cbAuto = Ctl CheckBox 8 296 580 24 $seiten[4]; $cbAuto.Checked = $true
+$cbVideo = Ctl CheckBox 8 322 580 24 $seiten[4]; $cbVideo.Checked = $false      # der Nutzer entscheidet selbst
 # Seite 6: Installieren
 $h6 = Kopf $seiten[5]
 $bar = Ctl ProgressBar 8 44 580 22 $seiten[5]; $bar.Maximum = 1000
@@ -205,7 +208,7 @@ function TexteSetzen {
     $h3.Text = L "p3h"; $t3.Text = L "p3t"; $alle.Text = L "p3other"; $menuLbl.Text = L "p3menu"
     $h4.Text = L "p4h"; $nameLbl.Text = L "p4name"; $botLbl.Text = L "p4bot"; $formal.Text = L "p4formal"; $attLbl.Text = L "p4att"
     $rbC.Text = L "p4c"; $rbN.Text = L "p4n"; $rbO.Text = L "p4o"; $law.Text = L "p4law"
-    $h5.Text = L "p5h"; $t5.Text = L "p5t"; $ok5.Text = L "p5ok"; $cbStimme.Text = L "p5voice"; $cbDesk.Text = L "p5desk"; $cbAuto.Text = L "p5auto"
+    $h5.Text = L "p5h"; $t5.Text = L "p5t"; $ok5.Text = L "p5ok"; $cbStimme.Text = L "p5voice"; $cbDesk.Text = L "p5desk"; $cbAuto.Text = L "p5auto"; $cbVideo.Text = L "p5video"
     $h6.Text = L "p6h"; $h7.Text = L "p7h"; $t7.Text = L "p7t"
     $zurueck.Text = L "back"; $abbr.Text = L "cancel"; Knoepfe
     LaenderFuellen; if ($spr.Items.Count) { SprachenFuellen }
@@ -366,6 +369,11 @@ function Install {
     $py = Join-Path $Ziel ".venv\Scripts\python.exe"
     Run $py @("-X", "utf8", (Join-Path $Ziel "einrichtung.py"), $aDatei) 93 95 5
     Remove-Item $aDatei -ErrorAction SilentlyContinue
+    if ($cbVideo.Checked) {
+        Say (L "s_video") 95
+        try { Run $py @("-X", "utf8", "-c", "import sys; sys.path.insert(0, r'$Ziel'); import video_studio; video_studio.ffmpeg_holen()") 95 96 60 }
+        catch { Say ("⚠ " + $_.Exception.Message) }        # kein Abbruch: im Video-Studio kann man es später laden
+    }
     $pyw = Join-Path $Ziel ".venv\Scripts\pythonw.exe"; $main = '"' + (Join-Path $Ziel "watson_studio.py") + '"'
     $icon = Join-Path $Ziel "assets\watson.ico"
     $script:startCmd = @($pyw, $main)

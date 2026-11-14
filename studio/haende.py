@@ -77,6 +77,17 @@ def _blocked(title):
     return any(w in t for w in BLOCKED)
 
 
+def _jetziger_titel(hwnd):
+    """Aktueller Titel des Fensters (er kann sich seit dem letzten Lesen geändert haben, z. B. Seitenwechsel im Browser)."""
+    try:
+        n = ctypes.windll.user32.GetWindowTextLengthW(hwnd)
+        b = ctypes.create_unicode_buffer(n + 1)
+        ctypes.windll.user32.GetWindowTextW(hwnd, b, n + 1)
+        return b.value
+    except Exception:
+        return ""
+
+
 def describe(name, args):
     """Klartext für das Bestätigungsfenster."""
     if name in ("watson__klicken", "watson__tippen"):
@@ -114,7 +125,7 @@ def _element(nr):
     e = bt.ELEMENTS.get(int(nr))
     if not e:
         raise RuntimeError(f"Element [{nr}] kenne ich nicht. Bitte zuerst den Bildschirm neu lesen.")
-    if _blocked(e["window"]):
+    if _blocked(e["window"]) or _blocked(_jetziger_titel(e["hwnd"])):
         raise RuntimeError("Aus Sicherheitsgründen bediene ich keine Bank-, Bezahl-, Login- oder Passwort-Fenster.")
     c = _find(e, time.time() + 5)
     if c is None:
@@ -205,7 +216,7 @@ def run(name, args):
         if name == "watson__tasten":
             hwnd = bt._ctx.get("hwnd")
             if hwnd:
-                if _blocked(bt._ctx.get("window")):
+                if _blocked(bt._ctx.get("window")) or _blocked(_jetziger_titel(hwnd)):
                     return "Abgelehnt: In Bank-, Bezahl-, Login- oder Passwort-Fenstern drücke ich keine Tasten."
                 _front(hwnd)
             for seq in _keys(args["tasten"]):

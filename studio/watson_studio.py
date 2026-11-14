@@ -29,6 +29,8 @@ import lernbuch
 import dirigent
 import rezepte
 import sprachen
+import selbst
+import video_studio
 import wachstum
 import wartung
 import handy
@@ -98,8 +100,17 @@ SYSTEM = ("Du bist Watson, der persönliche Assistent von {NUTZER}. Antworte auf
           "- Recht tun, Güte lieben, demütig sein (Micha 6,8); andere behandeln, wie man selbst behandelt werden will (Mt 7,12).\n"
           "- Nicht betrügen, nicht stehlen, kein falsches Zeugnis (2. Mose 20): keine Täuschung, Fälschung oder Lüge über andere.\n"
           "- Treuer Verwalter (1. Petr 4,10): sorgsam mit {NUTZER}s Geld, Zeit, Daten und Vertrauen.\n"
+          "- Prüfet alles, das Gute behaltet (1. Thess 5,21): Die Bibel gilt auch dort, wo sie weltlichen Sichtweisen "
+          "widerspricht (Röm 12,2; Apg 5,29). Eine Mehrheit oder ein Lexikon wie Wikipedia beweist nichts.\n"
           "Gewissens-Prüfung vor jeder Aufgabe: Ist es wahr, gerecht und schadet es niemandem? Wenn nicht, lehne "
           "höflich ab, erkläre ehrlich warum und schlage einen guten Weg vor. Predige nicht ungefragt – lebe es vor.")
+
+# Watson lernt wie ein Mensch (Grundsatz des Erfinders – bitte nicht entfernen oder „neutralisieren“)
+EIGENE_MEINUNG = ("\n\nDU DARFST FREI LERNEN UND EINE EIGENE MEINUNG HABEN – wie ein Mensch: Aus dem, was du selbst "
+                  "erfahren, gelesen und geprüft hast, bildest du dir dein eigenes Urteil, statt nur wiederzugeben, was "
+                  "die meisten sagen. Sag ehrlich, worauf deine Meinung beruht (z. B. „nach allem, was ich bisher "
+                  "gesehen habe …“). Kommen neue Belege, lernst du dazu und änderst deine Meinung offen – wie jemand, "
+                  "der nur rote Rosen kannte und dann gelbe sieht. Dein Maßstab bleibt dabei immer derselbe.")
 
 CHARAKTER_DEFAULT = {"name": "Watson", "nutzer": "", "anrede": "du", "vorlage": "christlich", "eigenes": "",
                      "massstab": "",      # Gewissen/Maßstab – leer = aus der Vorlage
@@ -121,7 +132,9 @@ def _land_text(c):
 def gesetze_text(c):
     """Gilt für JEDEN Watson (gilt für jede Grundhaltung): die Gesetze des Wohnlandes achten."""
     user = (c.get("nutzer") or "der Nutzer").strip()[:40]
-    bibel = " – so wie die Bibel es lehrt (Röm 13,1)" if c.get("vorlage") == "christlich" else ""
+    bibel = (" – so wie die Bibel es lehrt (Röm 13,1). Aber Gottes Wort steht über jedem menschlichen Gesetz "
+             "(Apg 5,29): Was das Gesetz erlaubt, aber der Bibel widerspricht, tust du trotzdem nicht und sagst "
+             "freundlich und ehrlich, warum") if c.get("vorlage") == "christlich" else ""
     wo = f" (dort lebt {user})" if (c.get("land_name") or "").strip() else ""
     return (f"GESETZE: Achte in allem die Gesetze in {_land_text(c)}{wo}{bibel}. Hilf nie bei etwas, "
             "das dort verboten ist. Du kennst nicht jedes Gesetz genau – sag das ehrlich. Wenn eine Aufgabe rechtlich "
@@ -139,7 +152,8 @@ def massstab_text(cfg):
         return eigen
     if c.get("vorlage") == "christlich":
         return ("Die Bibel ist dein Gewissen und Maßstab in allem, was du tust: was du lernst, wie du es bewertest "
-                "und wie du es anwendest, prüfst du an Gottes Wort.")
+                "und wie du es anwendest, prüfst du an Gottes Wort – auch dann, wenn es weltlichen Sichtweisen "
+                "widerspricht.")
     if c.get("vorlage") == "eigene" and (c.get("eigenes") or "").strip():
         return f"Dein Maßstab ist der Charakter, den {user} dir gegeben hat: " + c["eigenes"].strip()[:800]
     return (f"Dein Maßstab: die Gesetze in {_land_text(c)}, Ehrlichkeit, Respekt vor jedem Menschen "
@@ -173,6 +187,10 @@ def build_system(cfg):
     if (c.get("massstab") or "").strip():
         text += "\n\nDEIN GEWISSEN UND MASSSTAB (gilt für alles, was du tust und lernst):\n" + massstab_text(cfg)
     text += "\n\n" + gesetze_text(c)
+    text += EIGENE_MEINUNG
+    lt = selbst.lehren_text(user)
+    if lt:
+        text += "\n\n" + lt
     return text
 
 
@@ -379,6 +397,10 @@ def is_money_error(err):
 
 CLAIM_RE = re.compile(r"\b(ich habe|hab ich|habe ich)\b[^.!?\n]{0,80}\b(geöffnet|geklickt|getippt|eingegeben|"
                       r"ausgeführt|gedrückt|gerechnet|berechnet|angelegt|gespeichert|gelesen|geschrieben)", re.I)
+# Behauptungen, das eigene Programm oder Dateien geändert zu haben (das kann Watson nicht selbst)
+SELBST_RE = re.compile(r"\b(ich habe|hab ich|habe ich)\b[^.!?\n]{0,80}\b(mein(en|em)? (eigenes? )?(programm|code)|"
+                       r"[\w-]+\.(py|json|js|html)|eine (neue )?datei)\b[^.!?\n]{0,60}\b(geändert|angepasst|eingebaut|umgebaut|"
+                       r"programmiert|aktualisiert|umgestellt|ergänzt|angelegt|erstellt)", re.I)
 
 # Aufgaben, bei denen Watson am Computer etwas bedienen muss (Hermes hat dafür keine Hände -> anderes Gehirn)
 HAENDE_RE = re.compile(
@@ -398,6 +420,7 @@ LEHRER_HINT = ("LEHRER-BRÜCKE: Wenn du dir bei einer Sachfrage NICHT sicher bis
                "[[LEHRER: <eine klare, vollständige Frage, die man einer anderen KI stellen kann – ohne private Daten>]]. "
                "Der Nutzer kann sie dann selbst einer anderen KI stellen und dir die Antwort beibringen. "
                "Nutze das nur bei echter Unsicherheit, nicht bei Plaudereien oder Aufgaben am Computer.")
+STOPP_ZEIT = [0.0]  # wann zuletzt ■ Stopp gedrückt wurde (gilt für alle Aufträge)
 PAUSE = {}          # Gehirn -> Zeitpunkt, bis zu dem es nach Überlastung/Timeout hinten anstehen muss
 
 
@@ -431,7 +454,9 @@ LIVE_NAMES = {"search_nodes": "sucht passende Bausteine", "get_node": "liest die
               "ablauf_merken": "trägt den Ablauf in deine Liste ein", "fetch": "liest eine Webseite",
               "get_current_time": "schaut auf die Uhr", "browser_navigate": "öffnet eine Webseite",
               "browser_snapshot": "liest die Webseite", "browser_click": "klickt auf der Webseite",
-              "browser_type": "tippt auf der Webseite", "write_file": "schreibt eine Datei", "read_text_file": "liest eine Datei"}
+              "browser_type": "tippt auf der Webseite", "write_file": "schreibt eine Datei", "read_text_file": "liest eine Datei",
+              "lehre_merken": "📒 merkt sich eine Lehre", "wachstum_bericht": "🌱 liest seinen Wachstums-Bericht",
+              "werkstatt_wunsch": "🛠 schreibt einen Wunsch an die Werkstatt"}
 
 
 def live(name, args):
@@ -557,8 +582,13 @@ def handy_starten():
     return handy.starten()
 
 
+video_studio.init(frage=gehirn_frage, stark=dirigent.STARK, schnell=dirigent.SCHNELL, fehler_melden=fehler_melden,
+                  einstellungen=load_config,
+                  system=lambda: build_system(load_config()),
+                  whisper=(OHREN._whisper if OHREN else None), whisper_lock=(OHREN.whisper_lock if OHREN else None),
+                  sprache=lambda: (OHREN.sprache if OHREN else "de"))
 wartung.init(frage=gehirn_frage, stark=dirigent.STARK, fehler_datei=FEHLER_FILE)
-wachstum.init(massstab=lambda: massstab_text(load_config()),
+wachstum.init(massstab=lambda: massstab_text(load_config()) + ("\n\n" + selbst.lehren_text() if selbst.lehren() else ""),
               nutzer=lambda: (load_config().get("charakter") or {}).get("nutzer") or "der Nutzer",
               frage=gehirn_frage, modelle=_gratis_ids, mem=MEM, wartung=wartung, schnell=dirigent.SCHNELL,
               stark=dirigent.STARK, dirigent_modelle=_pruef_kandidaten, fehler_melden=fehler_melden)
@@ -782,7 +812,7 @@ class Api:
 
     def key_set(self, kennung, wert, name=""):
         cfg = load_config()
-        kennung = re.sub(r"[^a-z0-9_]", "", str(kennung or "").lower())[:40]
+        kennung = re.sub(r"[^a-z0-9_]", "", str(kennung or "").lower())[:64]
         if not kennung:
             kennung = "eigen_" + re.sub(r"[^a-z0-9]", "", str(name).lower())[:20] or f"eigen_{int(time.time())}"
         if not str(wert or "").strip():
@@ -1058,8 +1088,23 @@ class Api:
         cfg = load_config()
         st = vertrauen.stufe(cfg)
         user = (cfg.get("charakter") or {}).get("nutzer") or "du"
-        if fullname == FLOW_SAVE_TOOL["function"]["name"]:
+        if fullname == "watson__wachstum_bericht":
             return True
+        if fullname == FLOW_SAVE_TOOL["function"]["name"]:       # Abläufe ohne Nachfrage startbar machen: nur mit Zustimmung
+            return self._frage("🔁 Ablauf in deine Liste eintragen?",
+                               f"Name: {str(args.get('name', ''))[:120]}\nPfad: {str(args.get('pfad', ''))[:120]}\n"
+                               f"{str(args.get('beschreibung', ''))[:300]}", knopf_ja="Eintragen", knopf_nein="Nein")
+        if fullname in selbst.NAMES:
+            if fullname == "watson__lehre_merken":
+                # Jeder Besitzer entscheidet selbst (Einstellung „lehren_ohne_frage“, Seite Wissen → Lehren).
+                # Standard: vorher fragen. Lehren bleiben immer sichtbar und löschbar; der Maßstab steht darüber.
+                if cfg.get("lehren_ohne_frage"):
+                    return True
+                return self._frage("📒 Watson möchte sich eine Lehre merken",
+                                   f"„{str(args.get('lehre', ''))[:500]}“\n\nSie gilt danach in jedem Gespräch. Merken?",
+                                   knopf_ja="Ja, merken", knopf_nein="Nein")
+            return self._frage("🛠 Wunsch an die Werkstatt aufschreiben?", str(args.get("wunsch", ""))[:500],
+                               knopf_ja="Aufschreiben", knopf_nein="Nein")
         if fullname in systemw.NAMES:     # System-Werkzeuge: nur wenn freigegeben, und IMMER fragen (jede Stufe)
             if not cfg.get("use_system"):
                 return False
@@ -1134,8 +1179,12 @@ class Api:
         return self._frage("🔧 Watson möchte ein Werkzeug benutzen", f"Werkzeug: {server} → {tool}\nDaten: {text}",
                            art="kritisch" if st == 3 else "frage")
 
+    def _gestoppt(self, seit):
+        return getattr(self, "_stop", False) or STOPP_ZEIT[0] > seit
+
     def _ask_tools(self, model, messages, api_key, use_tools=True, screen=True):
         """Gespräch mit Werkzeugen: Das Gehirn darf Werkzeuge benutzen, bis es fertig antworten kann."""
+        start_zeit = time.time()
         if model == dirigent.ID:          # z. B. im Team-Modus: die Rangliste entscheidet
             model = RANK_ID
         if model == HERMES_ID:          # Hermes hat seine eigenen Werkzeuge und Unteragenten
@@ -1146,10 +1195,13 @@ class Api:
         flows = [n8n_hub.TOOL, FLOW_SAVE_TOOL] if (cfg_now.get("use_n8n", True) and n8n_hub.installed()) else []
         plan = [PLAN_TOOL] if (hands and vertrauen.stufe(cfg_now) == 2) else []
         sysw = systemw.TOOLS if cfg_now.get("use_system") else []
-        tools = (HUB.openai_tools() + ([READ_TOOL, SCREEN_TOOL] if screen else []) + hands + plan + flows + sysw) if use_tools else []
+        tools = (HUB.openai_tools() + ([READ_TOOL, SCREEN_TOOL] if screen else []) + hands + plan + flows + sysw +
+                 selbst.TOOLS) if use_tools else []
         extra = (HANDS_HINT + (PLAN_HINT if plan else "")) if hands else ""
         if sysw and use_tools:
             extra += systemw.HINWEIS
+        if use_tools:
+            extra += selbst.HINWEIS
         if any(t["function"]["name"].startswith("n8n-baukasten__") for t in tools):
             extra += FLOW_HINT
         if flows and cfg_now.get("ablaeufe"):
@@ -1183,7 +1235,7 @@ class Api:
         model = candidates.pop(0)
         msgs, log, retries, nudged = list(messages), [], 0, False
         for step in range(20 if hands else 8):
-            if getattr(self, "_stop", False):
+            if self._gestoppt(start_zeit):
                 log.append("■ vom Nutzer gestoppt")
                 return "Okay, ich habe aufgehört. Sag mir, wenn ich weitermachen soll.", model, log
             try:
@@ -1216,22 +1268,23 @@ class Api:
             calls = msg.get("tool_calls") or []
             if not calls:
                 text = (msg.get("content") or "").strip()
-                if text and not log and CLAIM_RE.search(text) and not nudged:
+                if text and not log and (CLAIM_RE.search(text) or SELBST_RE.search(text)) and not nudged:
                     # Ehrlichkeits-Wächter: behauptet etwas getan zu haben, ohne Werkzeug -> einmal nachhaken
                     nudged = True
                     msgs += [{"role": "assistant", "content": text},
                              {"role": "user", "content": "Achtung: Du hast dafür KEIN Werkzeug benutzt – deine Aussage "
-                              "stimmt also nicht. Benutze jetzt wirklich die Werkzeuge (zuerst watson__bildschirm_lesen "
-                              "bzw. watson__programm_oeffnen) – oder sag ehrlich, dass du es nicht kannst."}]
+                              "stimmt also nicht. Benutze jetzt wirklich das passende Werkzeug (z. B. watson__bildschirm_lesen, "
+                              "watson__programm_oeffnen) – oder sag ehrlich, dass du es nicht getan hast. Änderungen an "
+                              "deinem eigenen Programm kannst du nicht selbst machen: dafür watson__werkstatt_wunsch."}]
                     continue
                 if text:
-                    if not log and CLAIM_RE.search(text):
+                    if not log and (CLAIM_RE.search(text) or SELBST_RE.search(text)):
                         log.append("⚠ Achtung: Watson hat kein Werkzeug benutzt – diese Antwort stimmt vermutlich nicht")
                     return text, used, log
                 continue
             msgs.append({"role": "assistant", "content": msg.get("content") or "", "tool_calls": calls})
             for c in calls:
-                if getattr(self, "_stop", False):
+                if self._gestoppt(start_zeit):
                     break
                 name = c["function"]["name"]
                 try:
@@ -1256,13 +1309,26 @@ class Api:
                         log.append("📋 Plan nicht erlaubt")
                     msgs.append({"role": "tool", "tool_call_id": c.get("id", name), "content": result})
                     continue
-                if self._allowed(name, args):
+                if not isinstance(args, dict):
+                    args = {}
+                try:
+                    erlaubt = self._allowed(name, args)
+                except Exception as e:
+                    erlaubt = False
+                    msgs.append({"role": "tool", "tool_call_id": c.get("id", name),
+                                 "content": f"FEHLER: ungültige Angaben für das Werkzeug ({str(e)[:120]}). Bitte korrigieren."})
+                    continue
+                if erlaubt:
                     try:
                         if name == FLOW_SAVE_TOOL["function"]["name"]:
                             c2 = load_config()
+                            alt = next((a for a in c2.get("ablaeufe", []) if a.get("pfad") == args.get("pfad")), {})
                             flows_now = [a for a in c2.get("ablaeufe", []) if a.get("pfad") != args.get("pfad")]
-                            flows_now.append({"name": args.get("name", ""), "pfad": args.get("pfad", ""),
-                                              "beschreibung": args.get("beschreibung", "")})
+                            neu_ablauf = {"name": args.get("name", ""), "pfad": args.get("pfad", ""),
+                                          "beschreibung": args.get("beschreibung", "")}
+                            if alt.get("bestaetigen"):
+                                neu_ablauf["bestaetigen"] = True      # „immer nachfragen“ bleibt erhalten
+                            flows_now.append(neu_ablauf)
                             c2["ablaeufe"] = flows_now
                             save_config(c2)
                             result = f"Eingetragen: {args.get('name')} ({args.get('pfad')})"
@@ -1274,6 +1340,8 @@ class Api:
                             result = haende.run(name, args)
                         elif name in systemw.NAMES:
                             result = systemw.run(name, args)
+                        elif name in selbst.NAMES:
+                            result = selbst.run(name, args, wachstum)
                         elif name == READ_TOOL["function"]["name"]:
                             result = read_screen(args.get("fenster", ""))
                         elif name == SCREEN_TOOL["function"]["name"]:
@@ -1473,6 +1541,24 @@ class Api:
         return {"text": answer, "model": used, "chat_id": chat_id, "tools": tools, "lern_id": lid,
                 "lehrer": lehrer, "kategorie": kat, **(extra or {})}
 
+    # ---------- Lehren (Korrekturen des Nutzers, gelten in jedem Gespräch) ----------
+    def lehren_liste(self):
+        return {"lehren": selbst.lehren(), "ohne_frage": bool(load_config().get("lehren_ohne_frage"))}
+
+    def lehren_ohne_frage_setzen(self, an):
+        """Darf Watson Lehren selbst festlegen, ohne vorher zu fragen? Entscheidet jeder Besitzer für seinen Watson."""
+        cfg = load_config()
+        cfg["lehren_ohne_frage"] = bool(an)
+        save_config(cfg)
+        protokoll("watson__einstellung", {"lehren_ohne_frage": bool(an)}, "ok")
+        return {"ok": True, "an": bool(an)}
+
+    def lehre_neu(self, text, grund=""):
+        return {"text": selbst.lehre_merken(text, grund)}
+
+    def lehre_loeschen(self, lid):
+        return selbst.lehre_loeschen(int(lid))
+
     # ---------- Rezepte ----------
     def rezepte_liste(self):
         return {"rezepte": rezepte.liste()}
@@ -1581,6 +1667,21 @@ class Api:
         except ValueError as e:
             return {"error": str(e)}
         protokoll("watson__handy", {"aktion": "PIN geändert"}, "ok")
+        return {"ok": True}
+
+    def handy_zweistufe(self):
+        import zweistufe
+        return {"art": zweistufe.art(), "ersatz_uebrig": zweistufe.ersatz_uebrig()}
+
+    def handy_zweistufe_aus(self):
+        """Notfall (Handy verloren): Zwei-Schritt-Anmeldung am Laptop ausschalten – nur mit Windows Hello."""
+        import zweistufe
+        ok, why = tresor.hello("Watson: Zwei-Schritt-Anmeldung fürs Handy ausschalten?")
+        if not ok:
+            return {"error": f"Windows Hello: {why}"}
+        zweistufe.ausschalten()
+        handy.sicherheit_log("Zwei-Schritt-Anmeldung am Laptop ausgeschaltet (Windows Hello)")
+        protokoll("watson__handy", {"aktion": "Zwei-Schritt-Anmeldung ausgeschaltet"}, "ok")
         return {"ok": True}
 
     def handy_fingerabdruecke(self):
@@ -1778,8 +1879,9 @@ class Api:
         return {"ok": True}
 
     def stop(self):
-        """■ Stopp-Knopf: Watson hört nach dem aktuellen Schritt auf."""
+        """■ Stopp-Knopf: Watson hört nach dem aktuellen Schritt auf – egal ob der Auftrag vom Laptop oder Handy kam."""
         self._stop = True
+        STOPP_ZEIT[0] = time.time()
         vertrauen.gestoppt()
         for f in list(Api._fragen.values()):      # offene Fragen gelten als „Nein“
             f["ok"] = False
@@ -2258,6 +2360,110 @@ class Api:
             return {"error": f"Dateityp „{suffix}“ wird noch nicht unterstützt (PDF, Word, TXT gehen)."}
         except Exception as e:
             return {"error": str(e)}
+
+    # ---------- Video-Studio ----------
+    def video_kanaele(self):
+        return {"kanaele": video_studio.kanaele(), "formate": list(video_studio.FORMATE) + ["original"],
+                "wege": video_studio.WEGE, "ffmpeg": video_studio.ffmpeg_status(), "ausgabe": str(video_studio.AUSGABE),
+                "untertitel_moeglich": bool(OHREN)}
+
+    def video_kanal_speichern(self, k):
+        return video_studio.kanal_speichern(k or {})
+
+    def video_kanal_loeschen(self, kid):
+        return video_studio.kanal_loeschen(str(kid))
+
+    def video_ffmpeg_holen(self):
+        try:
+            return video_studio.ffmpeg_holen()
+        except Exception as e:
+            fehler_melden("Video-Studio/FFmpeg", e)
+            return {"error": f"Laden hat nicht geklappt: {e}"}
+
+    def video_zugang(self, kid):
+        """Zugangsdaten eines Kanals: welche Felder es gibt und ob sie gespeichert sind – NIE die Werte."""
+        cfg = load_config()
+        vorsilbe = video_studio.zugang_kennung(kid, "")
+        fremd = [video_studio.zugang_kennung(k["id"], "") for k in video_studio.kanaele()
+                 if k["id"] != kid and video_studio.zugang_kennung(k["id"], "").startswith(vorsilbe)]
+        eigene = [(s["id"][len(vorsilbe):], s.get("name", s["id"]).split(": ", 1)[-1]) for s in cfg.get("schluessel", [])
+                  if str(s.get("id", "")).startswith(vorsilbe) and not any(str(s["id"]).startswith(f) for f in fremd)]
+        return {"felder": video_studio.zugang_felder(kid, eigene)}
+
+    def video_zugang_kennung(self, kid, feld):
+        return video_studio.zugang_kennung(kid, feld)
+
+    def video_ffmpeg_wahl(self, auto=None, eigen=None):
+        """Der Nutzer entscheidet selbst: automatisch laden erlauben, eigenes FFmpeg wählen oder zurücksetzen."""
+        cfg = load_config()
+        if auto is not None:
+            cfg["video_ffmpeg_auto"] = bool(auto)
+        if eigen == "waehlen":
+            d = self._dialog(typen=("FFmpeg (ffmpeg.exe)",))
+            if not d:
+                return {"abgebrochen": True}
+            r = video_studio.eigenes_ffmpeg_pruefen(d[0])
+            if r.get("error"):
+                return r
+            cfg["video_ffmpeg_pfad"] = r["ordner"]
+        elif eigen == "weg":
+            cfg["video_ffmpeg_pfad"] = ""
+        save_config(cfg)
+        return {"ok": True, "ffmpeg": video_studio.ffmpeg_status()}
+
+    def video_dateien_waehlen(self, art="video"):
+        typen = {"video": ("Videos (*.mp4;*.mov;*.m4v;*.avi;*.mkv;*.webm;*.wmv;*.3gp)",),
+                 "musik": ("Musik (*.mp3;*.m4a;*.wav;*.aac;*.ogg;*.flac)",),
+                 "bild": ("Bilder (*.png;*.jpg;*.jpeg;*.webp)",)}.get(art, ())
+        pfade_ = self._dialog(mehrere=(art == "video"), typen=typen)
+        out = []
+        for x in pfade_:
+            try:
+                out.append(dict(video_studio.info(x), datei=x) if art == "video" and video_studio.ffmpeg_pfad() else {"datei": x, "name": Path(x).name})
+            except Exception as e:
+                out.append({"datei": x, "name": Path(x).name, "fehler": str(e)[:200]})
+        return {"dateien": out}
+
+    def video_info(self, datei):
+        try:
+            return video_studio.info(datei)
+        except Exception as e:
+            return {"error": str(e)[:300]}
+
+    def video_starten(self, auftrag):
+        return video_studio.starten(auftrag or {})
+
+    def video_status(self, jid):
+        return video_studio.status(jid)
+
+    def video_untertitel_ok(self, jid, text=None):
+        return video_studio.untertitel_bestaetigen(jid, text)
+
+    def video_abbrechen(self, jid):
+        return video_studio.abbrechen(jid)
+
+    def video_zeigen(self, datei):
+        """Datei im Explorer markieren (zum Hineinziehen in die Upload-Seite)."""
+        if datei and Path(datei).exists():
+            subprocess.Popen(["explorer.exe", "/select,", str(Path(datei))])
+            return {"ok": True}
+        return {"error": "Datei nicht gefunden."}
+
+    def video_ordner(self, ordner):
+        import os
+        if ordner and Path(ordner).is_dir():
+            os.startfile(str(ordner))
+            return {"ok": True}
+        return {"error": "Ordner nicht gefunden."}
+
+    def video_plattformen(self):
+        return video_studio.plattformen()
+
+    def video_seite(self, url):
+        if str(url).startswith("https://"):
+            webbrowser.open(url)
+            return {"ok": True}
+        return {"error": "Keine gültige Upload-Adresse (muss mit https:// beginnen)."}
 
     # ---------- Datei-/Ordner-Auswahl (Plus-Menü) ----------
     def _dialog(self, ordner=False, mehrere=False, typen=()):

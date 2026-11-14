@@ -68,7 +68,11 @@ class McpHub:
                 except Exception:
                     pass
                 return str(settings.get(name, ""))
-            fuellen = lambda v: re.sub(r"\$\{WATSON:(\w+)\}", lambda m: _wert(m.group(1)), str(v))
+            # Nur erlaubte Schlüssel einsetzen: n8n und die eigens für Werkzeuge angelegten (mcp_…) –
+            # nie den OpenRouter-Schlüssel, das Handy-Passwort oder Kanal-Zugänge
+            def _erlaubt(name):
+                return name == "n8n_api_key" or name.startswith("mcp_")
+            fuellen = lambda v: re.sub(r"\$\{WATSON:(\w+)\}", lambda m: _wert(m.group(1)) if _erlaubt(m.group(1)) else "", str(v))
             if spec.get("url"):
                 # Online-Dienst (läuft beim Anbieter) – nur über verschlüsseltes https
                 url = str(spec["url"])

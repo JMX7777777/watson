@@ -8,6 +8,7 @@
 <link rel="icon" href="/logo.png">
 <link rel="apple-touch-icon" href="/logo.png">
 <script src="/i18n.js"></script>
+<script src="/markdown.js"></script>
 <title>Watson</title>
 <style>
 :root{
@@ -55,6 +56,25 @@ header button{width:40px;height:40px;padding:0;display:grid;place-items:center;b
 .zitat{border-left:3px solid var(--accent);padding:2px 0 2px 10px;margin:4px 0}
 .msg.user .zitat{border-color:rgba(255,255,255,.8)}
 .msg code{background:var(--glass2);border-radius:6px;padding:1px 5px;font-size:.9em}
+/* Formatierte Antworten (wie bei Claude) + „Ganze Nachricht kopieren“ */
+.msg{position:relative;padding-right:40px;-webkit-user-select:text;user-select:text}
+.msg .md{white-space:normal;line-height:1.55}
+.msg .md>:first-child{margin-top:0}.msg .md>:last-child{margin-bottom:0}
+.msg .md p{margin:0 0 9px}
+.msg .md h2,.msg .md h3,.msg .md h4{margin:14px 0 6px;line-height:1.3;letter-spacing:-.01em}.msg .md h2{font-size:18px}.msg .md h3{font-size:16.5px}.msg .md h4{font-size:15.5px}
+.msg .md ul,.msg .md ol{margin:4px 0 10px;padding-left:22px}.msg .md li{margin:3px 0}
+.msg .md blockquote{margin:6px 0 10px;padding:2px 0 2px 11px;border-left:3px solid var(--accent);color:var(--muted)}
+.msg.user .md blockquote{border-color:rgba(255,255,255,.8);color:inherit}
+.msg .md hr{border:0;border-top:1px solid var(--line2);margin:12px 0}
+.msg .md pre{background:var(--glass2);border-radius:12px;padding:10px 12px;overflow-x:auto;margin:6px 0 10px;font-size:13px}.msg .md pre code{background:none;padding:0}
+.msg .mdTabelle{overflow-x:auto;margin:6px -4px 10px;-webkit-overflow-scrolling:touch}
+.msg .md table{border-collapse:collapse;font-size:13.5px;min-width:100%}.msg .md th,.msg .md td{border:1px solid var(--line2);padding:6px 9px;text-align:left;vertical-align:top}
+.msg .md th{background:var(--glass2);font-weight:650}
+.msg .md a{color:var(--accentText)}.msg.user .md a{color:#fff;text-decoration:underline}
+.kopierKnopf{position:absolute;top:8px;right:8px;width:28px;height:28px;padding:0;border-radius:9px;display:grid;place-items:center;
+  background:var(--glass2);border:1px solid var(--line);color:var(--muted);font-size:13px;-webkit-backdrop-filter:none;backdrop-filter:none}
+.kopierKnopf.ok{color:var(--ok);border-color:var(--ok)}
+.msg.user .kopierKnopf{background:rgba(255,255,255,.2);border-color:transparent;color:#fff}
 .bar{display:flex;gap:4px;margin:-2px 0 10px 4px}.bar button{padding:5px 10px;font-size:13.5px;border-radius:11px}.bar button.an{background:var(--accentSoft);border-color:rgba(109,139,255,.5)}
 .karte{border:1px solid rgba(109,139,255,.45);border-radius:var(--r);padding:12px 14px;margin:8px 0 14px;background:var(--glass);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
 .denkt{color:var(--muted);font-size:14px;margin:10px 6px;display:flex;align-items:center;gap:8px}
@@ -86,9 +106,9 @@ footer button{width:44px;height:44px;padding:0;border-radius:50%;display:grid;pl
 .box.grenze .band{background:var(--errSoft);color:var(--err)}
 .knoepfe{display:flex;gap:10px;margin-top:14px}.knoepfe button{flex:1;padding:13px;border-radius:16px}
 /* ---------- Vollbild-Seiten (Menü, Stimme) ---------- */
-#menuSeite,#stimmeSeite{position:fixed;inset:0;z-index:8;display:none;flex-direction:column;max-width:780px;margin:0 auto;background:var(--bg);background-image:inherit;animation:hoch .3s cubic-bezier(.2,.8,.2,1)}
+#menuSeite,#stimmeSeite,#videoSeite{position:fixed;inset:0;z-index:8;display:none;flex-direction:column;max-width:780px;margin:0 auto;background:var(--bg);background-image:inherit;animation:hoch .3s cubic-bezier(.2,.8,.2,1)}
 @keyframes hoch{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
-#menuSeite .inhalt,#stimmeSeite .inhalt{flex:1;overflow-y:auto;padding:16px 14px calc(30px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px}
+#menuSeite .inhalt,#stimmeSeite .inhalt,#videoSeite .inhalt{flex:1;overflow-y:auto;padding:16px 14px calc(30px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px}
 .kachel{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
 .kachel button{padding:13px 10px;text-align:left;display:flex;flex-direction:column;align-items:flex-start;gap:9px;border-radius:20px;font-size:13px;font-weight:600;line-height:1.25;min-height:96px}
 .kachel button .chip{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;color:#fff}
@@ -119,6 +139,18 @@ input[type=checkbox]{width:22px!important;height:22px;accent-color:var(--accent)
 .hinweis{border-radius:16px;padding:12px 14px;font-size:15px;background:var(--glass2)}
 .hinweis.gut{background:var(--okSoft);color:var(--ok)}.hinweis.schlecht{background:var(--errSoft);color:var(--err)}
 ::-webkit-scrollbar{width:0}
+/* ---------- Video-Studio ---------- */
+.vdKarte{background:var(--glass);border:1px solid var(--line);border-radius:22px;padding:14px;display:flex;flex-direction:column;gap:10px;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+.vdKarte h3{margin:0;font-size:16px;letter-spacing:-.01em}
+.vdZeile{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.vdZeile input[type=text]{flex:1;min-width:0}
+.vdKanal{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:var(--glass2);border:1px solid var(--line)}
+.vdKanal b{flex:1;font-size:14.5px}.vdKanal span{font-size:12px;color:var(--muted)}
+.vdErg{border:1px solid var(--line);border-radius:18px;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--glass2)}
+.vdErg video{width:100%;max-height:340px;border-radius:12px;background:#000}
+.vdErg .knoepfe{margin-top:0;flex-wrap:wrap}.vdErg .knoepfe button{flex:1 1 45%;padding:11px 8px;font-size:14px}
+.vdBalken{height:10px;border-radius:99px;background:var(--glass2);overflow:hidden}.vdBalken div{height:100%;width:0;background:var(--grad);transition:width .4s}
+#vdUtText{font-family:ui-monospace,Consolas,monospace;font-size:13px;min-height:200px}
 /* ---------- Gesprächsmodus (dauerhaft zuhören) ---------- */
 #gSeite{position:fixed;inset:0;z-index:10;display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;
   padding:calc(20px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));background:var(--bg);background-image:inherit;animation:hoch .3s cubic-bezier(.2,.8,.2,1)}
@@ -152,6 +184,13 @@ input[type=checkbox]{width:22px!important;height:22px;accent-color:var(--accent)
     <input id="pin" type="password" autocomplete="current-password" maxlength="128" placeholder="Passwort">
     <button class="primary" id="pinBtn" style="min-width:200px">Anmelden</button>
     <button id="fingerBtn" style="min-width:200px;display:none">Mit Fingerabdruck anmelden</button>
+  </div>
+  <div id="codeTeil" style="display:none;flex-direction:column;align-items:center;gap:10px">
+    <div class="muted" style="max-width:320px" id="codeHinweis">Zweiter Schritt: Gib deinen Code ein.</div>
+    <input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="12" placeholder="Code" style="text-align:center;letter-spacing:4px">
+    <button class="primary" id="codeBtn" style="min-width:200px">Bestätigen</button>
+    <div class="muted small" style="max-width:320px">Kein Zugriff auf die App oder E-Mail? Nimm einen deiner aufgeschriebenen Ersatz-Codes (z. B. abcd-efgh) – oder melde dich mit Fingerabdruck an.</div>
+    <button class="ghost small" id="codeZurueck">Zurück</button>
   </div>
   <div id="erstPinTeil" style="display:none;flex-direction:column;align-items:center;gap:10px">
     <div class="muted" style="max-width:320px"><b>Willkommen!</b> Lege jetzt dein Passwort fest: mindestens 12 Zeichen, mit Buchstaben und Ziffern. Nur du kennst es – Watson speichert es nur verschlüsselt.</div>
@@ -194,6 +233,7 @@ input[type=checkbox]{width:22px!important;height:22px;accent-color:var(--accent)
       <button data-t="rezepte"><span class="chip c6"><svg class="i" viewBox="0 0 24 24"><path d="M8 21h10a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H6"/><path d="M6 3a2 2 0 0 0-2 2v2h4V5a2 2 0 0 0-2-2zM8 7v12a2 2 0 0 1-2 2M12 8h4M12 12h4"/></svg></span>Fertigkeiten</button>
       <button data-t="wissen"><span class="chip c7"><svg class="i" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg></span>Wissensbuch</button>
       <button data-t="sicherheit"><span class="chip c6"><svg class="i" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></span>Sicherheit</button>
+      <button data-t="video"><span class="chip c3"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="13" height="14" rx="2.5"/><path d="m16 10 5-3v10l-5-3z"/></svg></span>Video-Studio</button>
       <button data-t="stimme"><span class="chip c8"><svg class="i" viewBox="0 0 24 24"><path d="M2 12h2M6 8v8M10 5v14M14 8v8M18 10v4M22 12h0"/></svg></span>Meine Stimme</button>
     </div>
     <div id="menuInhalt"></div>
@@ -210,6 +250,39 @@ input[type=checkbox]{width:22px!important;height:22px;accent-color:var(--accent)
     <button id="gZu" title="Gespräch beenden"><svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
   </div>
   <div id="gTipp">Sprich einfach – ohne „Hey Watson“. Tippe auf die Kugel, um Watson zu unterbrechen. Lass den Bildschirm an, solange ihr redet.</div>
+</div>
+<div id="videoSeite">
+  <header><img src="/logo.png" alt=""><b>Video-Studio<small>bearbeiten und überall teilen</small></b><button id="vdZu" title="Schließen"><svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></header>
+  <div class="inhalt">
+    <div class="vdKarte" id="vdWerkzeug" style="display:none"><h3>Video-Werkzeug fehlt</h3>
+      <div class="small muted">Zum Bearbeiten braucht Watson auf deinem Laptop einmalig das freie Video-Werkzeug FFmpeg (ca. 140 MB, offizielle Quelle, mit Prüfsumme).</div>
+      <button class="primary" id="vdFfHolen">Jetzt laden</button><div class="small muted" id="vdFfInfo"></div></div>
+    <div class="vdKarte"><details id="vdKiBox"><summary style="cursor:pointer;font-weight:600">✨ Videos mit KI erstellen – welche Plattformen gibt es? <span class="small muted" style="font-weight:400">(kostenlos und bezahlt)</span></summary>
+      <div id="vdKiListe" style="margin-top:8px"></div></details></div>
+    <div class="vdKarte"><h3>1. Video wählen</h3>
+      <div class="small muted">Aus deiner Galerie oder neu aufnehmen. Es geht über deinen privaten Tunnel an deinen Laptop.</div>
+      <input type="file" id="vdDatei" accept="video/*" style="display:none">
+      <button id="vdWaehlen">🎬 Video wählen</button>
+      <div class="vdBalken" id="vdUpBalkenBox" style="display:none"><div id="vdUpBalken"></div></div>
+      <div class="small muted" id="vdVideoInfo"></div>
+      <div class="vdZeile" id="vdSchnitt" style="display:none"><span class="small muted">von</span><input type="text" id="vdVon" value="0:00" style="width:80px"><span class="small muted">bis</span><input type="text" id="vdBis" style="width:80px"><span class="small muted">(Min:Sek)</span></div></div>
+    <div class="vdKarte"><h3>2. Gestaltung</h3>
+      <label class="zeile"><input type="checkbox" id="vdEinpassen"> Ganzes Bild zeigen (mit unscharfem Rand statt Abschneiden)</label>
+      <label class="zeile"><input type="checkbox" id="vdUntertitel" checked> Untertitel automatisch</label>
+      <label class="zeile"><input type="checkbox" id="vdUtPruefen" checked> Untertitel vorher prüfen</label>
+      <label class="zeile"><input type="checkbox" id="vdLaut" checked> Lautstärke angleichen</label>
+      <input type="text" id="vdText" placeholder="Text-Einblendung oben (z. B. Bibelvers des Tages)">
+      <textarea id="vdThema" rows="2" placeholder="Worum geht es? (hilft Watson beim Texten)"></textarea></div>
+    <div class="vdKarte"><h3>3. Kanäle</h3><div class="small muted">Antippen zum Auswählen. Das Format passt Watson für jeden Kanal an.</div><div id="vdKanaele" style="display:flex;flex-direction:column;gap:6px"></div></div>
+    <div class="vdKarte"><h3>4. Erstellen</h3>
+      <button class="primary" id="vdStart">🎬 Videos erstellen</button><button id="vdStopp" style="display:none">■ Abbrechen</button>
+      <div class="vdBalken" id="vdBalkenBox" style="display:none"><div id="vdBalken"></div></div><div class="small muted" id="vdSchritt"></div>
+      <div id="vdUtBox" style="display:none;flex-direction:column;gap:8px"><b>Untertitel prüfen</b><div class="small muted">Verbessere falsch erkannte Wörter. Zeitangaben bitte stehen lassen.</div>
+        <textarea id="vdUtText"></textarea><button class="primary" id="vdUtOk">✓ Übernehmen und weiter</button><div class="small" id="vdUtMeld" style="color:var(--err)"></div></div></div>
+    <div class="vdKarte" id="vdErgebnisKarte" style="display:none"><h3>5. Veröffentlichen</h3>
+      <div class="small muted">„Teilen“ öffnet das Teilen-Menü deines Handys – wähle dort TikTok, Instagram, YouTube … Den Text kopiert Watson dabei automatisch: in der App einfach einfügen und selbst posten.</div>
+      <div id="vdErgebnisse" style="display:flex;flex-direction:column;gap:10px"></div></div>
+  </div>
 </div>
 <div id="stimmeSeite">
   <header><img src="/logo.png" alt=""><b>Meine Stimme<small>Sätze vorlesen fürs Training</small></b><button id="stimmeZu" title="Schließen"><svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></header>
@@ -323,8 +396,24 @@ async function begruessen() { if (await verlaufZeigen()) return; if (!$("#chat")
 $("#pinBtn").onclick = async () => {
   $("#pinMsg").textContent = "";
   const r = await fetch("/api/login", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({pin: $("#pin").value}), credentials: "same-origin"}).then(r => r.json());
+  if (r.zweistufe) { $("#pin").value = ""; codeVorgang = r.vorgang; codeZeigen(true); $("#codeHinweis").textContent = r.hinweis || ""; return; }
   if (r.ok) { $("#pin").value = ""; zeigeApp(); begruessen(); fingerAnbieten(); } else $("#pinMsg").textContent = r.error || "Anmeldung fehlgeschlagen";
 };
+// ---------- Zweiter Schritt bei der Anmeldung ----------
+let codeVorgang = null;
+function codeZeigen(an) {
+  $("#anmeldenTeil").style.display = an ? "none" : "contents"; $("#codeTeil").style.display = an ? "flex" : "none";
+  $("#code").value = ""; if (an) setTimeout(() => $("#code").focus(), 100);
+}
+$("#codeBtn").onclick = async () => {
+  $("#pinMsg").textContent = "";
+  const r = await fetch("/api/login_code", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({vorgang: codeVorgang, code: $("#code").value}), credentials: "same-origin"}).then(r => r.json());
+  if (r.ok) { codeZeigen(false); codeVorgang = null; zeigeApp(); begruessen(); fingerAnbieten(); return; }
+  $("#pinMsg").textContent = r.error || "Das hat nicht geklappt."; $("#code").value = "";
+  if (r.neu_anmelden) { codeZeigen(false); codeVorgang = null; }
+};
+$("#code").onkeydown = e => { if (e.key === "Enter") $("#codeBtn").click(); };
+$("#codeZurueck").onclick = () => { codeZeigen(false); codeVorgang = null; $("#pinMsg").textContent = ""; };
 $("#pin").onkeydown = e => { if (e.key === "Enter") $("#pinBtn").click(); };
 $("#erstPinBtn").onclick = async () => {
   $("#pinMsg").textContent = "";
@@ -340,7 +429,9 @@ $("#abBtn").onclick = async () => { await api("/api/abmelden", {}); zeigeLogin()
 $("#neuBtn").onclick = () => { chatId = null; try { localStorage.removeItem("watsonChat"); } catch (e) {} $("#chat").innerHTML = ""; begruessen(); };
 function blase(text, wer, art = "") {
   const d = document.createElement("div"); d.className = "msg " + art;
-  d.innerHTML = (wer ? `<div class="who">${esc(wer)}</div>` : "") + fmt(text);
+  const inhalt = window.watsonMarkdown ? (art === "user" ? watsonEinfach(text) : watsonMarkdown(text)) : fmt(text);
+  d.innerHTML = (wer ? `<div class="who">${esc(wer)}</div>` : "") + `<div class="md">${inhalt}</div>`;
+  if (window.watsonKopierKnopf) watsonKopierKnopf(d, d.querySelector(".md"));   // ganze Nachricht kopieren
   $("#chat").appendChild(d); $("#chat").scrollTop = 1e9; return d;
 }
 async function kopieren(t) { try { await navigator.clipboard.writeText(t); return true; } catch (e) { return false; } }
@@ -656,6 +747,7 @@ async function menuZeige(t) {
   setTimeout(() => m.scrollIntoView({behavior: "smooth", block: "start"}), 50);
   try {
     if (t === "stimme") { $("#menuSeite").style.display = "none"; return stimmeOeffnen(); }
+    if (t === "video") { $("#menuSeite").style.display = "none"; return vdOeffnen(); }
     if (t === "gespraeche") {
       const r = await hx("gespraeche");
       m.innerHTML = '<div class="liste">' + ((r.gespraeche || []).map(g => `<div><div class="kopf"><b>${esc(g.title || "Gespräch")}</b><button class="small" data-o="${g.id}">Öffnen</button><button class="ghost small" data-x="${g.id}">🗑</button></div><div class="small muted">${new Date(g.updated * 1000).toLocaleString("de-DE")}</div></div>`).join("") || '<div class="muted">Noch keine Gespräche.</div>') + "</div>";
@@ -795,6 +887,7 @@ async function sicherheitZeigen(m) {
     <div class="liste"><div><b>Eigenen Schlüssel hinzufügen</b><input id="sNeuName" placeholder="Name, z. B. Wetterdienst" style="margin-top:8px"><input id="sNeuWert" type="password" placeholder="Schlüssel" autocomplete="off" style="margin-top:8px"><button class="primary small" id="sNeuBtn" style="margin-top:8px">Speichern</button><div class="small" id="sNeuMsg"></div></div></div>
     <b>System-Werkzeuge</b><div class="liste"><div><label class="kopf" style="cursor:pointer"><input type="checkbox" id="sSys" ${s.use_system ? "checked" : ""} style="width:22px;height:22px;accent-color:var(--accent)"><b>Windows-Auskunft und PowerShell erlauben</b></label>
       <div class="small muted" style="margin-top:6px">Auch dann fragt Watson vor <b>jeder</b> Nutzung und erklärt kurz, was er tun will. Gefährliche Befehle bleiben gesperrt, ohne Administratorrechte.</div><div class="small" id="sSysMsg"></div></div></div>
+    <b>Zwei-Schritt-Anmeldung</b><div class="liste" id="s2fa"></div>
     <b>Vertrauensstufe</b><div class="liste" id="sVert"></div>
     <b>Passwort ändern</b><div class="liste"><div><input id="sPw1" type="password" autocomplete="new-password" placeholder="Neues Passwort (mind. 12 Zeichen)"><input id="sPw2" type="password" autocomplete="new-password" placeholder="Wiederholen" style="margin-top:8px"><button class="primary small" id="sPwBtn" style="margin-top:8px">Passwort speichern</button><div class="small" id="sPwMsg"></div><div class="small muted" style="margin-top:6px">Danach werden alle anderen Geräte abgemeldet.</div></div></div>`;
   clearInterval(bestaetigtUhr);
@@ -821,6 +914,7 @@ async function sicherheitZeigen(m) {
     if (e.target.checked && !confirm("System-Werkzeuge erlauben?\n\nWatson darf dann Windows-Informationen abfragen und einzelne PowerShell-Befehle ausführen. Vor JEDER Nutzung fragt er dich und erklärt, was er tun will.")) { e.target.checked = false; return; }
     const r = await sx("system_setzen", {an: e.target.checked}); $("#sSysMsg").textContent = r.error || (r.an ? "✓ Erlaubt – Watson fragt vor jeder Nutzung." : "✓ Ausgeschaltet.");
   };
+  zweistufeZeigen(s);
   const v = await sx("vertrauen"); const stufen = v.stufen || {};
   $("#sVert").innerHTML = [1, 2, 3, 4].map(n => { const st = stufen[n] || stufen[String(n)] || {};
     return `<div><label class="kopf" style="cursor:pointer"><input type="radio" name="vst" value="${n}" ${v.stufe === n ? "checked" : ""} style="width:22px;height:22px;accent-color:var(--accent)"><b>${esc((st.icon || "") + " Stufe " + n + (st.name ? " – " + st.name : ""))}</b></label><div class="small muted" style="margin-top:4px">${esc(st.kurz || st.beschreibung || "")}</div></div>`; }).join("");
@@ -833,6 +927,54 @@ async function sicherheitZeigen(m) {
     const r = await sx("passwort_setzen", {neu: $("#sPw1").value, wiederholung: $("#sPw2").value});
     $("#sPwMsg").textContent = r.error || "✓ Passwort geändert. Alle anderen Geräte sind jetzt abgemeldet.";
     if (!r.error) { $("#sPw1").value = $("#sPw2").value = ""; }
+  };
+}
+function ersatzZeigen(box, codes) {
+  box.innerHTML = `<div><div class="hinweis gut"><b>Deine 10 Ersatz-Codes</b> – jetzt aufschreiben oder ausdrucken und sicher aufbewahren (nicht im Handy!). Jeder gilt nur einmal. Sie werden <b>nur jetzt</b> angezeigt.</div>
+    <div style="font-family:ui-monospace,Consolas,monospace;font-size:17px;display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;margin:10px 0">${codes.map(c => `<span>${esc(c)}</span>`).join("")}</div>
+    <button class="small" id="s2Kopie">Kopieren</button> <button class="primary small" id="s2Fertig">Ich habe sie aufgeschrieben</button></div>`;
+  box.querySelector("#s2Kopie").onclick = () => { navigator.clipboard && navigator.clipboard.writeText(codes.join("\n")); box.querySelector("#s2Kopie").textContent = "✓ Kopiert"; };
+  box.querySelector("#s2Fertig").onclick = () => menuZeige("sicherheit");
+}
+function zweistufeZeigen(s) {
+  const box = $("#s2fa"); if (!box) return;
+  if (s.zweistufe) {
+    box.innerHTML = `<div><div class="kopf"><b>${s.zweistufe === "app" ? "Authenticator-App" : "E-Mail-Code"}</b><span class="marke gut">eingeschaltet</span></div>
+      <div class="small muted" style="margin-top:4px">Nach dem Passwort fragt Watson zusätzlich nach dem Code. Mit Fingerabdruck geht es ohne Code (das ist schon zweistufig). Noch ${s.ersatz_uebrig} Ersatz-Codes übrig.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="small" id="s2Neu">Neue Ersatz-Codes</button><button class="ghost small" id="s2Aus">Ausschalten</button></div><div class="small" id="s2Msg"></div></div>`;
+    $("#s2Neu").onclick = async () => { if (!confirm("Neue Ersatz-Codes erzeugen? Die alten gelten danach nicht mehr.")) return;
+      const r = await sx("zweistufe_ersatz_neu"); if (r.error) $("#s2Msg").textContent = r.error; else ersatzZeigen(box, r.ersatz); };
+    $("#s2Aus").onclick = async () => { if (!confirm("Zwei-Schritt-Anmeldung ausschalten? Dann reicht wieder das Passwort allein.")) return;
+      const r = await sx("zweistufe_aus"); if (r.error) $("#s2Msg").textContent = r.error; else menuZeige("sicherheit"); };
+    return;
+  }
+  box.innerHTML = `<div><div class="kopf"><b>Zusätzlicher Code nach dem Passwort</b><span class="marke">aus</span></div>
+    <div class="small muted" style="margin-top:4px">Selbst wer dein Passwort kennt, kommt dann ohne den Code nicht hinein.</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
+      <button class="primary small" id="s2App">📱 Authenticator-App (empfohlen)</button>
+      <button class="small" id="s2Mail" ${s.mail_adresse ? "" : "disabled"}>✉️ Code per E-Mail${s.mail_adresse ? " an " + esc(s.mail_adresse) : " (erst am Laptop E-Mail einrichten)"}</button>
+      <button class="small" disabled>💬 SMS – nicht eingebaut</button></div>
+    <div class="small muted" style="margin-top:6px">SMS kostet Geld (ein SMS-Dienst wäre nötig) und ist der unsicherste Weg, weil Betrüger Handynummern umleiten können. Die App ist kostenlos und sicherer.</div>
+    <div id="s2Schritt"></div><div class="small" id="s2Msg"></div></div>`;
+  const schritt = $("#s2Schritt");
+  const bestaetigen = (text) => {
+    schritt.insertAdjacentHTML("beforeend", `<div style="margin-top:10px">${text}</div><input id="s2Code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-stelliger Code" style="margin-top:8px;text-align:center;letter-spacing:4px"><button class="primary small" id="s2Ok" style="margin-top:8px">Bestätigen und einschalten</button>`);
+    $("#s2Ok").onclick = async () => { const r = await sx("zweistufe_bestaetigen", {code: $("#s2Code").value});
+      if (r.error) { $("#s2Msg").textContent = r.error; return; } $("#s2Msg").textContent = ""; ersatzZeigen(box, r.ersatz); };
+  };
+  $("#s2App").onclick = async () => {
+    const r = await sx("zweistufe_app_start"); if (r.error) { $("#s2Msg").textContent = r.error; return; }
+    schritt.innerHTML = `<div class="hinweis" style="margin-top:10px"><b>1.</b> Installiere eine Authenticator-App (z. B. Google Authenticator oder Microsoft Authenticator – kostenlos).<br><b>2.</b> Tippe auf „In App öffnen“ – oder wähle in der App „Einrichtungsschlüssel eingeben“ und füge den Schlüssel ein (Kontoname: Watson, zeitbasiert).</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><a class="btn small" href="${esc(r.link)}" style="text-decoration:none"><button class="small">In App öffnen</button></a><button class="small" id="s2Kop">Schlüssel kopieren</button></div>
+      <div style="font-family:ui-monospace,Consolas,monospace;margin-top:8px;word-break:break-all">${esc(r.geheimnis)}</div>`;
+    $("#s2Kop").onclick = () => { navigator.clipboard && navigator.clipboard.writeText(r.geheimnis.replace(/ /g, "")); $("#s2Kop").textContent = "✓ Kopiert"; };
+    bestaetigen("<b>3.</b> Gib den Code ein, den die App jetzt zeigt:");
+  };
+  const m = $("#s2Mail"); if (m) m.onclick = async () => {
+    $("#s2Msg").textContent = "Sende E-Mail …";
+    const r = await sx("zweistufe_mail_start"); if (r.error) { $("#s2Msg").textContent = r.error; return; }
+    $("#s2Msg").textContent = ""; schritt.innerHTML = "";
+    bestaetigen(`Wir haben einen Code an <b>${esc(r.an)}</b> geschickt. Gib ihn hier ein:`);
   };
 }
 async function gespraechLaden(id) {
@@ -872,6 +1014,113 @@ $("#dateiWahl").onchange = async e => {
   $("#eingabe").focus();
 };
 function zeigeAnhang(html) { const a = $("#anhang"); a.innerHTML = html; a.style.display = html ? "block" : "none"; }
+// ================= Video-Studio am Handy =================
+const VD = {clip: null, kanaele: [], job: null, uhr: null, ergebnisse: []};
+const vdZeit = s => { s = Math.round(Math.max(0, +s || 0)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+const vdSek = t => { t = String(t || "").trim().replace(",", "."); if (!t) return 0; if (t.includes(":")) { const [m, s] = t.split(":"); return (+m || 0) * 60 + (+s || 0); } return +t || 0; };
+async function vdOeffnen() {
+  $("#videoSeite").style.display = "flex";
+  const d = await hx("video_kanaele");
+  $("#vdWerkzeug").style.display = d.ffmpeg && d.ffmpeg.da ? "none" : "flex";
+  if (d.untertitel_moeglich === false) { $("#vdUntertitel").checked = false; $("#vdUntertitel").disabled = true; $("#vdUtPruefen").checked = false; $("#vdUtPruefen").disabled = true; }
+  VD.kanaele = d.kanaele || [];
+  vdKanaeleZeigen();
+  vdKiZeigen().catch(() => {});
+}
+async function vdKiZeigen() {
+  const box = $("#vdKiListe"); if (box.dataset.fertig) return;
+  const p = await hx("video_plattformen");
+  const art = {gratis: ["Kostenlos nutzbar", "gut"], test: ["Gratis zum Testen", ""], bezahlt: ["Nur bezahlt", ""]};
+  const gruppen = {}; (p.liste || []).forEach(x => (gruppen[x.kategorie] = gruppen[x.kategorie] || []).push(x));
+  box.innerHTML = Object.entries(gruppen).map(([k, xs]) => `<div style="margin:10px 0 4px"><b>${esc(k)}</b></div>` + xs.map(x => {
+    const [a, kl] = art[x.art] || [x.art, ""];
+    return `<a href="${esc(x.url)}" target="_blank" rel="noopener noreferrer" style="display:block;text-decoration:none;color:inherit;padding:10px 12px;margin:6px 0;border:1px solid var(--line, #ddd);border-radius:12px">
+      <div class="kopf"><b>${esc(x.name)} ↗</b><span class="marke ${kl}">${esc(a)}</span></div><div class="small muted" style="margin-top:3px">${esc(x.text)}</div></a>`; }).join("")).join("")
+    + `<ul class="small muted" style="margin:10px 0 0;padding-left:18px">${(p.hinweise || []).map(h => `<li>${esc(h)}</li>`).join("")}</ul><div class="small muted" style="margin-top:4px">Stand: ${esc(p.stand || "")} · keine Werbung, keine Partner-Links</div>`;
+  box.dataset.fertig = "1";
+}
+function vdKanaeleZeigen() {
+  $("#vdKanaele").innerHTML = VD.kanaele.map(k => `<label class="vdKanal"><input type="checkbox" data-k="${esc(k.id)}" ${k.aktiv ? "checked" : ""}><b>${esc(k.name)}</b><span>${esc(k.format)}</span></label>`).join("");
+  $("#vdKanaele").querySelectorAll("[data-k]").forEach(c => c.onchange = async () => {
+    const k = VD.kanaele.find(x => x.id === c.dataset.k); k.aktiv = c.checked; await hx("video_kanal", {id: k.id, aktiv: c.checked}); });
+}
+function vdHochladen(datei) {
+  return new Promise((ok, nein) => {
+    const x = new XMLHttpRequest();
+    x.open("POST", "/api/video/hochladen?name=" + encodeURIComponent(datei.name || "video.mp4"));
+    x.withCredentials = true;
+    x.upload.onprogress = e => { if (e.lengthComputable) { $("#vdUpBalken").style.width = (100 * e.loaded / e.total) + "%"; $("#vdVideoInfo").textContent = `Wird zum Laptop geschickt … ${Math.round(100 * e.loaded / e.total)} %`; } };
+    x.onload = () => { try { const r = JSON.parse(x.responseText); x.status === 200 ? ok(r) : nein(new Error(r.error || x.status)); } catch (e) { nein(e); } };
+    x.onerror = () => nein(new Error("Keine Verbindung zum Laptop"));
+    x.send(datei);
+  });
+}
+async function vdStatus() {
+  const s = await hx("video_status", {id: VD.job});
+  $("#vdBalken").style.width = (s.prozent || 0) + "%";
+  $("#vdSchritt").textContent = s.fehler ? "⚠ " + s.fehler : `${Math.round(s.prozent || 0)} % – ${s.schritt || ""}`;
+  if (s.warte_auf_untertitel && $("#vdUtBox").style.display === "none") { $("#vdUtText").value = s.srt_text || ""; $("#vdUtBox").style.display = "flex"; $("#vdUtBox").scrollIntoView({behavior: "smooth", block: "center"}); }
+  if (s.fertig) {
+    clearInterval(VD.uhr); $("#vdStart").disabled = false; $("#vdStopp").style.display = "none";
+    if (!s.fehler) { VD.ergebnisse = s.ergebnisse || []; vdErgebnisseZeigen(); }
+  }
+}
+function vdErgebnisseZeigen() {
+  $("#vdErgebnisKarte").style.display = "flex";
+  $("#vdErgebnisse").innerHTML = VD.ergebnisse.map((e, i) => {
+    const url = `/api/video/datei?job=${encodeURIComponent(VD.job)}&kanal=${encodeURIComponent(e.kanal)}`;
+    return `<div class="vdErg" data-e="${i}"><b>${esc(e.name)} <span class="small muted">· ${esc(e.format || "")} · ${e.mb} MB${e.hinweis ? " · " + esc(e.hinweis) : ""}</span></b>
+      <video src="${url}" controls playsinline preload="metadata"></video>
+      <textarea class="vdTxt" rows="4">${esc([e.titel, e.text, e.hashtags].filter(Boolean).join("\n\n"))}</textarea>
+      <div class="knoepfe"><button class="primary vdTeilen">📤 Teilen</button><button class="vdKopie">📋 Text kopieren</button>
+        <a class="vdSpeichern" href="${url}" download="${esc(e.kanal)}.mp4" style="flex:1 1 45%"><button style="width:100%">💾 Speichern</button></a>
+        ${e.url ? `<button class="vdSeite">🌐 Upload-Seite</button>` : ""}</div><div class="small vdMeld muted"></div></div>`; }).join("");
+  $("#vdErgebnisse").querySelectorAll("[data-e]").forEach(el => {
+    const e = VD.ergebnisse[+el.dataset.e], url = el.querySelector("video").src, meld = t => el.querySelector(".vdMeld").textContent = t;
+    el.querySelector(".vdKopie").onclick = async () => meld((await watsonKopieren(el.querySelector(".vdTxt").value)) ? "✓ Text kopiert" : "Bitte Text markieren und kopieren");
+    el.querySelector(".vdTeilen").onclick = async () => {
+      const text = el.querySelector(".vdTxt").value;
+      await watsonKopieren(text);
+      meld("Video wird vorbereitet …");
+      try {
+        const blob = await (await fetch(url, {credentials: "same-origin"})).blob();
+        const datei = new File([blob], `${e.kanal}.mp4`, {type: "video/mp4"});
+        if (navigator.canShare && navigator.canShare({files: [datei]})) {
+          await navigator.share({files: [datei], title: e.titel || e.name, text});
+          meld("✓ Geteilt – Text ist kopiert, in der App einfach einfügen und posten.");
+        } else { meld("Dein Browser kann keine Videos teilen – nimm „Speichern“ und lade es in der App hoch. Der Text ist kopiert."); }
+      } catch (err) { meld(err && err.name === "AbortError" ? "Abgebrochen." : "Teilen ging nicht: " + (err.message || err)); }
+    };
+    const s = el.querySelector(".vdSeite"); if (s) s.onclick = () => window.open(e.url, "_blank", "noopener");
+  });
+  $("#vdErgebnisKarte").scrollIntoView({behavior: "smooth"});
+}
+$("#vdZu").onclick = () => { $("#videoSeite").style.display = "none"; };
+$("#vdWaehlen").onclick = () => $("#vdDatei").click();
+$("#vdDatei").onchange = async () => {
+  const f = $("#vdDatei").files[0]; if (!f) return;
+  $("#vdUpBalkenBox").style.display = ""; $("#vdUpBalken").style.width = "0"; $("#vdWaehlen").disabled = true;
+  try {
+    const r = await vdHochladen(f);
+    VD.clip = {id: r.id, dauer: r.dauer || 0};
+    $("#vdVideoInfo").textContent = `✓ ${f.name}` + (r.dauer ? ` · ${vdZeit(r.dauer)} · ${r.breite}×${r.hoehe}` : "") + (r.fehler ? " · " + r.fehler : "");
+    $("#vdSchnitt").style.display = "flex"; $("#vdVon").value = "0:00"; $("#vdBis").value = r.dauer ? vdZeit(r.dauer) : "";
+  } catch (e) { $("#vdVideoInfo").textContent = "⚠ " + e.message; }
+  $("#vdWaehlen").disabled = false; $("#vdUpBalkenBox").style.display = "none"; $("#vdDatei").value = "";
+};
+$("#vdFfHolen").onclick = async () => { $("#vdFfHolen").disabled = true; $("#vdFfInfo").textContent = "Lädt auf dem Laptop … (1–3 Minuten)"; const r = await hx("video_ffmpeg_holen"); $("#vdFfHolen").disabled = false; $("#vdFfInfo").textContent = r.error || "✓ Fertig"; if (!r.error) vdOeffnen(); };
+$("#vdStart").onclick = async () => {
+  if (!VD.clip) { $("#vdSchritt").textContent = "Bitte zuerst ein Video wählen."; return; }
+  const kan = VD.kanaele.filter(k => k.aktiv).map(k => k.id);
+  const r = await hx("video_starten", {clips: [{id: VD.clip.id, von: vdSek($("#vdVon").value), bis: vdSek($("#vdBis").value)}], kanaele: kan,
+    zuschnitt: $("#vdEinpassen").checked ? "einpassen" : "fuellen", untertitel: $("#vdUntertitel").checked, untertitel_pruefen: $("#vdUtPruefen").checked,
+    lautstaerke_angleichen: $("#vdLaut").checked, thema: $("#vdThema").value, text: {inhalt: $("#vdText").value, position: "oben", bis: 0}});
+  if (r.error) { $("#vdSchritt").textContent = r.error; return; }
+  VD.job = r.id; $("#vdStart").disabled = true; $("#vdStopp").style.display = ""; $("#vdBalkenBox").style.display = ""; $("#vdErgebnisKarte").style.display = "none";
+  clearInterval(VD.uhr); VD.uhr = setInterval(vdStatus, 1500);
+};
+$("#vdStopp").onclick = async () => { await hx("video_abbrechen", {id: VD.job}); $("#vdUtBox").style.display = "none"; };
+$("#vdUtOk").onclick = async () => { const r = await hx("video_untertitel_ok", {id: VD.job, text: $("#vdUtText").value}); if (r.error) { $("#vdUtMeld").textContent = r.error; return; } $("#vdUtBox").style.display = "none"; $("#vdUtMeld").textContent = ""; };
 $("#stimmeZu").onclick = () => { if (ST.rec) stStopp(); $("#stimmeSeite").style.display = "none"; };
 start();
 </script>

@@ -81,7 +81,8 @@ def _fehler_gruppen(tage=7):
                 continue
             # die letzte Stelle im Ablauf, die in Watsons eigenem Programm liegt
             stellen = re.findall(r'File "([^"]+)", line (\d+)', e["ablauf"])
-            eigene = [(f, int(n)) for f, n in stellen if f.startswith(str(pfade.PROGRAMM))]
+            eigene = [(f, int(n)) for f, n in stellen if f.startswith(str(pfade.PROGRAMM))
+                      and not any(x in f for x in ("\\.venv\\", "/.venv/", "site-packages", "mcp-pakete"))]
             if not eigene:
                 continue
             datei, zeile = eigene[-1]

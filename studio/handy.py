@@ -27,6 +27,7 @@ import numpy as np
 
 import pfade
 import tresor
+import zweistufe
 
 PORT = 8765
 HIER = Path(__file__).resolve().parent
@@ -47,10 +48,16 @@ def _sitzungen_laden():
 
 def _sitzungen_speichern():
     try:
-        SITZUNGS_DATEI.write_text(json.dumps({k: v for k, v in SITZUNGEN.items() if v > time.time()}), encoding="utf-8")
-    except OSError:
+        with DATEN_SPERRE:
+            daten = {k: v for k, v in list(SITZUNGEN.items()) if v > time.time()}
+        SITZUNGS_DATEI.write_text(json.dumps(daten), encoding="utf-8")
+    except (OSError, RuntimeError):
         pass
 FEHLVERSUCHE = {"anzahl": 0, "gesperrt_bis": 0, "sperren": 0}
+ANMELDE_SPERRE = threading.Lock()
+VORLOGIN = {}                       # Vorgang nach richtigem Passwort -> {bis, versuche, mail_hash} (zweiter Schritt offen)
+EINRICHTEN_2FA = {}                 # Sitzung -> {geheimnis | mail_hash, bis} während die zweite Stufe eingerichtet wird   # Passwort-Prüfungen nacheinander (keine tausend Versuche gleichzeitig)
+DATEN_SPERRE = threading.Lock()     # Sitzungen / Herausforderungen nicht gleichzeitig ändern
 ERHOEHT = {}                      # sha256(sitzung) -> bis wann die Fingerabdruck-Bestätigung gilt
 ERHOEHT_SEKUNDEN = 300            # 5 Minuten
 
@@ -62,6 +69,28 @@ def _fehlversuch():
         dauer = min(900 * 2 ** FEHLVERSUCHE["sperren"], 86400)
         FEHLVERSUCHE.update(anzahl=0, gesperrt_bis=time.time() + dauer, sperren=FEHLVERSUCHE["sperren"] + 1)
         sicherheit_log(f"Gesperrt für {dauer // 60} Minuten nach 5 falschen Anmeldeversuchen")
+
+
+def _mail_adresse():
+    try:
+        return str((H["config_laden"]().get("mail") or {}).get("adresse") or "")
+    except Exception:
+        return ""
+
+
+def _mail_code_senden(code, wofuer):
+    """Schickt den Code an Watsons eigene Mail-Adresse. Gibt {'an': maskiert} oder {'error': …} zurück."""
+    adresse = _mail_adresse()
+    if not adresse:
+        return {"error": "Keine E-Mail-Adresse eingerichtet."}
+    try:
+        r = H["api"].mail_schicken(adresse, f"Watson – dein Code: {code}",
+                                   f"Dein Code für Watson auf dem Handy ({wofuer}): {code}\n\n"
+                                   "Er gilt 10 Minuten. Wenn du dich gerade NICHT anmeldest, kennt jemand dein Passwort – "
+                                   "ändere es bitte sofort am Laptop.\n\nGib diesen Code niemandem weiter.")
+    except Exception as e:
+        r = {"error": str(e)}
+    return {"error": r["error"]} if r.get("error") else {"an": zweistufe.mail_maskiert(adresse)}
 
 
 def sicherheit_log(text):
@@ -195,12 +224,13 @@ def _rp(host):
 
 def _herausforderung(schluessel, challenge=None):
     jetzt = time.time()
-    for k in [k for k, (_, t) in HERAUSFORDERUNGEN.items() if t < jetzt]:
-        HERAUSFORDERUNGEN.pop(k, None)
-    if challenge is not None:
-        HERAUSFORDERUNGEN[schluessel] = (challenge, jetzt + 300)
-        return challenge
-    c = HERAUSFORDERUNGEN.pop(schluessel, None)
+    with DATEN_SPERRE:
+        for k in [k for k, (_, t) in list(HERAUSFORDERUNGEN.items()) if t < jetzt]:
+            HERAUSFORDERUNGEN.pop(k, None)
+        if challenge is not None:
+            HERAUSFORDERUNGEN[schluessel] = (challenge, jetzt + 300)
+            return challenge
+        c = HERAUSFORDERUNGEN.pop(schluessel, None)
     return c[0] if c else None
 
 
@@ -333,8 +363,6 @@ class Handler(BaseHTTPRequestHandler):
             return self._antwort(400, {"error": "Fingerabdruck geht nur über die sichere Tunnel-Adresse (…ts.net)."})
         eigene = [p for p in _passkeys() if p.get("rp_id") == rp]
         if pfad == "/api/passkey/login_start":
-            if FEHLVERSUCHE["gesperrt_bis"] > time.time():
-                return self._antwort(429, {"error": "Zu viele falsche Versuche. Bitte in ein paar Minuten noch einmal."})
             if not eigene:
                 return self._antwort(404, {"error": "Auf diesem Handy ist noch kein Fingerabdruck eingerichtet."})
             opt = webauthn.generate_authentication_options(
@@ -397,6 +425,9 @@ class Handler(BaseHTTPRequestHandler):
             _passkeys_speichern(alle)
             ERHOEHT[sh] = time.time() + ERHOEHT_SEKUNDEN
             return self._antwort(200, {"ok": True, "sekunden": ERHOEHT_SEKUNDEN})
+        if pfad in ("/api/passkey/einrichten_start", "/api/passkey/einrichten") and eigene and not self._erhoeht():
+            return self._antwort(403, {"error": "Ein weiteres Gerät darf nur hinzufügen, wer sich vorher mit einem schon "
+                                                "eingerichteten Fingerabdruck bestätigt hat.", "bestaetigen": True})
         if pfad == "/api/passkey/einrichten_start":
             opt = webauthn.generate_registration_options(
                 rp_id=rp, rp_name="Watson", user_name=H["name"]() + "-Nutzer", user_id=b"watson-nutzer-1",
@@ -428,6 +459,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def _json(self):
         n = min(int(self.headers.get("Content-Length") or 0), 200_000)
+        if "json" not in (self.headers.get("Content-Type") or "").lower():   # nur echte JSON-Anfragen (Schutz gegen Formulare fremder Seiten)
+            self.rfile.read(n)
+            return {}
         try:
             return json.loads(self.rfile.read(n) or b"{}")
         except ValueError:
@@ -442,6 +476,8 @@ class Handler(BaseHTTPRequestHandler):
                                        "display": "standalone", "background_color": "#16181c", "theme_color": "#185FA5",
                                        "icons": [{"src": "/logo.png", "sizes": "512x512", "type": "image/png"}]},
                                  "application/manifest+json")
+        if pfad == "/markdown.js":
+            return self._antwort(200, (HIER / "markdown.js").read_bytes(), "text/javascript; charset=utf-8")
         if pfad == "/i18n.js":
             return self._antwort(200, (HIER / "i18n.js").read_bytes(), "text/javascript; charset=utf-8")
         if pfad == "/logo.png":
@@ -457,6 +493,8 @@ class Handler(BaseHTTPRequestHandler):
                                        "fingerabdruck_eingerichtet": any(p.get("rp_id") == rp for p in _passkeys())})
         if not self._angemeldet():
             return self._antwort(401, {"error": "Bitte zuerst mit deiner PIN anmelden."})
+        if pfad == "/api/video/datei":
+            return self._video_datei()
         if pfad == "/api/fragen":
             return self._antwort(200, {"fragen": H["offene_fragen"]()})
         if pfad.startswith("/api/stimme/"):
@@ -532,7 +570,14 @@ class Handler(BaseHTTPRequestHandler):
             if not begriff:
                 return {"error": "Gib ein Wort ein, was Watson können soll."}
             return api.mcp_suchen(begriff, d.get("weiter") or None)
+        if aktion.startswith("video_"):
+            return self._video_aktion(aktion, d)
         if aktion == "werkzeug_einstecken":
+            if not self._erhoeht():
+                return {"error": "Ein neues Werkzeug startet fremde Programme auf deinem Laptop. Bitte zuerst unter "
+                                 "Menü → Sicherheit mit Fingerabdruck bestätigen, dann noch einmal einstecken.",
+                        "bestaetigen": True}
+            sicherheit_log(f"Werkzeug eingesteckt: {str(d.get('id', ''))[:120]} (vom Handy)")
             return api.mcp_einstecken(str(d.get("id", ""))[:200])
         return {"error": "Unbekannte Aktion."}
 
@@ -549,14 +594,16 @@ class Handler(BaseHTTPRequestHandler):
             return {"bestaetigt_bis": max(0, int(ERHOEHT.get(sh, 0) - time.time())), "passwort": ist_passwort(),
                     "fingerabdruecke": [p.get("name") for p in _passkeys() if p.get("rp_id") == rp],
                     "fingerabdruck_moeglich": bool(rp), "protokoll": sicherheit_log_lesen(),
-                    "use_system": bool(H["config_laden"]().get("use_system"))}
+                    "use_system": bool(H["config_laden"]().get("use_system")),
+                    "zweistufe": zweistufe.art(), "ersatz_uebrig": zweistufe.ersatz_uebrig(),
+                    "mail_adresse": zweistufe.mail_maskiert(_mail_adresse())}
         if not self._erhoeht():
             return {"error": "Bitte zuerst mit Fingerabdruck oder Gesicht bestätigen.", "bestaetigen": True}
         if aktion == "schluessel":
             return {"schluessel": api.keys_list()}
         if aktion == "schluessel_setzen":
             cfg = H["config_laden"]()
-            kennung = re.sub(r"[^a-z0-9_]", "", str(d.get("id") or "").lower())[:40]
+            kennung = re.sub(r"[^a-z0-9_]", "", str(d.get("id") or "").lower())[:64]
             name = str(d.get("name") or "").strip()[:60]
             wert = str(d.get("wert") or "").strip()
             if not wert:
@@ -565,6 +612,8 @@ class Handler(BaseHTTPRequestHandler):
                 return {"error": "Der Schlüssel ist zu lang."}
             if not kennung:
                 kennung = ("eigen_" + re.sub(r"[^a-z0-9]", "", name.lower())[:20]) if name else f"eigen_{int(time.time())}"
+            if kennung.startswith("handy_"):
+                return {"error": "Diesen Eintrag kann man hier nicht ändern."}
             neu = not tresor.vorhanden(kennung)
             tresor.speichern(kennung, wert)
             liste = [x for x in cfg.get("schluessel", []) if x.get("id") != kennung]
@@ -598,6 +647,8 @@ class Handler(BaseHTTPRequestHandler):
             if r.get("ok"):
                 sicherheit_log(f"Vertrauensstufe auf {r['stufe']} gesetzt (vom Handy)")
             return r
+        if aktion.startswith("zweistufe_"):
+            return self._zweistufe_einrichten(aktion, d)
         if aktion == "passwort_setzen":
             neu, wdh = str(d.get("neu") or ""), str(d.get("wiederholung") or "")
             if neu != wdh:
@@ -609,6 +660,200 @@ class Handler(BaseHTTPRequestHandler):
             sicherheit_log("Passwort geändert (vom Handy) – alle anderen Anmeldungen wurden abgemeldet")
             return {"ok": True, "_neue_sitzung": True}
         return {"error": "Unbekannte Aktion."}
+
+    def _zweistufe_einrichten(self, aktion, d):
+        """Zwei-Schritt-Anmeldung ein-/ausschalten (nur im mit Fingerabdruck entsperrten Bereich)."""
+        sh = self._sitzung_hash()
+        jetzt = time.time()
+        if aktion == "zweistufe_app_start":
+            g = zweistufe.neues_geheimnis()
+            EINRICHTEN_2FA[sh] = {"geheimnis": g, "bis": jetzt + 900}
+            return {"geheimnis": " ".join(g[i:i + 4] for i in range(0, len(g), 4)), "link": zweistufe.app_link(g)}
+        if aktion == "zweistufe_mail_start":
+            if not _mail_adresse():
+                return {"error": "Watson hat noch keine E-Mail-Adresse. Bitte zuerst am Laptop unter Einstellungen → "
+                                 "E-Mail einrichten."}
+            code, h = zweistufe.mail_code()
+            r = _mail_code_senden(code, "Einrichtung")
+            if r.get("error"):
+                return {"error": "Die E-Mail konnte nicht gesendet werden: " + str(r["error"])[:160]}
+            EINRICHTEN_2FA[sh] = {"mail_hash": h, "bis": jetzt + 600, "versuche": 0}
+            return {"ok": True, "an": r["an"]}
+        if aktion == "zweistufe_bestaetigen":
+            e = EINRICHTEN_2FA.get(sh)
+            if not e or e["bis"] < jetzt:
+                return {"error": "Die Zeit ist abgelaufen. Bitte noch einmal beginnen."}
+            e["versuche"] = e.get("versuche", 0) + 1
+            if e["versuche"] > 5:
+                EINRICHTEN_2FA.pop(sh, None)
+                return {"error": "Zu viele falsche Codes. Bitte noch einmal beginnen."}
+            if e.get("geheimnis"):
+                if zweistufe.totp_pruefen(e["geheimnis"], d.get("code", "")) is None:
+                    return {"error": "Der Code stimmt nicht. Prüfe, ob die Uhrzeit am Handy stimmt, und nimm den aktuellen Code."}
+                codes = zweistufe.app_einschalten(e["geheimnis"])
+                art = "Authenticator-App"
+            else:
+                if not zweistufe.mail_code_passt(d.get("code", ""), e.get("mail_hash")):
+                    return {"error": "Der Code stimmt nicht."}
+                codes = zweistufe.email_einschalten()
+                art = "E-Mail-Code"
+            EINRICHTEN_2FA.pop(sh, None)
+            sicherheit_log(f"Zwei-Schritt-Anmeldung eingeschaltet ({art}, vom Handy)")
+            return {"ok": True, "ersatz": codes}
+        if aktion == "zweistufe_ersatz_neu":
+            if not zweistufe.aktiv():
+                return {"error": "Die Zwei-Schritt-Anmeldung ist nicht eingeschaltet."}
+            sicherheit_log("Neue Ersatz-Codes erzeugt – die alten gelten nicht mehr (vom Handy)")
+            return {"ok": True, "ersatz": zweistufe.ersatz_neu()}
+        if aktion == "zweistufe_aus":
+            zweistufe.ausschalten()
+            sicherheit_log("Zwei-Schritt-Anmeldung ausgeschaltet (vom Handy)")
+            return {"ok": True}
+        return {"error": "Unbekannte Aktion."}
+
+    # ---------------- Video-Studio vom Handy ----------------
+    VIDEO_EINGANG = pfade.DATEN / "video_eingang"
+    VIDEO_MAX = 2 * 1024 ** 3                       # höchstens 2 GB pro Video
+
+    def _video_hochladen(self):
+        """Video vom Handy annehmen – in Stücken direkt auf die Platte (nicht in den Speicher)."""
+        from urllib.parse import parse_qs, urlparse, unquote
+        import uuid, shutil as _sh
+        n = int(self.headers.get("Content-Length") or 0)
+        if not self._angemeldet():
+            return self._antwort(401, {"error": "Bitte zuerst anmelden."})
+        if n <= 0 or n > self.VIDEO_MAX:
+            return self._antwort(400, {"error": "Das Video ist leer oder größer als 2 GB."})
+        self.VIDEO_EINGANG.mkdir(parents=True, exist_ok=True)
+        if _sh.disk_usage(str(self.VIDEO_EINGANG)).free < n * 4 + 2 * 1024 ** 3:
+            return self._antwort(507, {"error": "Auf dem Laptop ist nicht genug Platz für dieses Video."})
+        name = unquote(parse_qs(urlparse(self.path).query).get("name", ["video.mp4"])[0])
+        name = re.sub(r'[\\/:*?"<>|\x00-\x1f]', "_", name).strip(". ")[:80] or "video.mp4"
+        ziel = self.VIDEO_EINGANG / f"{uuid.uuid4().hex[:8]}_{name}"
+        rest = n
+        try:
+            with open(ziel, "wb") as f:
+                while rest > 0:
+                    stueck = self.rfile.read(min(rest, 1 << 20))
+                    if not stueck:
+                        break
+                    f.write(stueck); rest -= len(stueck)
+        except Exception:
+            rest = rest or 1
+        if rest:
+            ziel.unlink(missing_ok=True)
+            return self._antwort(400, {"error": "Die Übertragung wurde unterbrochen."})
+        import video_studio
+        try:
+            info = video_studio.info(ziel) if video_studio.ffmpeg_pfad() else {"name": name}
+        except Exception as e:
+            info = {"name": name, "fehler": str(e)[:200]}
+        self._video_eingang_aufraeumen()
+        return self._antwort(200, dict(info, id=ziel.name))
+
+    def _video_eingang_aufraeumen(self):
+        """Vom Handy geschickte Videos nach 3 Tagen wieder löschen (Platz sparen)."""
+        grenze = time.time() - 3 * 86400
+        for x in self.VIDEO_EINGANG.glob("*"):
+            try:
+                if x.is_file() and x.stat().st_mtime < grenze:
+                    x.unlink()
+            except Exception:
+                pass
+
+    def _video_eingang_pfad(self, vid):
+        p = (self.VIDEO_EINGANG / Path(str(vid)).name).resolve()
+        if p.parent != self.VIDEO_EINGANG.resolve() or not p.is_file():
+            raise ValueError("Video nicht gefunden.")
+        return p
+
+    def _video_aktion(self, aktion, d):
+        import video_studio
+        if aktion == "video_kanaele":
+            return {"kanaele": [{k: x.get(k) for k in ("id", "name", "format", "aktiv", "url", "max_sek", "eigener")}
+                                for x in video_studio.kanaele()], "ffmpeg": video_studio.ffmpeg_status(),
+                    "formate": list(video_studio.FORMATE) + ["original"], "untertitel_moeglich": bool(H.get("ohren"))}
+        if aktion == "video_plattformen":
+            return video_studio.plattformen()
+        if aktion == "video_kanal":
+            erlaubt = {k: d[k] for k in ("id", "aktiv", "format") if k in d}
+            return video_studio.kanal_speichern(erlaubt)
+        if aktion == "video_ffmpeg_holen":
+            try:
+                return video_studio.ffmpeg_holen()
+            except Exception as e:
+                return {"error": f"Laden hat nicht geklappt: {e}"}
+        if aktion == "video_starten":
+            clips = []
+            for c in d.get("clips") or []:
+                try:
+                    clips.append({"datei": str(self._video_eingang_pfad(c.get("id"))), "von": float(c.get("von") or 0),
+                                  "bis": float(c.get("bis") or 0)})
+                except (ValueError, TypeError):
+                    return {"error": "Ein Video wurde auf dem Laptop nicht gefunden – bitte neu schicken."}
+            auftrag = {k: d.get(k) for k in ("kanaele", "zuschnitt", "untertitel", "untertitel_pruefen",
+                                             "lautstaerke_angleichen", "thema", "name", "text")}
+            auftrag["clips"] = clips
+            return video_studio.starten(auftrag)
+        if aktion == "video_status":
+            s = dict(video_studio.status(str(d.get("id", ""))))
+            # keine Laptop-Pfade ans Handy (Kopien – die echten Auftragsdaten bleiben unverändert)
+            s["ergebnisse"] = [{k: v for k, v in e.items() if k != "datei"} for e in s.get("ergebnisse", [])]
+            s.pop("ordner", None)
+            return s
+        if aktion == "video_untertitel_ok":
+            return video_studio.untertitel_bestaetigen(str(d.get("id", "")), d.get("text"))
+        if aktion == "video_abbrechen":
+            return video_studio.abbrechen(str(d.get("id", "")))
+        return {"error": "Unbekannte Aktion."}
+
+    def _video_datei(self):
+        """Fertiges Video eines Auftrags ans Handy schicken (zum Teilen, Speichern, Ansehen)."""
+        from urllib.parse import parse_qs, urlparse
+        import video_studio
+        if not self._angemeldet():
+            return self._antwort(401, {"error": "Bitte zuerst anmelden."})
+        q = parse_qs(urlparse(self.path).query)
+        job = video_studio.JOBS.get(q.get("job", [""])[0])
+        kanal = q.get("kanal", [""])[0]
+        e = next((x for x in (job or {}).get("ergebnisse", []) if x.get("kanal") == kanal), None)
+        if not e or not Path(e["datei"]).is_file():
+            return self._antwort(404, {"error": "Video nicht gefunden."})
+        datei = Path(e["datei"])
+        groesse = datei.stat().st_size
+        anfang, ende = 0, groesse - 1
+        m = re.match(r"bytes=(\d*)-(\d*)", self.headers.get("Range") or "")
+        if m and (m.group(1) or m.group(2)):
+            anfang = int(m.group(1)) if m.group(1) else max(0, groesse - int(m.group(2)))
+            ende = min(int(m.group(2)), groesse - 1) if m.group(1) and m.group(2) else groesse - 1
+        if anfang < 0 or anfang >= max(groesse, 1) or ende < anfang:
+            self.send_response(416)
+            self.send_header("Content-Range", f"bytes */{groesse}")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        laenge = ende - anfang + 1
+        self.send_response(206 if m else 200)
+        self.send_header("Content-Type", "video/mp4")
+        self.send_header("Content-Length", str(laenge))
+        self.send_header("Accept-Ranges", "bytes")
+        if m:
+            self.send_header("Content-Range", f"bytes {anfang}-{ende}/{groesse}")
+        self.send_header("Content-Disposition", f'inline; filename="{kanal}.mp4"')
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        with open(datei, "rb") as f:
+            f.seek(anfang)
+            rest = laenge
+            while rest > 0:
+                stueck = f.read(min(rest, 1 << 20))
+                if not stueck:
+                    break
+                try:
+                    self.wfile.write(stueck)
+                except (BrokenPipeError, ConnectionResetError):
+                    break
+                rest -= len(stueck)
 
     def _handy_datei(self):
         """Datei vom Handy annehmen, in der Ablage speichern und den Text herauslesen."""
@@ -676,6 +921,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self._antwort(400, {"error": "Falsches Tonformat."})
                 rate = w.getframerate()
                 pcm = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype(np.float32) / 32768.0
+            if not 8000 <= rate <= 96000:
+                return self._antwort(400, {"error": "Ungültige Aufnahme (Abtastrate)."})
             if rate != 16000 and len(pcm):            # zur Sicherheit auf 16 kHz bringen
                 m = int(len(pcm) * 16000 / rate)
                 pcm = np.interp(np.linspace(0, len(pcm) - 1, m), np.arange(len(pcm)), pcm).astype(np.float32)
@@ -691,10 +938,51 @@ class Handler(BaseHTTPRequestHandler):
                 H["fehler_melden"]("Handy/Hören", e)
             return self._antwort(500, {"error": f"Spracherkennung: {e}"})
 
+    def _sitzung_antwort(self):
+        token = secrets.token_urlsafe(32)
+        with DATEN_SPERRE:
+            SITZUNGEN[_h(token)] = time.time() + 30 * 86400
+        _sitzungen_speichern()
+        return self._antwort(200, {"ok": True}, kopf={
+            "Set-Cookie": f"watson_sitzung={token}; Path=/; Max-Age={30 * 86400}; HttpOnly; Secure; SameSite=Strict"})
+
+    def _zweiter_schritt_starten(self):
+        jetzt = time.time()
+        for k in [k for k, x in list(VORLOGIN.items()) if x["bis"] < jetzt]:
+            VORLOGIN.pop(k, None)
+        vorgang = secrets.token_urlsafe(24)
+        eintrag = {"bis": jetzt + 600, "versuche": 0, "mail_hash": None}
+        art = zweistufe.art()
+        antwort = {"zweistufe": art, "vorgang": vorgang}
+        if art == "app":
+            antwort["hinweis"] = "Gib den 6-stelligen Code aus deiner Authenticator-App ein."
+        else:
+            code, eintrag["mail_hash"] = zweistufe.mail_code()
+            fehler = _mail_code_senden(code, "Anmeldung")
+            antwort["hinweis"] = (f"Wir haben dir einen Code an {fehler['an']} geschickt (10 Minuten gültig)."
+                                  if not fehler.get("error") else
+                                  "Die E-Mail konnte nicht gesendet werden. Du kannst einen Ersatz-Code nehmen.")
+        VORLOGIN[vorgang] = eintrag
+        return antwort
+
+    def _fremde_herkunft(self):
+        """True, wenn eine fremde Webseite im Browser diese Anfrage geschickt hat (Origin passt nicht zur Adresse)."""
+        herkunft = self.headers.get("Origin")
+        if not herkunft:
+            return False
+        host = (self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or "").lower()
+        return herkunft.lower().split("://", 1)[-1].rstrip("/") != host
+
     def do_POST(self):
         pfad = self.path.split("?")[0]
+        if self._fremde_herkunft():
+            n = int(self.headers.get("Content-Length") or 0)
+            self.rfile.read(min(n, 1_000_000))
+            return self._antwort(403, {"error": "Anfrage von einer fremden Seite abgelehnt."})
         if pfad == "/api/stimme/aufnahme":
             return self._stimme_aufnahme()
+        if pfad == "/api/video/hochladen":
+            return self._video_hochladen()
         if pfad == "/api/hoeren":
             return self._hoeren()
         if pfad == "/api/handy/datei":
@@ -724,20 +1012,48 @@ class Handler(BaseHTTPRequestHandler):
                 return self._antwort(400, {"error": str(e)})
             return self._antwort(200, {"ok": True}, kopf=self._neue_sitzung())
         if pfad == "/api/login":
-            if FEHLVERSUCHE["gesperrt_bis"] > time.time():
-                return self._antwort(429, {"error": "Zu viele falsche Versuche. Bitte in ein paar Minuten noch einmal."})
-            if not pin_gesetzt():
-                return self._antwort(403, {"error": "Es ist noch keine PIN festgelegt (in Watson unter Einstellungen)."})
-            if not _pin_pruefen(d.get("pin", "")):
-                _fehlversuch()
-                time.sleep(1)
-                return self._antwort(401, {"error": "Das Passwort stimmt nicht."})
-            FEHLVERSUCHE.update(anzahl=0, sperren=0)
-            token = secrets.token_urlsafe(32)
-            SITZUNGEN[_h(token)] = time.time() + 30 * 86400
-            _sitzungen_speichern()
-            return self._antwort(200, {"ok": True}, kopf={
-                "Set-Cookie": f"watson_sitzung={token}; Path=/; Max-Age={30 * 86400}; HttpOnly; Secure; SameSite=Strict"})
+            with ANMELDE_SPERRE:                   # ein Versuch nach dem anderen – Sperre wird vor JEDEM geprüft
+                if FEHLVERSUCHE["gesperrt_bis"] > time.time():
+                    return self._antwort(429, {"error": "Zu viele falsche Versuche. Bitte in ein paar Minuten noch "
+                                                        "einmal – oder mit Fingerabdruck anmelden."})
+                if not pin_gesetzt():
+                    return self._antwort(403, {"error": "Es ist noch kein Passwort festgelegt (in Watson unter Einstellungen)."})
+                if not ist_passwort():
+                    return self._antwort(403, {"error": "Die alte Ziffern-PIN gilt nicht mehr. Bitte am Laptop in Watson "
+                                                        "(Einstellungen → Watson auf dem Handy) ein starkes Passwort festlegen."})
+                if not _pin_pruefen(d.get("pin", "")):
+                    _fehlversuch()
+                    time.sleep(1)
+                    return self._antwort(401, {"error": "Das Passwort stimmt nicht."})
+                if not zweistufe.aktiv():
+                    FEHLVERSUCHE.update(anzahl=0, sperren=0)
+            if zweistufe.aktiv():
+                # Zähler NICHT zurücksetzen: sonst könnte, wer das Passwort kennt, endlos Codes raten
+                return self._antwort(200, self._zweiter_schritt_starten())
+            return self._sitzung_antwort()
+        if pfad == "/api/login_code":
+            with ANMELDE_SPERRE:
+                if FEHLVERSUCHE["gesperrt_bis"] > time.time():
+                    return self._antwort(429, {"error": "Zu viele falsche Versuche. Bitte in ein paar Minuten noch "
+                                                        "einmal – oder mit Fingerabdruck anmelden."})
+                v = VORLOGIN.get(str(d.get("vorgang", "")))
+                if not v or v["bis"] < time.time():
+                    VORLOGIN.pop(str(d.get("vorgang", "")), None)
+                    return self._antwort(401, {"error": "Die Zeit ist abgelaufen. Bitte noch einmal mit dem Passwort anmelden.",
+                                               "neu_anmelden": True})
+                weg = zweistufe.pruefen(d.get("code", ""), v.get("mail_hash"))
+                if not weg:
+                    _fehlversuch()
+                    v["versuche"] += 1
+                    if v["versuche"] >= 5:
+                        VORLOGIN.pop(str(d.get("vorgang", "")), None)
+                    time.sleep(1)
+                    return self._antwort(401, {"error": "Der Code stimmt nicht.", "neu_anmelden": v["versuche"] >= 5})
+                VORLOGIN.pop(str(d.get("vorgang", "")), None)
+                FEHLVERSUCHE.update(anzahl=0, sperren=0)
+            if weg == "ersatz":
+                sicherheit_log(f"Anmeldung mit Ersatz-Code (noch {zweistufe.ersatz_uebrig()} übrig)")
+            return self._sitzung_antwort()
         if not self._angemeldet():
             return self._antwort(401, {"error": "Bitte zuerst mit deiner PIN anmelden."})
         api = H["api"]

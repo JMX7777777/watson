@@ -126,6 +126,16 @@ GESPERRT = [
 ]
 
 
+# Erlaubt sind nur LESENDE Befehle. Alles andere ist gesperrt – sicherer als jede Sperrliste, die man umgehen kann.
+ERLAUBT_ANFANG = re.compile(r"^(get|test|measure|select|sort|where|format|group|compare|convertto|resolve|split|join)-[a-z]+$"
+                            r"|^(out-string|foreach-object|%|\?|dir|ls|gci|gps|gsv|gcm|gwmi|gcim|where|select|sort|ft|fl|fw|"
+                            r"measure|group|cat|type|hostname|whoami|ipconfig|systeminfo|ver|tasklist|wmic|driverquery|"
+                            r"winver|nslookup|ping|tracert|netstat|getmac|powercfg|chkdsk)$", re.I)
+VERBOTEN_ZEICHEN = re.compile(r"[`>&]|::|\$\(|@\(|\binvoke|\biex\b|\bstart-|\bset-|\bnew-|\bremove-|\badd-|\bclear-|"
+                              r"\bout-file|\bcopy|\bmove|\brename|\b-e(c|n|nc|ncodedcommand)?\b|\bwmic\b.*\b(call|delete|set|create)\b|"
+                              r"\bpowercfg\b.*\b(-s|/s|-change|/change|-delete|/delete|-import|/import)\b|\bchkdsk\b.*/[frxb]", re.I)
+
+
 def befehl_pruefen(befehl):
     """Gibt den Sperrgrund zurück oder None, wenn der Befehl erlaubt ist."""
     b = (befehl or "").strip()
@@ -137,6 +147,14 @@ def befehl_pruefen(befehl):
     for muster, grund in GESPERRT:
         if re.search(muster, klein):
             return f"Gesperrt: {grund}."
+    if VERBOTEN_ZEICHEN.search(b):
+        return "Gesperrt: Nur lesende Befehle sind erlaubt (nichts ändern, nichts starten, kein versteckter Code)."
+    # jeder Teil (getrennt durch | ; und Klammern { } ( )) muss mit einem lesenden Befehl oder einer $Variable beginnen
+    for teil in re.split(r"[|;{}()]", b):
+        wort = (teil.strip().split() or [""])[0]
+        # erlaubt: $Variable, Zahlen/Texte/Operatoren (-gt, -30), Methoden direkt nach Klammern (.AddDays) – führen nichts aus
+        if wort and not re.match(r"^(\$|-|'|\"|\d|\.\w)", wort) and not ERLAUBT_ANFANG.match(wort):
+            return f"Gesperrt: „{wort}“ ist kein rein lesender Befehl. Erlaubt sind z. B. Get-…, Test-…, Measure-…, Select-…."
     return None
 
 

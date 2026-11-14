@@ -26,8 +26,10 @@ ZIEL = (Path(os.environ["OneDrive"]) if os.environ.get("OneDrive") else Path.hom
 BEHALTEN = 14
 SECRET_KEYS = ("api_key", "n8n_api_key", "google_client_secret")
 
-SKIP_DIRS = {".venv", "mcp-pakete", ".webview", "browser-profil", "__pycache__", ".playwright-mcp", "node_modules"}
-SKIP_FILES = {"einstellungen.json", "watson.db", "watson.db-wal", "watson.db-shm"}
+SKIP_DIRS = {".venv", "mcp-pakete", ".webview", "browser-profil", "__pycache__", ".playwright-mcp", "node_modules",
+             "ffmpeg", "code-sicherungen", "video_eingang"}   # ffmpeg = Video-Werkzeug (groß, wird bei Bedarf neu geladen)
+SKIP_FILES = {"einstellungen.json", "watson.db", "watson.db-wal", "watson.db-shm",
+              "handy_sitzungen.json", "handy_passkeys.json"}   # abgemeldete Handys dürfen nicht durch eine Sicherung zurückkommen
 
 ANLEITUNG = """WATSON – SICHERUNG WIEDERHERSTELLEN
 ====================================
@@ -160,7 +162,11 @@ def wiederherstellen(zip_path: Path, ziel: Path = WATSON):
         for n in z.namelist():
             if n in ("WIEDERHERSTELLEN.txt", "sicherung-info.json") or n.startswith("n8n-ablaeufe/"):
                 continue
-            target = ziel / n
+            if Path(n).name in ("handy_sitzungen.json", "handy_passkeys.json"):
+                continue
+            target = (ziel / n).resolve()
+            if not str(target).startswith(str(Path(ziel).resolve()) + os.sep):
+                continue                              # Pfad zeigt aus dem Watson-Ordner hinaus (manipulierte Sicherung)
             target.parent.mkdir(parents=True, exist_ok=True)
             with z.open(n) as src, open(target, "wb") as dst:
                 shutil.copyfileobj(src, dst)

@@ -1,4 +1,4 @@
-# Baut die saubere GitHub-Kopie von Watson in C:\Users\<Name>\Watson-GitHub
+﻿# Baut die saubere GitHub-Kopie von Watson in C:\Users\<Name>\Watson-GitHub
 # Nimmt NUR eine feste Liste von Programmdateien mit (nie Einstellungen, Gespräche, Gedächtnis, Stimme, Schlüssel)
 # und prüft danach alles auf Geheimnisse und persönliche Angaben. Bricht bei einem Fund ab.
 param([string]$Ziel = (Join-Path $env:USERPROFILE "Watson-GitHub"))
@@ -16,7 +16,7 @@ function Kopie($quelle, $ziel) { New-Item -ItemType Directory -Force (Split-Path
 # 1) Programm (studio)
 $ohne = "^(test|system_test|internet_test)"     # einmalige Testprogramme nicht
 Get-ChildItem $Studio -Filter *.py | Where-Object { $_.Name -notmatch $ohne } | ForEach-Object { Kopie $_.FullName (Join-Path $Ziel "studio\$($_.Name)") }
-foreach ($d in "app.html", "handy.html", "i18n.js", "i18n_en.json", "ANLEITUNG-HANDY.md", "mcp-vorlage.json", "requirements.txt", "ablaeufe\watson-test.json") {
+foreach ($d in "app.html", "handy.html", "i18n.js", "markdown.js", "i18n_en.json", "ANLEITUNG-HANDY.md", "mcp-vorlage.json", "requirements.txt", "ablaeufe\watson-test.json") {
     Kopie (Join-Path $Studio $d) (Join-Path $Ziel "studio\$d") }
 foreach ($ordner in "assets", "eigene-stimme") {         # mit Unterordnern (z. B. assets\fonts)
     $basis = Join-Path $Studio $ordner

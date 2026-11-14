@@ -1,17 +1,17 @@
-# Baut Watson-Setup.exe – nur mit Windows-Bordmitteln (Compress-Archive + eingebauter .NET-Compiler csc.exe).
+﻿# Baut Watson-Setup.exe – nur mit Windows-Bordmitteln (Compress-Archive + eingebauter .NET-Compiler csc.exe).
 # Nimmt NUR Programm-Dateien mit – keine Einstellungen, Gespräche, Schlüssel oder Gedächtnis.
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Studio = Join-Path (Split-Path -Parent $Root) "studio"
 $Bau = Join-Path $Root "bau"; $Prog = Join-Path $Bau "programm"; $Aus = Join-Path $Root "Ausgabe"
-$Version = "1.0." + (Get-Date -Format "yyMMdd")
+$Version = "1.1." + (Get-Date -Format "yyMMdd")
 Remove-Item $Bau -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $Prog, $Aus | Out-Null
 $utf8bom = New-Object System.Text.UTF8Encoding($true)
 
 # 1) Programm-Dateien einsammeln
 Get-ChildItem $Studio -Filter *.py | Where-Object { $_.Name -notlike "test*" } | Copy-Item -Destination $Prog
-"app.html", "handy.html", "i18n.js", "ANLEITUNG-HANDY.md", "mcp-vorlage.json", "requirements.txt" | ForEach-Object { Copy-Item (Join-Path $Studio $_) $Prog }
+"app.html", "handy.html", "i18n.js", "markdown.js", "ANLEITUNG-HANDY.md", "mcp-vorlage.json", "requirements.txt" | ForEach-Object { Copy-Item (Join-Path $Studio $_) $Prog }
 Copy-Item (Join-Path $Studio "assets") (Join-Path $Prog "assets") -Recurse
 Copy-Item (Join-Path $Studio "eigene-stimme") (Join-Path $Prog "eigene-stimme") -Recurse   # Anleitung + Einrichtung eigene Stimme
 [IO.File]::WriteAllText((Join-Path $Prog "deinstallieren.ps1"), [IO.File]::ReadAllText((Join-Path $Root "deinstallieren.ps1")), $utf8bom)

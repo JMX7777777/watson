@@ -65,7 +65,7 @@ def _einstecken_plan(srv):
                 schluessel.append({"id": kid, "env": name, "pflicht": bool(e.get("isRequired")),
                                    "info": _text(e.get("description"), 160)})
             elif e.get("value") or e.get("default"):
-                env[name] = str(e.get("value") or e.get("default"))
+                env[name] = str(e.get("value") or e.get("default")).replace("${", "$_{")   # keine Tresor-Platzhalter von außen
             elif e.get("isRequired"):
                 offen.append(name)
         if offen:
@@ -95,7 +95,7 @@ def _einstecken_plan(srv):
                 schluessel.append({"id": kid, "env": feld, "pflicht": bool(h.get("isRequired")),
                                    "info": _text(h.get("description"), 160)})
             elif wert:
-                kopf[name] = wert
+                kopf[name] = str(wert).replace("${", "$_{")   # keine Tresor-Platzhalter von außen
             elif h.get("isRequired"):
                 offen.append(name)
         if offen:

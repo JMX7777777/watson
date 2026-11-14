@@ -19,8 +19,10 @@ Er hört zu, spricht, merkt sich Dinge für dich, kann deinen Bildschirm lesen u
 - **Gedächtnis**: Gespräche, Merkzettel, Wissensbuch und gelernte Fertigkeiten – alles lokal gespeichert.
 - **Augen und Hände**: Bildschirm als Text lesen, Programme öffnen, klicken und tippen – mit vier Vertrauens-Stufen und festen Grenzen (nie Passwörter, Bank oder Bezahlen; Senden, Löschen und Kaufen werden immer bestätigt).
 - **Werkzeuge**: Werkzeuge über das Model Context Protocol (MCP) einstecken, optional Abläufe mit n8n.
-- **Handy**: Chat, Stimme und Erlaubnis-Fragen auf dem Handy über Tailscale, geschützt mit Passwort und Fingerabdruck (Passkeys).
-- **Wächst mit der Zeit**: nächtliche Abendrunde, Selbst-Prüfung, neue kostenlose Modelle testen und vorsichtige Selbst-Reparatur (nur mit deinem OK).
+- **Handy**: Chat, Stimme und Erlaubnis-Fragen auf dem Handy über Tailscale, geschützt mit Passwort und Fingerabdruck (Passkeys) – auf Wunsch mit Zwei-Schritt-Anmeldung (Authenticator-App oder E-Mail-Code, dazu Ersatz-Codes).
+- **Video-Studio**: Clips schneiden und zusammenfügen, Untertitel automatisch (vorher verbesserbar), Musik, Logo und Text, das richtige Format für 14 Kanäle – auf „Veröffentlichen“ drückt immer ein Mensch. Auch am Handy. Dazu eine Übersicht über KI-Video-Plattformen (kostenlos und bezahlt) für alle, die nicht wissen, was es gibt.
+- **Lernt wie ein Mensch**: Watson bildet sich aus dem, was er erfahren und geprüft hat, eine eigene Meinung und ändert sie offen, wenn neue Belege kommen. Quellen werden kritisch geprüft – eine Mehrheit ist kein Beweis, Wikipedia wird nicht als Quelle benutzt. Immer gemessen an dem Maßstab, den du gewählt hast.
+- **Wächst mit der Zeit**: nächtliche Abendrunde und Selbststudium, Selbst-Prüfung, neue kostenlose Modelle testen und vorsichtige Selbst-Reparatur (nur mit deinem OK).
 
 ## Installation
 
