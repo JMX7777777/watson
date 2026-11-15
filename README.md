@@ -9,6 +9,16 @@ You can also talk to him from your phone through a private, encrypted tunnel.
 > **Status:** early version, built and tested on one Windows 11 ARM laptop. It works there every day, but it has not
 > been tested on many other computers yet. Feedback is welcome.
 
+## Screenshots
+
+<p align="center"><img src="docs/chat-en.png" alt="Watson – conversation" width="820"></p>
+
+| Live voice-to-text: your words appear while you speak | Conversation mode: just talk, like a phone call |
+|---|---|
+| <img src="docs/live-en.png" alt="Live voice-to-text"> | <img src="docs/gespraech-en.png" alt="Conversation mode"> |
+
+<p align="center"><sub>Light and dark design · screenshots show demo data</sub><br><img src="docs/dark-en.png" alt="Dark design" width="560"></p>
+
 ## What Watson can do
 
 - **Talk**: type or speak. Conversation mode works like a voice call – Watson listens all the time, answers with his voice and listens again.

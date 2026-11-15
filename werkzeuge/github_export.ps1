@@ -30,6 +30,9 @@ foreach ($d in "i18n_bauen.py", "i18n_texte.py", "i18n_kern.js", "jslex.py", "gi
 Kopie (Join-Path $Watson "n8n-linux\installieren.sh") (Join-Path $Ziel "n8n-linux\installieren.sh")
 # 4) Texte fürs Projekt (liegen in werkzeuge\github\)
 Get-ChildItem (Join-Path $Watson "werkzeuge\github") -File -Force | ForEach-Object { Copy-Item $_.FullName (Join-Path $Ziel $_.Name) -Force }
+# Bildschirmfotos für die README (nur Demo-Daten, keine echten Nutzerdaten)
+$bilder = Join-Path $Watson "werkzeuge\github\docs"
+if (Test-Path $bilder) { Copy-Item $bilder (Join-Path $Ziel "docs") -Recurse -Force }
 
 # ---------------- Prüfung: Geheimnisse und Persönliches ----------------
 $muster = @(

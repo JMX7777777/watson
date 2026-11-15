@@ -9,6 +9,16 @@ Er hört zu, spricht, merkt sich Dinge für dich, kann deinen Bildschirm lesen u
 > **Stand:** frühe Version, gebaut und getestet auf einem Windows-11-ARM-Laptop. Dort läuft sie täglich, auf vielen
 > anderen Computern ist sie aber noch nicht getestet. Rückmeldungen sind willkommen.
 
+## Bildschirmfotos
+
+<p align="center"><img src="docs/chat-de.png" alt="Watson – Gespräch" width="820"></p>
+
+| Sprache zu Text: deine Worte erscheinen schon beim Sprechen | Gesprächsmodus: einfach reden, wie am Telefon |
+|---|---|
+| <img src="docs/live-de.png" alt="Live-Text beim Sprechen"> | <img src="docs/gespraech-de.png" alt="Gesprächsmodus"> |
+
+<p align="center"><sub>Bildschirmfotos mit Beispieldaten</sub></p>
+
 ## Was Watson kann
 
 - **Reden**: tippen oder sprechen. Der Gesprächsmodus ist wie ein Telefonat – Watson hört dauerhaft zu, antwortet mit Stimme und hört wieder zu.
