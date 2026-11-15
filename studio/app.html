@@ -129,6 +129,13 @@ body.dark .pill.paid{background:#412402;color:#FAC775}
 .iconBtn{width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;background:transparent;border:1px solid transparent;color:var(--muted)}
 .iconBtn:hover{background:var(--panel2);color:var(--text)}
 .iconBtn.on{background:var(--accentSoft);color:var(--accentText)}
+/* Sprache zu Text: deutlich zeigen, dass Watson zuhört */
+#micBtn.hoert{background:#D93636;color:#fff;border-color:transparent;box-shadow:0 0 0 calc(3px + var(--pegel,0) * 14px) rgba(217,54,54,.28);transition:box-shadow .12s}
+#micBtn.schreibt{background:var(--accentSoft);color:var(--accentText)}
+#micBtn.schreibt i{animation:micDreh 1s linear infinite}
+@keyframes micDreh{to{transform:rotate(360deg)}}
+#input.diktat{border-color:#D93636 !important;box-shadow:0 0 0 3px rgba(217,54,54,.15)}
+#input.diktat.live{color:var(--muted);font-style:italic}
 #chat{flex:1;overflow:auto;padding:24px max(22px,calc((100% - 820px)/2));display:flex;flex-direction:column;gap:14px;min-height:0}
 .msg{max-width:82%;padding:11px 15px;border-radius:16px;background:var(--panel);border:1px solid var(--line);white-space:pre-wrap;word-wrap:break-word}
 .msg.user{align-self:flex-end;background:var(--accent);color:var(--userText);border-color:transparent;border-bottom-right-radius:6px}
@@ -1918,15 +1925,40 @@ function greet() {
 }
 function newChat() { chatId = null; teamMode = false; showTab("start"); greet(); renderChats(); $("#input").focus(); }
 function autoGrow() { const t = $("#input"); t.style.height = "42px"; t.style.height = Math.min(180, t.scrollHeight) + "px"; t.style.overflowY = t.scrollHeight > 180 ? "auto" : "hidden"; }
+// ---------- Sprache zu Text: Text erscheint schon während des Sprechens ----------
+let diktatAn = false;
+window.diktatLive = t => {
+  if (!diktatAn) return;
+  const inp = $("#input"); inp.value = t; inp.classList.add("live"); autoGrow();
+  inp.scrollTop = inp.scrollHeight;
+};
+window.diktatPegel = p => { if (diktatAn) $("#micBtn").style.setProperty("--pegel", p); };
 function setupMic() {
-  $("#micBtn").onclick = async () => {
+  const btn = $("#micBtn"), inp = $("#input");
+  btn.onclick = async () => {
+    if (diktatAn) {                       // nochmal drücken = fertig, Bisheriges nehmen
+      btn.classList.remove("hoert"); btn.classList.add("schreibt");
+      btn.innerHTML = '<i class="ti ti-loader-2"></i>'; status("✍ Ich schreibe es fertig auf …");
+      P().voice_listen_fertig(); return;
+    }
     if (busy) return;
-    $("#micBtn").classList.add("on"); $("#micBtn").innerHTML = '<i class="ti ti-player-record"></i>'; status("🎙 Ich höre zu … (sprich jetzt)");
-    const r = await P().voice_listen();
-    $("#micBtn").classList.remove("on"); $("#micBtn").innerHTML = '<i class="ti ti-microphone"></i>';
-    if (r.error) { status(r.error); return; }
-    if (!r.text) { status("Ich habe nichts gehört."); return; }
-    fromVoice = true; $("#input").value = r.text; send(false);
+    diktatAn = true;
+    const platzhalter = inp.placeholder, vorher = inp.value;
+    inp.value = ""; inp.placeholder = "🎙 Ich höre zu … sprich jetzt (nochmal drücken = fertig)";
+    inp.classList.add("diktat"); autoGrow();
+    btn.classList.add("hoert"); btn.title = "Ich höre zu – nochmal drücken, wenn du fertig bist";
+    btn.innerHTML = '<i class="ti ti-microphone"></i>'; status("🎙 Ich höre zu … (sprich jetzt)");
+    let r;
+    try { r = await P().voice_listen(); } catch (e) { r = {error: "Mikrofon-Problem: " + e}; }
+    diktatAn = false;
+    btn.classList.remove("hoert", "schreibt"); btn.style.removeProperty("--pegel");
+    btn.title = "Drücken und sprechen"; btn.innerHTML = '<i class="ti ti-microphone"></i>';
+    inp.classList.remove("diktat", "live"); inp.placeholder = platzhalter;
+    if (r.error) { inp.value = vorher; autoGrow(); status(r.error); return; }
+    if (!r.text) { inp.value = vorher; autoGrow(); status("Ich habe nichts gehört – drück nochmal und sprich."); return; }
+    inp.value = r.text; autoGrow(); status("✓ Verstanden");
+    fromVoice = true;
+    setTimeout(() => send(false), 600);   // kurz zeigen, was verstanden wurde, dann senden
   };
 }
 // ---------- Aussehen ----------

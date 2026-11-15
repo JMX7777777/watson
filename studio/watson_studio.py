@@ -2024,10 +2024,23 @@ class Api:
     def voice_listen(self):
         if not OHREN:
             return {"error": "Spracherkennung nicht verfügbar"}
+        def _js(js):
+            try:
+                WINDOW.evaluate_js(js)
+            except Exception:
+                pass
         try:
-            return {"text": OHREN.listen_once()}
+            return {"text": OHREN.listen_once(
+                live=lambda t: _js(f"window.diktatLive && window.diktatLive({json.dumps(t)})"),
+                pegel=lambda p: _js(f"window.diktatPegel && window.diktatPegel({p:.2f})"))}
         except Exception as e:
             return {"error": f"Mikrofon-Problem: {e}"}
+
+    def voice_listen_fertig(self):
+        """Mikrofon-Knopf nochmal gedrückt: mit dem bisher Gesagten aufhören."""
+        if OHREN:
+            OHREN.listen_fertig()
+        return {"ok": True}
 
     def voice_wake(self, on):
         if not OHREN:
@@ -2606,6 +2619,12 @@ if __name__ == "__main__":
         OHREN.on_pegel = lambda p: _to_ui(f"window.gespraechPegel && window.gespraechPegel({p:.2f})")
         if load_config().get("wake_word"):
             threading.Timer(8, lambda: OHREN.set_wake(True)).start()   # „Hey Watson“ nach dem Start einschalten
+        def _vorschau_vorladen():
+            try:
+                OHREN.vorschau_laden()       # damit der Live-Text beim Diktieren sofort kommt
+            except Exception:
+                pass
+        threading.Timer(20, _vorschau_vorladen).start()
     import ctypes
     try:   # eigenes Taskleisten-Symbol statt Python-Symbol
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Watson.Assistent")

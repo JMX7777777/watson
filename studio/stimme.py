@@ -498,6 +498,9 @@ class Ohren:
         self.followup_until = 0.0
         self.whisper_lock = threading.Lock()  # Laptop und Handy teilen sich ein Whisper-Modell
         self.sprache = "de"                   # Sprache der Spracherkennung (aus den Einstellungen)
+        self.vorschau_model = None            # schnelles Whisper „base“ für Live-Text beim Diktieren
+        self.vorschau_lock = threading.Lock()
+        self.diktat_fertig = False
         # ---- Gesprächsmodus (wie bei Claude: dauerhaft zuhören, ohne „Hey Watson“) ----
         self.gespraech_an = False
         self.gespraech_stumm = False          # Mikrofon kurz stumm (Knopf), Gespräch bleibt offen
@@ -542,13 +545,20 @@ class Ohren:
                 return ""
         return text
 
-    def _record(self, stream, wait_seconds=None, stop_flag=None, pegel=None, stille_ms=None):
-        """Wartet auf Sprache und nimmt bis ~0,8 s Stille auf. None, wenn niemand spricht."""
+    def _record(self, stream, wait_seconds=None, stop_flag=None, pegel=None, stille_ms=None,
+                teil=None, fertig_flag=None):
+        """Wartet auf Sprache und nimmt bis ~0,8 s Stille auf. None, wenn niemand spricht.
+        teil(audio): bekommt laufend das bisher Gesprochene (für Live-Text).
+        fertig_flag(): True = Nutzer hat den Knopf gedrückt -> sofort mit dem Bisherigen aufhören."""
         pre, voiced, silence, started = deque(maxlen=10), [], 0, False
         t0 = time.time()
         n = 0
         while True:
             if stop_flag and stop_flag():
+                return None
+            if fertig_flag and fertig_flag():
+                if started and len(voiced) * 30 >= 400:
+                    return np.frombuffer(b"".join(voiced), dtype=np.int16).astype(np.float32) / 32768.0
                 return None
             if wait_seconds and not started and time.time() - t0 > wait_seconds:
                 return None
@@ -571,6 +581,11 @@ class Ohren:
                     started, voiced = True, list(pre)
             else:
                 voiced.append(frame)
+                if teil and len(voiced) % 10 == 0:    # alle ~0,3 s das Bisherige weitergeben
+                    try:
+                        teil(np.frombuffer(b"".join(voiced), dtype=np.int16).astype(np.float32) / 32768.0)
+                    except Exception:
+                        pass
                 silence = 0 if speech else silence + 1
                 if silence * 30 > (stille_ms or 800) or len(voiced) * 30 > 30000:
                     pcm = np.frombuffer(b"".join(voiced), dtype=np.int16)
@@ -579,20 +594,71 @@ class Ohren:
                         continue
                     return pcm.astype(np.float32) / 32768.0
 
-    def listen_once(self, wait_seconds=8):
-        """Für den Mikrofon-Knopf: einmal zuhören und den Text zurückgeben."""
+    def listen_once(self, wait_seconds=8, live=None, pegel=None):
+        """Für den Mikrofon-Knopf: einmal zuhören und den Text zurückgeben.
+        live(text): zeigt schon während des Sprechens, was Watson bisher verstanden hat.
+        pegel(0..1): Lautstärke, damit man sieht, dass das Mikrofon etwas hört."""
+        self.diktat_fertig = False
         with self.lock:
             self._state("🎙 Ich höre zu …")
             _beep(660)
-            with sd.RawInputStream(samplerate=RATE, blocksize=FRAME, channels=1, dtype="int16") as s:
-                audio = self._record(s, wait_seconds)
+            lauf = {"audio": None, "ende": False}
+
+            def _live_schleife():
+                # Nimmt immer das neueste Stück, sobald Whisper frei ist (Whisper braucht 1–2 s pro Durchgang)
+                zuletzt = 0
+                while not lauf["ende"]:
+                    a = lauf["audio"]
+                    if a is None or len(a) - zuletzt < RATE * 0.5:
+                        time.sleep(0.1)
+                        continue
+                    zuletzt = len(a)
+                    try:
+                        t = self.vorschau_text(a)
+                    except Exception:
+                        t = ""
+                    if t and not lauf["ende"]:
+                        try:
+                            live(t)
+                        except Exception:
+                            pass
+
+            if live:
+                threading.Thread(target=_live_schleife, daemon=True).start()
+            try:
+                with sd.RawInputStream(samplerate=RATE, blocksize=FRAME, channels=1, dtype="int16") as s:
+                    audio = self._record(s, wait_seconds, pegel=pegel,
+                                         teil=(lambda a: lauf.__setitem__("audio", a)) if live else None,
+                                         fertig_flag=lambda: self.diktat_fertig)
+            finally:
+                lauf["ende"] = True
             if audio is None:
                 self._state("Bereit")
                 return ""
-            self._state("Ich verstehe …")
+            self._state("Ich schreibe es fertig auf …")
             text = self.transcribe(audio)
             self._state("Bereit")
             return text
+
+    def vorschau_laden(self):
+        """Kleines, schnelles Whisper „base“ nur für den Live-Text (~1 s statt ~4 s pro Durchgang).
+        Den genauen Text macht danach weiter „small“."""
+        with self.vorschau_lock:
+            if self.vorschau_model is None:
+                from faster_whisper import WhisperModel
+                self.vorschau_model = WhisperModel("base", device="cpu", compute_type="int8")
+        return self.vorschau_model
+
+    def vorschau_text(self, audio):
+        m = self.vorschau_laden()
+        with self.vorschau_lock:
+            segs, _ = m.transcribe(audio, language=self.sprache, beam_size=1, condition_on_previous_text=False,
+                                   without_timestamps=True, vad_filter=False)
+            return " ".join(s.text.strip() for s in segs).strip()
+
+    def listen_fertig(self):
+        """Mikrofon-Knopf nochmal gedrückt: mit dem bisher Gesagten aufhören."""
+        self.diktat_fertig = True
 
     # ---------- "Hey Watson" ----------
     def set_wake(self, on):
