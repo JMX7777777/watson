@@ -1047,5 +1047,20 @@
  "✍ Ich schreibe es fertig auf …": "✍ Writing it down …",
  "🎙 Ich höre zu … sprich jetzt (nochmal drücken = fertig)": "🎙 I'm listening … speak now (press again = done)",
  "✓ Verstanden": "✓ Got it",
- "Ich schreibe es fertig auf …": "Writing it down …"
+ "Ich schreibe es fertig auf …": "Writing it down …",
+ "Die Nachbesserung wurde nicht noch einmal geprüft.": "The revision was not checked again.",
+ "Im Team-Modus plant der Chef, Rechercheur und Rechner arbeiten gleichzeitig, der Texter schreibt eine Antwort, und der Prüfer kontrolliert sie (bei Lücken einmal nachbessern). Hier kannst du jedem Helfer ein eigenes Gehirn geben – sonst nimmt Watson die Rangliste.": "In team mode the chief plans, the researcher and calculator work at the same time, the writer writes one answer and the checker reviews it (one revision if something is missing). Here you can give each helper its own brain – otherwise Watson uses the ranking.",
+ "Prüfer fand und ließ nachbessern:": "The checker found and had revised:",
+ "Punkte, die die Antwort beantworten sollte:": "Points the answer should cover:",
+ "So haben wir gearbeitet ({0} Helfer{1})": "How we worked ({0} helpers{1})",
+ ", 1 Nachbesserung": ", 1 revision",
+ "Team fertig · {0} s · {1} Gehirn-Anfragen": "Team done · {0} s · {1} brain requests",
+ "Team-Modus: Chef plant, Helfer arbeiten gleichzeitig, ein Prüfer prüft die Antwort": "Team mode: the chief plans, helpers work at the same time, a checker reviews the answer",
+ "geprüft – alle Punkte beantwortet": "checked – all points answered",
+ "prüft am Ende": "checks at the end",
+ "wartet auf die Ergebnisse": "waiting for the results",
+ "Aufgaben:": "Tasks:",
+ "Gehirne:": "Brains:",
+ "Bei Recherche-Aufgaben (Plan, Vergleich, Kaufen, Kosten, Recht) nimmt Watson das Team automatisch – nur wenn „Dirigent“ als Gehirn gewählt ist": "For research tasks (plans, comparisons, buying, costs, law) Watson uses the team automatically – only when “Conductor” is the selected brain",
+ "👥 Recherche-Aufgabe – Watson nimmt sein Team (dauert etwa 2–4 Minuten, ■ Stopp bricht ab)": "👥 Research task – Watson is using his team (takes about 2–4 minutes, ■ Stop cancels)"
 }

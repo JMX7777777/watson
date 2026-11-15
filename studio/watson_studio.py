@@ -36,6 +36,8 @@ import wartung
 import handy
 import mcp_suche
 import system_werkzeuge as systemw
+import team
+import entscheider
 
 try:
     import stimme
@@ -245,9 +247,27 @@ def sprache_anwenden(cfg=None):
         OHREN.sprache = code if code in sprachen.SPRACHEN else "de"
 
 
-def read_memory():
+KERN_DATEIEN = ("massstab.md", "laptop.md", "lernen.md")   # dazu jede „ueber-….md“ (z. B. ueber-mich.md)
+
+
+def _ist_kern(f):
+    """Kern = das Wichtigste über den Nutzer, klein, geht immer mit."""
+    return f.name.startswith("ueber-") or f.name in KERN_DATEIEN
+
+
+def archiv_dateien():
+    """Große Notiz-Dateien, die nur abschnittsweise (passend zur Frage) mitgehen."""
+    if not MEMORY_DIR.exists():
+        return []
+    return [f for f in sorted(MEMORY_DIR.glob("*.md")) if not _ist_kern(f) and f != EXPORT_FILE]
+
+
+def read_memory(nur_kern=False):
     if not MEMORY_DIR.exists():
         return ""
+    if nur_kern:
+        return "\n\n".join(f"### {f.name}\n{f.read_text(encoding='utf-8')}"
+                           for f in sorted(MEMORY_DIR.glob("*.md")) if _ist_kern(f))
     # die Merkzettel-Datei nicht doppelt mitschicken – die Fakten kommen gezielt aus der Datenbank
     return "\n\n".join(f"### {f.name}\n{f.read_text(encoding='utf-8')}"
                        for f in sorted(MEMORY_DIR.glob("*.md")) if f != EXPORT_FILE)
@@ -278,7 +298,17 @@ def brain_message(model, messages, api_key, tools=None, timeout=180):
     })
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
-            data = json.load(r)
+            # OpenRouter schickt bei langsamen Gehirnen „Ich lebe noch“-Leerzeichen – dann greift die normale
+            # Zeitgrenze nie und Watson wartete endlos (gefunden 15.11.2026). Darum zusätzlich eine Gesamt-Zeitgrenze.
+            ende, teile = time.time() + timeout + 30, []
+            while True:
+                if time.time() > ende:
+                    raise TimeoutError
+                stueck = r.read1(65536)
+                if not stueck:
+                    break
+                teile.append(stueck)
+            data = json.loads(b"".join(teile))
     except TimeoutError:
         raise RuntimeError(f"Timeout: {model} hat nicht rechtzeitig geantwortet.")
     except urllib.error.HTTPError as e:
@@ -740,7 +770,7 @@ class Api:
                 hermes_changed = hermes_changed or cfg.get(k) != part[k].strip()
                 cfg[k] = part[k].strip()
         for k in ("model", "theme", "accent", "use_memory", "voice", "agents", "auto_remember", "use_tools", "vision_model", "use_hands", "hands_mode", "risky_ask",
-                  "vertrauen_stufe", "use_n8n", "ablaeufe", "tts_engine", "piper_voice", "use_system"):
+                  "vertrauen_stufe", "use_n8n", "ablaeufe", "tts_engine", "piper_voice", "use_system", "team_auto"):
             if k in part:
                 cfg[k] = part[k]
         if "rat_anzahl" in part:
@@ -903,7 +933,7 @@ class Api:
         cfg = load_config()
         n = cfg.get("rat_anzahl", 0) if n is None else max(0, min(199, int(n)))
         pool = self._council_pool(cfg, n)
-        tok_in = (len(SYSTEM) + len(read_memory()) + 4000) / 3.5     # grob: Grundwissen + Frage + Verlauf
+        tok_in = (len(SYSTEM) + len(read_memory(nur_kern=True)) + 10000) / 3.5     # grob: Grundwissen + Frage + Verlauf
         tok_out = 700
         cost, free = 0.0, 0
         for _, m in pool:
@@ -1371,7 +1401,7 @@ class Api:
         text, used = self._ask(model, msgs + [{"role": "user", "content": "Bitte antworte jetzt mit dem, was du hast."}], api_key)
         return text, used, log
 
-    def _context(self, cfg, question, chat_id):
+    def _context(self, cfg, question, chat_id, schlank=False):
         """Baut das Wissen zusammen, das zu DIESER Frage passt (statt immer alles mitzuschicken)."""
         tage = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
         now = time.localtime()
@@ -1381,9 +1411,20 @@ class Api:
                  f"(Zeitzone {tz}, ISO heute: {time.strftime('%Y-%m-%d', now)}T00:00:00{tz}). "
                  "Rechne Termine immer von diesem Datum aus und gib Zeiten im ISO-Format mit dieser Zeitzone an."]
         if cfg.get("use_memory"):
-            core = read_memory()
+            # Gedächtnis in Stufen (15.11.2026): früher gingen bei JEDER Frage ~114.000 Zeichen mit (langsam).
+            # Jetzt: Kern immer (klein) + nur die passenden Abschnitte aus dem Archiv (Verlauf, Projekte, Überblick).
+            core = read_memory(nur_kern=True)
             if core:
                 parts.append("Gedächtnis-Ordner des Nutzers (Grundwissen):\n" + core)
+            try:
+                MEM.archiv_sync(archiv_dateien())
+                stellen = MEM.relevant_archiv(question, k=3 if schlank else 4)
+            except Exception:
+                stellen = []
+            if stellen:
+                parts.append("Passende Stellen aus den Notizen (Verlauf, Projekte, Überblick – nur Ausschnitte; wenn "
+                             "etwas fehlt, sag ehrlich, dass du es gerade nicht findest):\n" + "\n\n".join(
+                                 f"[{s['datei']} › {s['titel']}]\n{s['text']}" for s in stellen))
             facts = MEM.relevant_facts(question)
             if facts:
                 parts.append("Dein Merkzettel über den Nutzer (passend zur Frage):\n" +
@@ -1793,6 +1834,66 @@ class Api:
         except Exception as e:
             return {"error": str(e)}
 
+    def team(self, payload):
+        """Team mit Arbeitsbrett: Chef plant, Helfer arbeiten gleichzeitig, Texter schreibt, Prüfer prüft (team.py)."""
+        cfg = load_config()
+        if not cfg["api_key"]:
+            return {"error": "Noch kein Schlüssel eingetragen. Geh oben auf den Tab „Gehirne“."}
+        auftrag = (payload.get("task") or "").strip()
+        if not auftrag:
+            return {"error": "Kein Auftrag."}
+        self._task_ok, self._task_text, self._stop = False, auftrag, False
+        chat_id = payload.get("chat_id") or MEM.new_chat()
+        MEM.add_message(chat_id, "user", auftrag)
+        grund = build_system(cfg)
+        wissen = self._context(cfg, auftrag, chat_id, schlank=True)   # einmal fürs ganze Team, nur das Wichtigste
+        eigene = {a.get("name"): a.get("model") for a in cfg.get("agents") or []}
+
+        def frage(rolle, anweisung, prompt, werkzeuge):
+            # Selbst gewähltes Gehirn aus „Agenten-Team“ gilt; sonst die Rangliste (mit automatischem Ersatz)
+            modell = eigene.get(rolle) if eigene.get(rolle) not in (None, "", "openrouter/free") else RANK_ID
+            system = grund + "\n\nDeine Rolle in Watsons Team: " + anweisung + "\n\n" + wissen
+            # Keine Werkzeuge im Team: Der Rechercheur bekommt die Internet-Quellen fertig mitgeliefert
+            # (sonst startete ein Gehirn z. B. einen n8n-Ablauf statt zu suchen – gefunden 15.11.2026)
+            text, used, _ = self._ask_tools(modell, [{"role": "system", "content": system},
+                                                     {"role": "user", "content": prompt}],
+                                            cfg["api_key"], use_tools=False, screen=False)
+            return text, used
+
+        def recherche(text):
+            return wachstum._internet(text, max_quellen=3)
+
+        def melde(ev):
+            if WINDOW is not None:
+                try:
+                    WINDOW.evaluate_js(f"window.teamSchritt && window.teamSchritt({json.dumps(ev)})")
+                except Exception:
+                    pass
+        start = time.time()
+        try:
+            r = team.lauf(auftrag, frage, melde, gestoppt=lambda: self._stop, recherche=recherche)
+        except Exception as e:
+            return {"error": str(e), "chat_id": chat_id}
+        r["sekunden"] = round(time.time() - start)
+        modell = r["modelle"].get("Texter", "")
+        MEM.add_message(chat_id, "assistant", r["text"], name="Watson · Team", model=modell)
+        protokoll("watson__team", {"auftrag": auftrag[:100]},
+                  f"{r['anfragen']} Anfragen, {r['sekunden']} s, {len(r['luecken'])} Lücken, nachgebessert={r['nachgebessert']}")
+        r["chat_id"], r["model"] = chat_id, modell
+        return r
+
+    def team_passt(self, text):
+        """Soll Watson diese Frage selbst ans Team geben? Nur Recherche-Aufgaben, nur mit Dirigent, abschaltbar."""
+        cfg = load_config()
+        if not (cfg.get("team_auto", True) and cfg.get("model") == dirigent.ID):
+            return {"ja": False}
+        # Entscheider (Versteher, versteht Umschreibungen) wenn er sicher ist – sonst die Wortliste
+        # (Test 15.11.2026, 30 Sätze: Versteher 28, Wortliste 26, beides so kombiniert 29 richtig)
+        antwort, sicher = entscheider.entscheide("team", text)
+        if antwort is not None and sicher >= 0.8:
+            return {"ja": antwort == "ja", "weg": f"Entscheider {sicher:.2f}"}
+        return {"ja": dirigent.team_passend(text), "weg": "Wortliste"}
+
     def log_message(self, chat_id, role, content, name="", model=""):
         chat_id = chat_id or MEM.new_chat()
         MEM.add_message(chat_id, role, content, name=name, model=model)
@@ -1807,7 +1908,14 @@ class Api:
         last = MEM.messages(chat_id, limit=4)
         if not last:
             return {"new": [], "changed": []}
-        convo = "\n".join(f"{'Nutzer' if m['role'] == 'user' else (m['name'] or 'Watson')}: {m['content'][:1500]}" for m in last)
+        # Entscheider: Steht in der letzten Nachricht des Nutzers sicher nichts Neues über ihn? Dann keine
+        # Gehirn-Anfrage (spart Gratis-Anfragen; Test 15.11.2026: 10 von 30 gespart, 0 von 15 Fakten verloren)
+        nutzer = [m["content"] for m in last if m["role"] == "user"]
+        if nutzer:
+            antwort, sicher = entscheider.entscheide("merken", nutzer[-1])
+            if antwort == "nein" and sicher >= 0.7:
+                return {"new": [], "changed": [], "uebersprungen": True}
+        convo ="\n".join(f"{'Nutzer' if m['role'] == 'user' else (m['name'] or 'Watson')}: {m['content'][:1500]}" for m in last)
         known = MEM.relevant_facts(convo, k=15)
         prompt = (
             "Du pflegst den Merkzettel eines persönlichen Assistenten über seinen Nutzer.\n"
@@ -2602,6 +2710,13 @@ if __name__ == "__main__":
     threading.Thread(target=_fernwartung, daemon=True).start()
 
     sprache_anwenden()
+    def _gedaechtnis_vorbereiten():
+        try:
+            MEM.archiv_sync(archiv_dateien())   # Notizen in Abschnitte zerlegen (Gedächtnis in Stufen)
+        except Exception:
+            pass
+        MEM.bedeutung_starten()                 # Bedeutungs-Suche fürs Gedächtnis (im Hintergrund)
+    threading.Timer(30, _gedaechtnis_vorbereiten).start()
     if OHREN:
         def _to_ui(js):
             try:

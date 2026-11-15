@@ -169,6 +169,19 @@ body.dark .pill.paid{background:#412402;color:#FAC775}
 .msg.user .kopierKnopf{background:rgba(255,255,255,.18);border-color:transparent;color:#fff}
 .note{align-self:center;font-size:12.5px;color:var(--muted);background:var(--panel2);padding:4px 12px;border-radius:999px;max-width:90%}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
+.teamKarte{align-self:flex-start;max-width:82%;min-width:320px;border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:10px 14px;font-size:13px}
+.teamKarte .tKopf{font-weight:600;margin-bottom:6px;display:flex;gap:6px;align-items:center}
+.teamKarte.fertig .tListe{opacity:.7}
+.tZeile{display:flex;gap:7px;align-items:baseline;padding:2px 0}
+.tZeile b{font-weight:600;white-space:nowrap}
+.tZeile .muted{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tDreh{display:inline-block;animation:micDreh 1s linear infinite}
+.teamBericht{align-self:flex-start;max-width:82%;font-size:13px;margin-top:-6px}
+.teamBericht .tWarn{color:#9A5B00;background:#FFF4DC;border-radius:8px;padding:5px 10px;margin:3px 0}
+body.dark .teamBericht .tWarn{color:#FAC775;background:#3A2A08}
+.teamBericht .tOk{color:var(--ok);padding:3px 2px}
+.teamBericht details{margin-top:4px}.teamBericht summary{cursor:pointer;color:var(--muted)}
+.teamBericht ol,.teamBericht ul{margin:4px 0 6px 18px;padding:0}
 .chip{font-size:12px;padding:3px 10px;border-radius:999px;background:var(--panel2);color:var(--muted)}
 .chip.ok{color:var(--ok)}.chip.busy{color:var(--busy)}
 .welcome{margin:auto;text-align:center;max-width:560px;display:flex;flex-direction:column;align-items:center;gap:8px;padding:20px 0}
@@ -628,9 +641,10 @@ pre.mem{white-space:pre-wrap;font:13px/1.5 Consolas,monospace;max-height:55vh;ov
     <!-- ============ Agenten-Team (Fortgeschritten) ============ -->
     <div id="pageAgenten" class="page">
       <button class="back ghost" data-go="einstellungen"><i class="ti ti-arrow-left"></i> Zurück zu Einstellungen</button>
-      <div class="pageHead"><h1><i class="ti ti-users"></i>Agenten-Team</h1><p>Im Team-Modus arbeiten diese Helfer nacheinander an deinem Auftrag: Der erste plant, die mittleren arbeiten, der letzte prüft.</p></div>
+      <div class="pageHead"><h1><i class="ti ti-users"></i>Agenten-Team</h1><p>Im Team-Modus plant der Chef, Rechercheur und Rechner arbeiten gleichzeitig, der Texter schreibt eine Antwort, und der Prüfer kontrolliert sie (bei Lücken einmal nachbessern). Hier kannst du jedem Helfer ein eigenes Gehirn geben – sonst nimmt Watson die Rangliste.</p></div>
       <div class="card"><div id="teamList" class="small" style="margin-bottom:12px"></div>
         <div id="agentEditor"></div>
+        <label class="row small" style="margin-bottom:10px"><input type="checkbox" id="teamAuto"> Bei Recherche-Aufgaben (Plan, Vergleich, Kaufen, Kosten, Recht) nimmt Watson das Team automatisch – nur wenn „Dirigent“ als Gehirn gewählt ist</label>
         <div class="row"><button id="agentAdd">+ Agent</button><button class="primary" id="agentSave">Team speichern</button><span id="agentState" class="muted small"></span></div></div>
       <div id="flowSide" style="display:none"></div>
     </div>
@@ -804,7 +818,7 @@ function renderTopbar() {
     <datalist id="ratList">${[0, 1, 2, 5, 10, 30, 99, 129, 199].map(v => `<option value="${v}">`).join("")}</datalist>
     <button class="iconBtn" id="rbLook" title="Bildschirm zeigen – Watson liest, was gerade offen ist"><i class="ti ti-eye"></i></button>
     <button class="iconBtn" id="rbFoto" title="Foto vom Bildschirm – für Bilder"><i class="ti ti-photo"></i></button>
-    <button class="iconBtn ${teamMode ? "on" : ""}" id="rbTeam" title="Team-Modus: mehrere Helfer arbeiten nacheinander"><i class="ti ti-users"></i></button>
+    <button class="iconBtn ${teamMode ? "on" : ""}" id="rbTeam" title="Team-Modus: Chef plant, Helfer arbeiten gleichzeitig, ein Prüfer prüft die Antwort"><i class="ti ti-users"></i></button>
     <button class="iconBtn ${cfg.voice ? "on" : ""}" id="rbVoice" title="Antworten vorlesen"><i class="ti ti-volume"></i></button>`;
   $("#rbLook").onclick = () => send("text");
   $("#rbFoto").onclick = () => send("foto");
@@ -1646,7 +1660,12 @@ async function send(look = false) {
   $("#input").value = ""; autoGrow(); setBusy(true);
   addMsg((look === "foto" ? "📷 " : look ? "👁 " : "") + text, "", "user");
   try {
-    if (teamMode && !look && cfg.agents.length >= 2) await runTeam(volltext);
+    let autoTeam = false;
+    if (!teamMode && !look && !volltext.includes("[Dokument „")) {
+      try { autoTeam = (await P().team_passt(text)).ja; } catch (e) {}
+      if (autoTeam) window.liveStep("👥 Recherche-Aufgabe – Watson nimmt sein Team (dauert etwa 2–4 Minuten, ■ Stopp bricht ab)");
+    }
+    if ((teamMode || autoTeam) && !look) await runTeam(volltext);
     else {
       status(look ? botName() + " schaut auf deinen Bildschirm …" : botName() + " denkt nach …");
       try {
@@ -1869,30 +1888,49 @@ async function memSearch() {
     || `<div class="muted">Nichts gefunden.</div>`;
   $("#memResults").querySelectorAll("[data-chat]").forEach(el => el.onclick = () => openChat(+el.dataset.chat));
 }
+// ---------- Team mit Arbeitsbrett: Chef plant, Helfer gleichzeitig, Texter schreibt, Prüfer prüft ----------
+const TEAM_ICON = {Chef: "ti-crown", Rechercheur: "ti-search", Rechner: "ti-calculator", Texter: "ti-pencil", "Prüfer": "ti-shield-check"};
+let teamKarte = null;
+function teamZeile(key, helfer, status, info) {
+  if (!teamKarte) return;
+  let z = teamKarte.querySelector(`[data-k="${CSS.escape(key)}"]`);
+  if (!z) { z = document.createElement("div"); z.className = "tZeile"; z.dataset.k = key; teamKarte.querySelector(".tListe").appendChild(z); }
+  const zeichen = {arbeitet: '<i class="ti ti-loader-2 tDreh"></i>', fertig: '<i class="ti ti-check" style="color:var(--ok)"></i>',
+                   fehler: '<i class="ti ti-alert-triangle" style="color:var(--err)"></i>', wartet: '<i class="ti ti-clock muted"></i>'}[status] || "";
+  z.innerHTML = `${zeichen}<i class="ti ${TEAM_ICON[helfer] || "ti-user"} muted"></i><b>${esc(helfer)}</b><span class="muted">${esc(info || "")}</span>`;
+  $("#chat").scrollTop = 1e9;
+}
+window.teamSchritt = ev => {
+  const key = ev.nr !== undefined ? ev.helfer + ev.nr : ev.helfer;
+  teamZeile(key, ev.helfer, ev.status, ev.info);
+  if (ev.plan) { ev.plan.forEach((a, i) => teamZeile(a.helfer + i, a.helfer, "wartet", a.aufgabe));
+                 teamZeile("Texter", "Texter", "wartet", "wartet auf die Ergebnisse"); teamZeile("Prüfer", "Prüfer", "wartet", "prüft am Ende"); }
+  status(`${ev.helfer}: ${ev.info || ev.status}`);
+};
 async function runTeam(task) {
-  const team = cfg.agents, states = {}, results = [];
-  chatId = (await P().log_message(chatId, "user", task)).chat_id;
-  const chips = document.createElement("div"); chips.className = "chips"; $("#chat").appendChild(chips);
-  const mark = (name, s) => { states[name] = s; renderTeam(states);
-    chips.innerHTML = team.map(a => `<span class="chip ${states[a.name] || ""}">${esc(a.name)}${states[a.name] === "ok" ? " fertig" : states[a.name] === "busy" ? " arbeitet" : ""}</span>`).join(""); };
-  const run = async (agent, prompt) => {
-    mark(agent.name, "busy"); status(agent.name + " arbeitet …");
-    try {
-      const r = await call("agent", {model: agent.model, role: agent.role, prompt, task, chat_id: chatId});
-      mark(agent.name, "ok"); toolNote(r.tools); addMsg(r.text, agent.name + " · " + shortName(r.model));
-      await P().log_message(chatId, "assistant", r.text, agent.name, r.model);
-      return r.text;
-    } catch (e) { mark(agent.name, "err"); throw e; }
-  };
-  const chef = team[0], workers = team.slice(1);
-  const plan = await run(chef, `Auftrag: ${task}\n\nDein Team: ${workers.map(w => w.name + " (" + w.role + ")").join("; ")}.\nSchreib einen kurzen Plan: Was soll jedes Teammitglied tun? Höchstens 6 Zeilen.`);
-  for (const w of workers) {
-    const prev = results.map(r => `--- ${r.name} ---\n${r.text}`).join("\n\n");
-    const text = await run(w, `Auftrag: ${task}\n\nPlan vom Chef:\n${plan}\n\n${prev ? "Bisherige Ergebnisse:\n" + prev + "\n\n" : ""}Erledige jetzt deinen Teil als ${w.name}. Fasse dich klar und nicht zu lang.`);
-    results.push({name: w.name, text});
-  }
-  const final = await run(chef, `Auftrag: ${task}\n\nErgebnisse des Teams:\n${results.map(r => `--- ${r.name} ---\n${r.text}`).join("\n\n")}\n\nFasse alles in einer klaren, freundlichen Antwort zusammen. Nenne am Ende die nächsten 3 Schritte.`);
-  speak(final);
+  const welcome = $("#chat .welcome"); if (welcome) welcome.remove();
+  teamKarte = document.createElement("div"); teamKarte.className = "teamKarte";
+  teamKarte.innerHTML = `<div class="tKopf"><i class="ti ti-users"></i> ${esc(botName())} arbeitet im Team</div><div class="tListe"></div>`;
+  $("#chat").appendChild(teamKarte);
+  let r;
+  try { r = await call("team", {task, chat_id: chatId}); }
+  finally { teamKarte.classList.add("fertig"); }
+  chatId = r.chat_id;
+  teamKarte.querySelector(".tKopf").innerHTML = `<i class="ti ti-users"></i> Team fertig · ${r.sekunden} s · ${r.anfragen} Gehirn-Anfragen`;
+  const bubble = addMsg(r.text, botName() + " · Team");
+  const box = document.createElement("div"); box.className = "teamBericht";
+  const warn = (r.warnungen || []).map(w => `<div class="tWarn"><i class="ti ti-alert-triangle"></i> ${esc(w)}</div>`).join("");
+  const ok = !r.luecken.length && !(r.warnungen || []).length;
+  box.innerHTML = (ok ? `<div class="tOk"><i class="ti ti-shield-check"></i> geprüft – alle Punkte beantwortet</div>` : "") + warn +
+    `<details><summary>So haben wir gearbeitet (${r.plan.length} Helfer${r.nachgebessert ? ", 1 Nachbesserung" : ""})</summary>
+      <div class="small"><b>Punkte, die die Antwort beantworten sollte:</b><ol>${r.punkte.map(p => `<li>${esc(p)}</li>`).join("")}</ol>
+      <b>Aufgaben:</b><ul>${r.plan.map(a => `<li>${esc(a.helfer)}: ${esc(a.aufgabe)}</li>`).join("")}</ul>
+      ${r.luecken.length ? `<b>Prüfer fand und ließ nachbessern:</b><ul>${r.luecken.map(l => `<li>${esc(l)}</li>`).join("")}</ul><div class="muted">Die Nachbesserung wurde nicht noch einmal geprüft.</div>` : ""}
+      ${r.protokoll.filter(p => /nicht/.test(p)).map(p => `<div class="muted">${esc(p)}</div>`).join("")}
+      <div class="muted">Gehirne: ${Object.entries(r.modelle).map(([k, v]) => esc(k) + " → " + esc(shortName(v))).join(" · ")}</div></div></details>`;
+  bubble.after(box); $("#chat").scrollTop = 1e9;
+  teamKarte = null;
+  speak(r.text);
 }
 const SUGGESTIONS = [
   ["ti-book", "Bibelvers für heute", "Gib mir einen ermutigenden Bibelvers für heute und erkläre ihn kurz."],
@@ -1993,6 +2031,8 @@ async function init() {
   $("#openTools").onclick = () => showTab("werkzeuge");
   $("#openTeam").onclick = () => showTab("agenten");
   $("#sendBtn").onclick = () => send(false);
+  $("#teamAuto").checked = cfg.team_auto !== false;
+  $("#teamAuto").onchange = () => { cfg.team_auto = $("#teamAuto").checked; save({team_auto: cfg.team_auto}); $("#agentState").textContent = "✓ gespeichert"; };
   $("#input").oninput = autoGrow;
   $("#input").onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(false); } };
   $("#keySave").onclick = async () => { const k = $("#keyInput").value.trim(); if (!k) { $("#keyState").textContent = "Bitte zuerst einen Schlüssel einfügen."; return; }

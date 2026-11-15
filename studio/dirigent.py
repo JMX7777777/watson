@@ -39,6 +39,30 @@ def kategorie(text, braucht_haende):
     return "normal"
 
 
+# Team automatisch nur bei RECHERCHE-Aufgaben (Vergleich 15.11.2026: Team besser bei Plan/Kauf/Recht – echte Quellen,
+# ehrliche Warnungen; gleich beim Rechnen; schlechter bei Andacht/Schreiben; dafür 2–3× langsamer).
+RECHERCHE_RE = re.compile(r"\b(plan\w*|vergleich\w*|kauf\w*|kost\w*|preis\w*|anbieter|recht\w*|gesetz\w*|recherchier\w*|"
+                          r"worauf .{0,30}achten|was brauche ich|welche[srnm]? .{0,40}(besser|empfiehlst|empfehlen|nehmen)|"
+                          r"versicherung\w*|steuer\w*|förder\w*|beantrag\w*|gründ\w*|anmeld\w*|pflicht\w*|vor- und nachteile|"
+                          r"geschäftsidee|businessplan|selbstständig\w*|günstig\w*|teurer|empfiehlst|empfehl\w*|"
+                          r"\w*vertr[aä]g\w*|tarif\w*)\b", re.I)
+SCHREIBEN_RE = re.compile(r"\b(brief\w*|andacht\w*|predigt\w*|gedicht\w*|aufsatz|bewerbung\w*|geschichte|rede|lied\w*|"
+                          r"e-?mail|nachricht|übersetz\w*|formulier\w*|schreib\w*|gebet\w*|segen|glückwunsch\w*)\b", re.I)
+
+
+# Alltags-Planung (Tag, Woche, Termine) braucht keine Recherche – ein schnelles Gehirn reicht
+ALLTAG_RE = re.compile(r"\b(tag|woche|wochenende|morgen|abend|heute|termin\w*|urlaub|einkauf\w*)\b.{0,40}\bplan\w*|"
+                       r"\bplan\w*\b.{0,40}\b(tag|tages|woche|wochenende|morgen|abend|heute|termin\w*)\b", re.I)
+
+
+def team_passend(text):
+    """True = Recherche-Aufgabe, bei der das Team (Chef, Rechercheur, Rechner, Texter, Prüfer) hilft."""
+    t = (text or "").strip()
+    if len(t.split()) < 6 or SCHREIBEN_RE.search(t) or ALLTAG_RE.search(t):
+        return False
+    return bool(RECHERCHE_RE.search(t))
+
+
 def waehle(kat, cfg, rank_id, hermes_id, hermes_ok, bezahlte_gehirne):
     """Gibt (Gehirn, Begründung) zurück. Die Reihenfolge der Kandidaten kommt aus dem Lernbuch."""
     if kat == "computer":

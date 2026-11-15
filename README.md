@@ -21,12 +21,14 @@ You can also talk to him from your phone through a private, encrypted tunnel.
 
 ## What Watson can do
 
-- **Talk**: type or speak. Conversation mode works like a voice call – Watson listens all the time, answers with his voice and listens again.
+- **Talk**: type or speak. Conversation mode works like a voice call – Watson listens all the time, answers with his voice and listens again. With the microphone button your words appear live in the input field while you speak.
 - **Many languages**: Watson listens, answers and speaks in 36 languages. Menus are available in English and German.
 - **Your own character**: name, form of address and basis – *Christian (the Bible as the standard)*, *without religion (the laws of your country as the standard)* or described in your own words.
 - **Respects the law**: every Watson respects the laws of the country you live in. He says honestly that he does not know every law and refers you to official bodies or experts for sensitive matters.
 - **Free AI brains**: Watson uses free models via [OpenRouter](https://openrouter.ai) by default. A "conductor" chooses the right brain for each question. Paid models only if you switch them on.
-- **Memory**: conversations, a notepad of facts, a knowledge book and learned abilities – all stored locally.
+- **Memory**: conversations, a notepad of facts, a knowledge book and learned abilities – all stored locally. A small local model searches memory by *meaning* ("Am I married?" finds "The user has a wife"), and memory works in tiers: a small core always goes along, the large archive only in matching excerpts – so answers stay fast.
+- **Team for research tasks**: for plans, comparisons, purchases, costs or legal questions Watson uses a team on a shared work board – a chief plans, a researcher (with real web sources, no Wikipedia) and a calculator work at the same time, a writer answers and a checker reviews the answer. Warnings (e.g. "costs are only estimates") are always shown. Takes about 2–4 minutes; can be switched off.
+- **Fast local decisions**: small yes/no decisions (team or not, anything new to remember?) are made locally in milliseconds instead of asking an AI brain – this saves free requests.
 - **Eyes and hands**: read the screen as text, open programs, click and type – with four trust levels and fixed limits (never passwords, banking or payments; sending, deleting and buying are always confirmed).
 - **Tools**: plug in tools via the Model Context Protocol (MCP), optional automations with n8n.
 - **Phone**: chat, voice and permission questions on your phone via Tailscale, protected by password and fingerprint (passkeys) – optionally with two-step sign-in (authenticator app or email code, plus backup codes).
@@ -53,6 +55,7 @@ Requirements: Windows 10 or 11 (64-bit), about 3 GB free disk space, microphone 
 
 - **Stays on your computer:** conversations, memory, settings, recordings, voices. Keys are stored encrypted in the Windows Credential Manager.
 - **Goes to the internet:** the questions you ask Watson are sent to OpenRouter and the AI models it routes to, so that Watson can think. Do not share passwords or very private data in conversations.
+- **Downloaded once:** the speech models (Whisper, Kokoro) and the small meaning model (multilingual-e5-small) are downloaded once from Hugging Face on first use, then run on your computer.
 - Texts on web pages or the screen are never treated as commands – only you give Watson tasks.
 
 ## Honest limits

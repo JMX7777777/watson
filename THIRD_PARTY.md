@@ -12,6 +12,7 @@ official sources. Their own licenses apply. This list was checked carefully, but
 | Piper voices (rhasspy/piper-voices) | voices | **per voice** – the installer only downloads voices whose model card names a free license (CC0, CC-BY, MIT, Apache, …) and shows it |
 | faster-whisper, CTranslate2, Whisper models | speech recognition | MIT |
 | webrtcvad-wheels | voice detection | MIT |
+| multilingual-e5-small (intfloat; ONNX conversion by Xenova), tokenizers | meaning search and local decisions (downloaded once from Hugging Face) | MIT (model), Apache-2.0 (tokenizers) |
 | onnxruntime | AI runtime | MIT |
 | numpy | maths | BSD-3-Clause |
 | sounddevice | microphone / speaker | MIT |
