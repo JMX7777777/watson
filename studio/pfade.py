@@ -70,3 +70,21 @@ def gedaechtnis_vorbereiten():
             "Du kannst hier z. B. eine Datei `ueber-mich.md` anlegen und hineinschreiben, wer du bist und was dir wichtig ist.\n"
             "Watson merkt sich außerdem selbst Dinge – die findest du in Watson unter „Gedächtnis“.\n",
             encoding="utf-8")
+
+
+def sicher_schreiben(datei, text):
+    """Datei so schreiben, dass sie nie halb fertig ist: erst Zwischendatei, dann in einem Schritt austauschen.
+    (Direktes write_text leert die Datei zuerst – liest genau dann ein anderer Teil von Watson mit, sieht er eine
+    leere/halbe Datei und nimmt still die Grundeinstellungen.) Windows sperrt Dateien manchmal kurz -> nochmal versuchen."""
+    import time as _t
+    datei = Path(datei)
+    tmp = datei.with_name(datei.name + f".{os.getpid()}.tmp")
+    tmp.write_text(text, encoding="utf-8")
+    for versuch in range(10):
+        try:
+            os.replace(tmp, datei)
+            return
+        except PermissionError:
+            if versuch == 9:
+                raise
+            _t.sleep(0.05 * (versuch + 1))

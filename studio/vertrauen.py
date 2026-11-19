@@ -66,7 +66,7 @@ def _laden():
 
 def _speichern(d):
     d["auftraege"] = d["auftraege"][-500:]
-    DATEI.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
+    pfade.sicher_schreiben(DATEI, json.dumps(d, ensure_ascii=False, indent=1))
 
 
 def stufe(cfg):

@@ -5,7 +5,7 @@ kostenlos zuerst, mit Erfahrung aus dem Lernbuch. Bezahlte Gehirne nur, wenn der
 Aufgaben-Arten:
   einfach   – Gruß, Dank, kurze Frage          -> schnelles Gratis-Gehirn
   normal    – gewöhnliche Fragen               -> starkes Gratis-Gehirn
-  schwer    – Planen, Schreiben, Analysieren   -> Hermes (zerlegt und verteilt) bzw. das beste erlaubte Gehirn
+  schwer    – Planen, Schreiben, Analysieren   -> das beste erlaubte starke Gehirn (mit Internet-Suche; Hermes entfernt 19.11.2026)
   computer  – Programme bedienen, Bildschirm   -> Gehirn mit Händen (Vertrauens-Stufen gelten)
 """
 import re

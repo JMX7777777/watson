@@ -30,6 +30,22 @@ ROLLEN = {
 }
 HELFER = ("Rechercheur", "Rechner")
 MAX_AUFGABEN = 3
+# Gratis-Gehirne tun manchmal so, als hätten sie Werkzeuge, und schreiben „{{search_web(…)}}“ statt einer Antwort
+# (gefunden 16.11.2026 beim ersten Hintergrund-Auftrag). Darum: ausdrücklich verbieten, erkennen, einmal neu.
+OHNE_WERKZEUGE = (" In dieser Rolle hast du KEINE Werkzeuge und kannst nichts mehr suchen oder aufrufen – schreib nie "
+                  "Werkzeug-Aufrufe wie {{…}}, search_web(…) oder <tool_call>, sondern arbeite nur mit dem, was dir vorliegt.")
+WERKZEUG_MUELL_RE = re.compile(r"\{\{\s*\w+\(|\b(search_web|web_search|browse|fetch_url|tool_call)\s*\(|<tool_call>|"
+                               r"\"(name|function)\"\s*:\s*\"\w+\"\s*,\s*\"(arguments|parameters)\"", re.I)
+
+
+def _muell(text):
+    """True = statt einer Antwort stehen (fast) nur erfundene Werkzeug-Aufrufe da."""
+    t = (text or "").strip()
+    if len(t) < 40:
+        return True
+    treffer = WERKZEUG_MUELL_RE.findall(t)
+    rest = WERKZEUG_MUELL_RE.sub("", re.sub(r"\{\{.*?\}\}", "", t, flags=re.S)).strip()
+    return bool(treffer) and len(rest) < 200
 
 
 def _json(text):
@@ -57,7 +73,7 @@ def _brett_text(brett, mit_antwort=False):
     return "\n".join(zeilen)
 
 
-def lauf(auftrag, frage, melde=lambda ev: None, gestoppt=lambda: False, recherche=None):
+def lauf(auftrag, frage, melde=lambda ev: None, gestoppt=lambda: False, recherche=None, max_aufgaben=MAX_AUFGABEN):
     """Führt den ganzen Team-Ablauf aus. Gibt ein dict mit text, warnungen, protokoll … zurück.
     recherche(text) -> [(titel, text, adresse)]: Internet-Quellen für den Rechercheur (ohne Wikipedia)."""
     brett = {"auftrag": auftrag, "aufgaben": [], "punkte": [], "antwort": ""}
@@ -65,7 +81,7 @@ def lauf(auftrag, frage, melde=lambda ev: None, gestoppt=lambda: False, recherch
 
     def f(rolle, prompt, werkzeuge=False):
         anfragen[0] += 1
-        text, modell = frage(rolle, ROLLEN[rolle], prompt, werkzeuge)
+        text, modell = frage(rolle, ROLLEN[rolle] + OHNE_WERKZEUGE, prompt, werkzeuge)
         modelle[rolle] = modell
         return (text or "").strip()
 
@@ -79,11 +95,11 @@ def lauf(auftrag, frage, melde=lambda ev: None, gestoppt=lambda: False, recherch
                  f"Auftrag des Nutzers:\n{auftrag}\n\n"
                  f"Verteile den Auftrag an deine Helfer. Helfer: Rechercheur (Fakten, Möglichkeiten, Internet) und "
                  f"Rechner (nur wenn wirklich etwas zu rechnen ist: Kosten, Zinsen, Mengen, Zeiten).\n"
-                 f"Höchstens {MAX_AUFGABEN} Aufgaben, jede in einem Satz. Dazu 2 bis 5 Punkte, die die fertige "
+                 f"Höchstens {max_aufgaben} Aufgaben, jede in einem Satz. Dazu 2 bis 5 Punkte, die die fertige "
                  f"Antwort unbedingt beantworten muss.\n"
                  'Antworte NUR mit JSON: {"aufgaben":[{"helfer":"Rechercheur","aufgabe":"…"}],"punkte":["…"]}')
     plan = _json(plan_roh) or {}
-    for a in (plan.get("aufgaben") or [])[:MAX_AUFGABEN]:
+    for a in (plan.get("aufgaben") or [])[:max_aufgaben]:
         if isinstance(a, dict) and a.get("helfer") in HELFER and str(a.get("aufgabe", "")).strip():
             brett["aufgaben"].append({"helfer": a["helfer"], "aufgabe": str(a["aufgabe"]).strip()})
     brett["punkte"] = [str(p).strip() for p in (plan.get("punkte") or []) if str(p).strip()][:5]
@@ -128,7 +144,7 @@ def lauf(auftrag, frage, melde=lambda ev: None, gestoppt=lambda: False, recherch
             protokoll.append(f"{a['helfer']} konnte nicht arbeiten: {e}")
             melde({"helfer": a["helfer"], "nr": i, "status": "fehler", "info": str(e)[:120]})
 
-    with ThreadPoolExecutor(max_workers=len(brett["aufgaben"])) as ex:
+    with ThreadPoolExecutor(max_workers=min(3, len(brett["aufgaben"]))) as ex:
         list(ex.map(helfer, range(len(brett["aufgaben"]))))
     stop_pruefen()
 
@@ -137,6 +153,17 @@ def lauf(auftrag, frage, melde=lambda ev: None, gestoppt=lambda: False, recherch
     brett["antwort"] = f("Texter", _brett_text(brett) + "\n\nSchreib jetzt EINE fertige Antwort an den Nutzer. "
                          "Beantworte jeden Punkt. Kennzeichne Schätzungen ehrlich als Schätzung. "
                          "Höchstens etwa 350 Wörter.")
+    if _muell(brett["antwort"]) and not gestoppt():          # erfundene Werkzeug-Aufrufe statt Antwort -> einmal neu
+        protokoll.append("Texter schrieb Werkzeug-Aufrufe statt einer Antwort – einmal neu geschrieben.")
+        melde({"helfer": "Texter", "status": "arbeitet", "info": "schreibt neu (erster Versuch unbrauchbar)"})
+        brett["antwort"] = f("Texter", _brett_text(brett) + "\n\nWICHTIG: Du kannst NICHTS mehr suchen – alle Ergebnisse "
+                             "stehen oben. Schreib jetzt direkt die fertige Antwort an den Nutzer in ganzen Sätzen und "
+                             "Stichpunkten, höchstens etwa 350 Wörter. Keine Werkzeug-Aufrufe, keine {{…}}.")
+    if _muell(brett["antwort"]):                              # immer noch unbrauchbar -> ehrlich sagen statt Unsinn
+        protokoll.append("Auch der zweite Versuch des Texters war unbrauchbar.")
+        brett["antwort"] = ("Es tut mir leid – mein Team hat diesmal keine brauchbare Antwort geschrieben (die Gehirne "
+                            "haben Such-Befehle erfunden statt zu antworten). Die gelesenen Quellen stehen unten; "
+                            "sag „nochmal“, dann versuche ich es erneut.")
     melde({"helfer": "Texter", "status": "fertig", "info": "Antwort geschrieben"})
     stop_pruefen()
 
@@ -150,6 +177,11 @@ def lauf(auftrag, frage, melde=lambda ev: None, gestoppt=lambda: False, recherch
                   'Antworte NUR mit JSON: {"luecken":["was fehlt oder falsch ist"],'
                   '"warnungen":["was der Nutzer wissen sollte, z. B. nur geschätzt"]}  (leere Listen, wenn alles gut ist)')
     pruef = _json(pruef_roh)
+    if pruef is None and not gestoppt():                     # unlesbar -> einmal neu, ganz knapp
+        protokoll.append("Prüfung war nicht lesbar – einmal neu geprüft.")
+        pruef = _json(f("Prüfer", "ANTWORT, DIE DU PRÜFEN SOLLST:\n" + brett["antwort"] + "\n\nPUNKTE:\n" +
+                        "\n".join(f"- {p}" for p in brett["punkte"]) +
+                        '\n\nGib NUR dieses JSON aus, sonst nichts: {"luecken":[…],"warnungen":[…]}'))
     nachgebessert = False
     if pruef is None:
         luecken, warnungen = [], ["Die Prüfung war diesmal nicht lesbar – bitte Wichtiges selbst nachprüfen."]

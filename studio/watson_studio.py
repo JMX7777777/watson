@@ -30,6 +30,11 @@ import dirigent
 import rezepte
 import sprachen
 import selbst
+import tatpruefung
+import herzschlag
+import meinungsbuch
+import suche
+import fehlerbuch
 import video_studio
 import wachstum
 import wartung
@@ -37,7 +42,9 @@ import handy
 import mcp_suche
 import system_werkzeuge as systemw
 import team
+TEAM_MODUL = team   # eindeutiger Name (in der Klasse Api heißt eine Methode ebenfalls „team“)
 import entscheider
+import auftraege
 
 try:
     import stimme
@@ -62,7 +69,6 @@ DEFAULT_CONFIG = {
     "use_system": False,          # System-Auskunft + PowerShell (nur mit Freigabe des Nutzers, fragt vor jeder Nutzung)
     "api_key": "",
     "model": "openrouter/free",
-    "theme": "dunkel",
     "accent": "#378ADD",
     "use_memory": True,
     "auto_remember": True,
@@ -209,15 +215,39 @@ def _secret_ids(cfg):
     return list(tresor.BEKANNT) + [s["id"] for s in cfg.get("schluessel", []) if s.get("id") not in tresor.BEKANNT]
 
 
-def load_config():
-    cfg = json.loads(json.dumps(DEFAULT_CONFIG))
-    raw = {}
-    if CONFIG_FILE.exists():
+_CONFIG_LOCK = threading.RLock()
+_CONFIG_GUT = {}          # letzte fehlerfrei gelesene Einstellungen (Schutz, falls die Datei einmal kaputt ist)
+
+
+def _config_roh():
+    """Einstellungen von der Platte lesen. Ist die Datei kaputt, NICHT still auf Grundeinstellungen fallen
+    (sonst würde das nächste Speichern alle Einstellungen überschreiben), sondern die letzte gute Fassung nehmen."""
+    if not CONFIG_FILE.exists():
+        return {}
+    for versuch in range(3):
         try:
             raw = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
-            cfg.update(raw)
+            if isinstance(raw, dict):
+                _CONFIG_GUT.clear()
+                _CONFIG_GUT.update(raw)
+                return raw
         except (OSError, ValueError):
-            pass
+            time.sleep(0.05)
+    if _CONFIG_GUT:
+        return dict(_CONFIG_GUT)
+    try:      # beim Start kaputt und keine gute Fassung im Speicher: kaputte Datei aufheben, damit nichts verloren geht
+        import shutil
+        shutil.copy2(CONFIG_FILE, CONFIG_FILE.with_name(f"einstellungen.kaputt-{time.strftime('%Y%m%d-%H%M%S')}.json"))
+    except OSError:
+        pass
+    return {}
+
+
+def load_config():
+    cfg = json.loads(json.dumps(DEFAULT_CONFIG))
+    with _CONFIG_LOCK:
+        raw = _config_roh()
+    cfg.update(raw)
     # Schlüssel kommen aus dem verschlüsselten Tresor. Alte Klartext-Schlüssel ziehen einmalig dorthin um.
     moved = False
     for k in _secret_ids(cfg):
@@ -236,7 +266,10 @@ def save_config(cfg):
         v = clean.pop(k, None)
         if v and v != tresor.lesen(k):
             tresor.speichern(k, v)
-    CONFIG_FILE.write_text(json.dumps(clean, ensure_ascii=False, indent=2), encoding="utf-8")
+    with _CONFIG_LOCK:
+        pfade.sicher_schreiben(CONFIG_FILE, json.dumps(clean, ensure_ascii=False, indent=2))
+        _CONFIG_GUT.clear()
+        _CONFIG_GUT.update(clean)
 
 
 def sprache_anwenden(cfg=None):
@@ -330,74 +363,12 @@ def brain_message(model, messages, api_key, tools=None, timeout=180):
 AGENT_MODELS = ["nvidia/nemotron-3-ultra-550b-a55b:free", "google/gemma-4-31b-it:free",
                 "nvidia/nemotron-3.5-super-vl:free"]
 RANK_ID = "watson/rangliste"   # besonderes "Gehirn": fragt die Rangliste der Reihe nach
-HERMES_ID = "watson/hermes"    # besonderes "Gehirn": Hermes Agent in Ubuntu (zerlegt, verteilt, lernt)
-HERMES_DIR = pfade.DATEN / "hermes-austausch"
+HERMES_ID = "watson/hermes"    # Hermes wurde am 19.11.2026 entfernt; alte Einstellung -> Dirigent bzw. Rangliste
 
 
 def wsl_path(p):
     p = str(Path(p).resolve())
     return "/mnt/" + p[0].lower() + p[2:].replace("\\", "/")
-
-
-HERMES_FREE_DEFAULT = "nvidia/nemotron-3-ultra-550b-a55b:free"
-HERMES_PAID_DEFAULT = "anthropic/claude-sonnet-5.5"
-
-
-def set_hermes_mode(cfg):
-    """Stellt Hermes passend zum Modus um: Gratis -> nur :free-Gehirne, Bezahlt -> Wahl des Nutzers."""
-    gratis = cfg.get("nur_gratis", True)
-    model = cfg.get("hermes_gratis") or HERMES_FREE_DEFAULT
-    if not gratis:
-        model = cfg.get("hermes_bezahlt") or HERMES_PAID_DEFAULT
-    if gratis and not is_free_model(model):
-        model = HERMES_FREE_DEFAULT
-    if not re.fullmatch(r"[\w.\-/:]+", model):
-        return {"error": "ungültiger Gehirn-Name"}
-    h = "/root/.local/bin/hermes"     # keine $-Variablen: wsl.exe würde sie vorher auflösen
-    script = (f"{h} config set model.default '{model}' >/dev/null && "
-              f"{h} config set auxiliary.free_only {'true' if gratis else 'false'} >/dev/null && "
-              f"{h} config get model.default")
-    try:
-        r = subprocess.run(["wsl", "-d", "Ubuntu-24.04", "--", "bash", "-c", script], capture_output=True,
-                           timeout=60, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-        out = r.stdout.decode("utf-8", "replace").strip()
-        return {"ok": r.returncode == 0, "model": out}
-    except Exception as e:
-        return {"error": str(e)}
-
-
-def ask_hermes(prompt, timeout=600):
-    """Gibt Hermes (in WSL Ubuntu) eine Aufgabe und holt seine fertige Antwort ab."""
-    HERMES_DIR.mkdir(exist_ok=True)
-    f = HERMES_DIR / f"frage-{int(time.time() * 1000)}.txt"
-    f.write_text(prompt, encoding="utf-8")
-    try:
-        cmd = ["wsl", "-d", "Ubuntu-24.04", "--", "bash", "-lc",
-               f"cd ~ && ~/.local/bin/hermes chat -Q --max-turns 30 --query-file '{wsl_path(f)}'"]
-        # Den OpenRouter-Schlüssel bekommt Hermes nur für diesen einen Aufruf (aus dem Tresor),
-        # er wird in Ubuntu nicht dauerhaft gespeichert.
-        import os
-        env = dict(os.environ)
-        env["OPENROUTER_API_KEY"] = tresor.lesen("api_key")
-        env["WSLENV"] = ":".join([x for x in (env.get("WSLENV", ""), "OPENROUTER_API_KEY/u") if x])
-        r = subprocess.run(cmd, capture_output=True, timeout=timeout, env=env,
-                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-    except subprocess.TimeoutExpired:
-        raise RuntimeError("Hermes hat zu lange gebraucht (über 10 Minuten).")
-    except FileNotFoundError:
-        raise RuntimeError("Ubuntu (WSL) ist nicht erreichbar – ist Hermes installiert?")
-    finally:
-        try:
-            f.unlink()
-        except OSError:
-            pass
-    out = r.stdout.decode("utf-8", "replace")
-    lines = [ln for ln in out.splitlines() if not ln.startswith(("session_id:", "Session:", "  hermes -c"))]
-    text = "\n".join(lines).strip()
-    if not text:
-        err = r.stderr.decode("utf-8", "replace").strip().splitlines()
-        raise RuntimeError("Hermes hat nicht geantwortet. " + (err[-1][:200] if err else ""))
-    return text
 
 
 def rank_list(cfg):
@@ -485,7 +456,7 @@ LIVE_NAMES = {"search_nodes": "sucht passende Bausteine", "get_node": "liest die
               "get_current_time": "schaut auf die Uhr", "browser_navigate": "öffnet eine Webseite",
               "browser_snapshot": "liest die Webseite", "browser_click": "klickt auf der Webseite",
               "browser_type": "tippt auf der Webseite", "write_file": "schreibt eine Datei", "read_text_file": "liest eine Datei",
-              "lehre_merken": "📒 merkt sich eine Lehre", "wachstum_bericht": "🌱 liest seinen Wachstums-Bericht",
+              "lehre_merken": "📒 merkt sich eine Lehre", "meinung_bilden": "💭 hält seine Meinung fest", "internet_suchen": "🔎 sucht im Internet und liest Seiten", "wachstum_bericht": "🌱 liest seinen Wachstums-Bericht",
               "werkstatt_wunsch": "🛠 schreibt einen Wunsch an die Werkstatt"}
 
 
@@ -567,6 +538,8 @@ def _fehler_hook(args_or_type, value=None, tb=None):
 import sys as _sys          # noqa: E402
 _sys.excepthook = _fehler_hook
 threading.excepthook = _fehler_hook
+if stimme:
+    stimme.FEHLER_MELDEN = fehler_melden     # „Hey Watson“-Fehler sammeln statt still abzubrechen
 
 
 def gehirn_frage(messages, modelle):
@@ -621,7 +594,8 @@ wartung.init(frage=gehirn_frage, stark=dirigent.STARK, fehler_datei=FEHLER_FILE)
 wachstum.init(massstab=lambda: massstab_text(load_config()) + ("\n\n" + selbst.lehren_text() if selbst.lehren() else ""),
               nutzer=lambda: (load_config().get("charakter") or {}).get("nutzer") or "der Nutzer",
               frage=gehirn_frage, modelle=_gratis_ids, mem=MEM, wartung=wartung, schnell=dirigent.SCHNELL,
-              stark=dirigent.STARK, dirigent_modelle=_pruef_kandidaten, fehler_melden=fehler_melden)
+              stark=dirigent.STARK, dirigent_modelle=_pruef_kandidaten, fehler_melden=fehler_melden,
+              lehren_ohne_frage=lambda: bool(load_config().get("lehren_ohne_frage")))
 
 
 VISION_MODELS = ["google/gemma-4-31b-it:free", "nvidia/nemotron-3.5-super-vl:free", "google/gemma-4-26b-a4b-it:free"]
@@ -743,7 +717,6 @@ class Api:
 
     def save_config(self, part):
         cfg = load_config()
-        hermes_changed = False
         if isinstance(part.get("charakter"), dict):
             c = dict(CHARAKTER_DEFAULT, **(cfg.get("charakter") or {}))
             for k in CHARAKTER_DEFAULT:
@@ -763,12 +736,7 @@ class Api:
         if part.get("theme") in ("hell", "dunkel", "system"):
             cfg["theme"] = part["theme"]
         if "nur_gratis" in part:
-            hermes_changed = cfg.get("nur_gratis", True) != bool(part["nur_gratis"])
             cfg["nur_gratis"] = bool(part["nur_gratis"])
-        for k in ("hermes_gratis", "hermes_bezahlt"):
-            if k in part and isinstance(part[k], str) and part[k].strip():
-                hermes_changed = hermes_changed or cfg.get(k) != part[k].strip()
-                cfg[k] = part[k].strip()
         for k in ("model", "theme", "accent", "use_memory", "voice", "agents", "auto_remember", "use_tools", "vision_model", "use_hands", "hands_mode", "risky_ask",
                   "vertrauen_stufe", "use_n8n", "ablaeufe", "tts_engine", "piper_voice", "use_system", "team_auto"):
             if k in part:
@@ -807,9 +775,6 @@ class Api:
             cfg["api_key"] = ""
         save_config(cfg)
         sprache_anwenden(cfg)
-        if hermes_changed:
-            import threading
-            threading.Thread(target=set_hermes_mode, args=(dict(cfg),), daemon=True).start()
         return {"ok": True}
 
     def get_memory(self):
@@ -1020,13 +985,8 @@ class Api:
         """Fragt das Gehirn; kostenlose Gehirne sind manchmal überlastet -> bis zu 3 Versuche."""
         if model == dirigent.ID:              # außerhalb des Gesprächs: die Rangliste entscheidet
             model = RANK_ID
-        if model == HERMES_ID:
-            try:
-                flat = "\n\n".join(f"[{m['role']}]\n{m['content'] if isinstance(m['content'], str) else ''}"
-                                   for m in messages)
-                return ask_hermes(flat + "\n\nAntworte jetzt auf Deutsch auf die letzte Nachricht."), HERMES_ID
-            except Exception:
-                model = RANK_ID       # Ersatz: Gratis-Rangliste
+        if model == HERMES_ID:                # Hermes gibt es nicht mehr (19.11.2026)
+            model = RANK_ID
         if model == RANK_ID:
             # Rangliste: der Reihe nach fragen; fällt eins aus (überlastet, kein Guthaben …), kommt das nächste
             errors = []
@@ -1118,12 +1078,14 @@ class Api:
         cfg = load_config()
         st = vertrauen.stufe(cfg)
         user = (cfg.get("charakter") or {}).get("nutzer") or "du"
-        if fullname == "watson__wachstum_bericht":
+        if fullname in ("watson__wachstum_bericht", auftraege.NAME, suche.NAME):   # nur lesen bzw. nur recherchieren
             return True
         if fullname == FLOW_SAVE_TOOL["function"]["name"]:       # Abläufe ohne Nachfrage startbar machen: nur mit Zustimmung
             return self._frage("🔁 Ablauf in deine Liste eintragen?",
                                f"Name: {str(args.get('name', ''))[:120]}\nPfad: {str(args.get('pfad', ''))[:120]}\n"
                                f"{str(args.get('beschreibung', ''))[:300]}", knopf_ja="Eintragen", knopf_nein="Nein")
+        if fullname == meinungsbuch.NAME:     # eigene Meinung bilden = Denken, keine Handlung -> nie fragen (Grundsatz des Besitzers)
+            return True
         if fullname in selbst.NAMES:
             if fullname == "watson__lehre_merken":
                 # Jeder Besitzer entscheidet selbst (Einstellung „lehren_ohne_frage“, Seite Wissen → Lehren).
@@ -1217,21 +1179,20 @@ class Api:
         start_zeit = time.time()
         if model == dirigent.ID:          # z. B. im Team-Modus: die Rangliste entscheidet
             model = RANK_ID
-        if model == HERMES_ID:          # Hermes hat seine eigenen Werkzeuge und Unteragenten
-            text, used = self._ask(model, messages, api_key)
-            return text, used, ["🧠 Hermes"] if used == HERMES_ID else []
+        if model == HERMES_ID:          # Hermes gibt es nicht mehr (19.11.2026)
+            model = RANK_ID
         cfg_now = load_config()
         hands = haende.TOOLS if (screen and cfg_now.get("use_hands", True)) else []
         flows = [n8n_hub.TOOL, FLOW_SAVE_TOOL] if (cfg_now.get("use_n8n", True) and n8n_hub.installed()) else []
         plan = [PLAN_TOOL] if (hands and vertrauen.stufe(cfg_now) == 2) else []
         sysw = systemw.TOOLS if cfg_now.get("use_system") else []
         tools = (HUB.openai_tools() + ([READ_TOOL, SCREEN_TOOL] if screen else []) + hands + plan + flows + sysw +
-                 selbst.TOOLS) if use_tools else []
+                 selbst.TOOLS + [meinungsbuch.TOOL, suche.TOOL] + ([auftraege.TOOL] if screen else [])) if use_tools else []
         extra = (HANDS_HINT + (PLAN_HINT if plan else "")) if hands else ""
         if sysw and use_tools:
             extra += systemw.HINWEIS
         if use_tools:
-            extra += selbst.HINWEIS
+            extra += selbst.HINWEIS + meinungsbuch.HINWEIS + suche.HINWEIS + (auftraege.HINWEIS if screen else "")
         if any(t["function"]["name"].startswith("n8n-baukasten__") for t in tools):
             extra += FLOW_HINT
         if flows and cfg_now.get("ablaeufe"):
@@ -1241,7 +1202,9 @@ class Api:
             messages = [{"role": "system", "content": messages[0]["content"] + extra}] + messages[1:]
         if not tools:
             text, used = self._ask(model, messages, api_key)
-            return text, used, []
+            log = []
+            text = self._tat_abschluss(text, tatpruefung.pruefen(text, []), [], log, used, False)
+            return text, used, log
         # Der Gratis-Verteiler wählt oft winzige Gehirne, die Werkzeuge nur "vorspielen".
         # Mit Werkzeugen nehmen wir deshalb gezielt starke Gratis-Gehirne (mit Ersatz, falls eins ausfällt).
         if model == RANK_ID:
@@ -1264,6 +1227,7 @@ class Api:
         candidates.sort(key=lambda m: PAUSE.get(m, 0) > time.time())
         model = candidates.pop(0)
         msgs, log, retries, nudged = list(messages), [], 0, False
+        taten = []          # was in diesem Auftrag wirklich gelaufen ist (für die Tat-Prüfung)
         for step in range(20 if hands else 8):
             if self._gestoppt(start_zeit):
                 log.append("■ vom Nutzer gestoppt")
@@ -1298,18 +1262,18 @@ class Api:
             calls = msg.get("tool_calls") or []
             if not calls:
                 text = (msg.get("content") or "").strip()
-                if text and not log and (CLAIM_RE.search(text) or SELBST_RE.search(text)) and not nudged:
-                    # Ehrlichkeits-Wächter: behauptet etwas getan zu haben, ohne Werkzeug -> einmal nachhaken
-                    nudged = True
-                    msgs += [{"role": "assistant", "content": text},
-                             {"role": "user", "content": "Achtung: Du hast dafür KEIN Werkzeug benutzt – deine Aussage "
-                              "stimmt also nicht. Benutze jetzt wirklich das passende Werkzeug (z. B. watson__bildschirm_lesen, "
-                              "watson__programm_oeffnen) – oder sag ehrlich, dass du es nicht getan hast. Änderungen an "
-                              "deinem eigenen Programm kannst du nicht selbst machen: dafür watson__werkstatt_wunsch."}]
-                    continue
                 if text:
-                    if not log and (CLAIM_RE.search(text) or SELBST_RE.search(text)):
-                        log.append("⚠ Achtung: Watson hat kein Werkzeug benutzt – diese Antwort stimmt vermutlich nicht")
+                    # Tat-Prüfung: jede „Ich habe … getan“-Behauptung muss im Protokoll stehen
+                    befund = tatpruefung.pruefen(text, taten)
+                    if befund["falsch"] and not nudged:
+                        nudged = True                       # einmal die Chance: wirklich tun oder ehrlich korrigieren
+                        log.append("🔎 Tat-Prüfung: Behauptung ohne Beleg – Watson prüft nach")
+                        fehlerbuch.eintragen("tat", "Behauptet, ohne es getan zu haben: " + " | ".join(
+                            f["satz"][:150] for f in befund["falsch"]), getattr(self, "_task_text", ""), text)
+                        msgs += [{"role": "assistant", "content": text},
+                                 {"role": "user", "content": tatpruefung.nachhaken(befund, taten)}]
+                        continue
+                    text = self._tat_abschluss(text, befund, taten, log, used, nudged)
                     return text, used, log
                 continue
             msgs.append({"role": "assistant", "content": msg.get("content") or "", "tool_calls": calls})
@@ -1370,8 +1334,29 @@ class Api:
                             result = haende.run(name, args)
                         elif name in systemw.NAMES:
                             result = systemw.run(name, args)
+                        elif name == suche.NAME:
+                            result = suche.suchen(args.get("suchbegriffe", ""), args.get("seiten", 3))
+                        elif name.endswith("__fetch") and suche.gesperrt(args.get("url")):
+                            result = ("FEHLER: Wikipedia ist als Quelle gesperrt (Grundsatz des Nutzers). Nimm eine "
+                                      "andere Quelle, z. B. mit watson__internet_suchen.")
+                        elif name == meinungsbuch.NAME:
+                            result = meinungsbuch.run(args)
                         elif name in selbst.NAMES:
                             result = selbst.run(name, args, wachstum)
+                        elif name == auftraege.NAME:
+                            a = auftraege.starten(args.get("auftrag", ""), getattr(self, "_chat_aktuell", None),
+                                                  args.get("titel", ""))
+                            n = len(auftraege.alle(nur_offene=True))
+                            result = (f"Auftrag „{a['titel']}“ läuft jetzt im Hintergrund (Nr. {a['id']}"
+                                      f"{', ' + str(n - 1) + ' davor in der Warteschlange' if n > 1 else ''}). "
+                                      "Sag dem Nutzer: Du arbeitest im Hintergrund daran und meldest dich von selbst "
+                                      "hier im Gespräch, sobald du fertig bist (meist einige Minuten). Er kann "
+                                      "inzwischen normal weiterreden.")
+                            if WINDOW is not None:
+                                try:
+                                    WINDOW.evaluate_js(f"window.auftragGestartet && window.auftragGestartet({json.dumps(a['titel'])})")
+                                except Exception:
+                                    pass
                         elif name == READ_TOOL["function"]["name"]:
                             result = read_screen(args.get("fenster", ""))
                         elif name == SCREEN_TOOL["function"]["name"]:
@@ -1380,6 +1365,7 @@ class Api:
                             result = HUB.call(name, args)
                     except Exception as e:
                         result = f"FEHLER beim Werkzeug: {e}"
+                    taten.append({"name": name, "ok": not str(result).strip().upper().startswith("FEHLER")})
                     protokoll(name, args, result)
                     vertrauen.schritt(haende.describe(name, args).split("\n")[0] if name in haende.NAMES else
                                       name.replace("__", " → "), result)
@@ -1395,11 +1381,28 @@ class Api:
                         log.append(label)
                 else:
                     vertrauen.nicht_erlaubt()
+                    taten.append({"name": name, "ok": False})
                     result = "Der Nutzer hat dieses Werkzeug nicht erlaubt."
                     log.append(name.replace("__", " → ") + " (abgelehnt)")
                 msgs.append({"role": "tool", "tool_call_id": c.get("id", name), "content": result})
         text, used = self._ask(model, msgs + [{"role": "user", "content": "Bitte antworte jetzt mit dem, was du hast."}], api_key)
+        text = self._tat_abschluss(text, tatpruefung.pruefen(text, taten), taten, log, used, nudged)
         return text, used, log
+
+    def _tat_abschluss(self, text, befund, taten, log, used, nachgehakt):
+        """Ende der Tat-Prüfung: mitschreiben und – falls immer noch falsch – ehrlich unter die Antwort schreiben."""
+        if befund["falsch"]:
+            log.append("⚠ Tat-Prüfung: Behauptung ohne Beleg im Protokoll")
+            tatpruefung.merken(befund, "falsch_geblieben", used, getattr(self, "_task_text", ""))
+            if not nachgehakt:                 # sonst schon beim Nachhaken ins Fehlerbuch geschrieben
+                fehlerbuch.eintragen("tat", "Behauptet, ohne es getan zu haben: " + " | ".join(
+                    f["satz"][:150] for f in befund["falsch"]), getattr(self, "_task_text", ""), text)
+            sprache = ((load_config().get("charakter") or {}).get("sprache") or "de")
+            return text + tatpruefung.hinweis(befund, sprache)
+        if nachgehakt:
+            log.append("✅ Tat-Prüfung: Watson hat sich korrigiert bzw. es wirklich getan")
+        tatpruefung.merken(befund, "korrigiert" if nachgehakt else "ok", used, getattr(self, "_task_text", ""))
+        return text
 
     def _context(self, cfg, question, chat_id, schlank=False):
         """Baut das Wissen zusammen, das zu DIESER Frage passt (statt immer alles mitzuschicken)."""
@@ -1446,6 +1449,15 @@ class Api:
             parts.append("FERTIGKEITEN – erprobte Vorgehensweisen, die zu dieser Aufgabe passen. Folge ihnen, passe sie aber "
                          "an, wenn die Lage anders ist, und sag ehrlich, wenn ein Schritt nicht mehr stimmt:\n" +
                          rezepte.als_text(passende))
+        try:
+            meinungen = meinungsbuch.als_text(meinungsbuch.passend(question))
+            if meinungen:
+                parts.append(meinungen)
+            frueher = fehlerbuch.als_text(fehlerbuch.passend(question))
+            if frueher:
+                parts.append(frueher)
+        except Exception as e:
+            fehler_melden("Kontext/Meinungen+Fehler", e)
         parts.append(LEHRER_HINT)
         return "\n\n".join(parts)
 
@@ -1460,6 +1472,9 @@ class Api:
         self._task_ok, self._task_text, self._stop = False, text, False   # Erlaubnis gilt nur für diesen Auftrag
         vertrauen.auftrag_start(text, vertrauen.stufe(cfg))               # zählt für den Vertrauensbalken
         chat_id = payload.get("chat_id") or MEM.new_chat()
+        self._chat_aktuell = chat_id                 # damit ein Hintergrund-Auftrag weiß, wohin er sich meldet
+        if payload.get("chat_id") and fehlerbuch.KORREKTUR_RE.match(text):
+            self._korrektur_merken(chat_id, text)          # Nutzer korrigiert Watson -> ins Fehlerbuch
         MEM.add_message(chat_id, "user", text)
         system = build_system(cfg) + "\n\n" + self._context(cfg, text, chat_id)
         seen = []
@@ -1481,8 +1496,8 @@ class Api:
                 return {"error": str(e), "chat_id": chat_id}
         history = [{"role": m["role"], "content": m["content"]} for m in MEM.messages(chat_id, limit=24)]
         brain = payload.get("model") or cfg["model"]
-        # Hermes hat keine Hände und Augen am Windows-Computer. Braucht die Aufgabe welche,
-        # übernimmt ein Gehirn mit Händen (Rangliste mit starken Gratis-Gehirnen) – mit den Vertrauens-Stufen.
+        if brain == HERMES_ID:              # Hermes wurde entfernt (19.11.2026) -> der Dirigent wählt
+            brain = dirigent.ID
         hands_on = cfg.get("use_tools", True) and cfg.get("use_hands", True) and not payload.get("look")
         t_start = time.time()
         kat = dirigent.kategorie(text, braucht_haende if hands_on else (lambda _t: False))
@@ -1491,44 +1506,9 @@ class Api:
             # Der Dirigent wählt pro Frage das passende Gehirn – mit Erfahrung aus dem Lernbuch
             bezahlt = [m for m in rank_list(cfg) if m not in (RANK_ID, HERMES_ID, "openrouter/free")
                        and not is_free_model(m)]
-            brain, grund = dirigent.waehle(kat, cfg, RANK_ID, HERMES_ID, True, bezahlt)
+            brain, grund = dirigent.waehle(kat, cfg, RANK_ID, HERMES_ID, False, bezahlt)
             gewaehlt = brain
             seen.append("🎼 Dirigent: " + grund)
-        if brain == HERMES_ID and hands_on and braucht_haende(text):
-            seen.append("✋ Arbeit am Computer – dafür nimmt Watson ein Gehirn mit Händen (Hermes hat keine)")
-            brain = RANK_ID
-        if brain == HERMES_ID:
-            # Hermes denkt in Ubuntu: zerlegt die Aufgabe, verteilt an Unteragenten, lernt dazu
-            if WINDOW is not None:
-                try:
-                    WINDOW.evaluate_js("window.liveStep && window.liveStep('🧠 Hermes denkt nach (zerlegt und verteilt, wenn nötig) …')")
-                except Exception:
-                    pass
-            convo = "\n".join(f"{'Nutzer' if m['role'] == 'user' else 'Watson'}: {m['content'][:2000]}"
-                              for m in history[-8:-1])
-            prompt = ("Du arbeitest als Denkzentrale für Watson, einen persönlichen Assistenten. Halte dich an diese "
-                      "Anweisungen und dieses Wissen:\n\n" + system +
-                      ("\n\nBisheriges Gespräch:\n" + convo if convo else "") +
-                      "\n\nNeue Nachricht des Nutzers:\n" + text +
-                      "\n\nAntworte direkt an den Nutzer, in seiner Sprache. Zerlege große Aufgaben und nutze Unteragenten, wenn "
-                      "es hilft. Bediene NICHT die Windows-Programme – das macht Watson selbst." +
-                      (f"\n\nWICHTIG: Wenn die Aufgabe verlangt, dass am Windows-Computer etwas bedient wird "
-                       f"(Programm öffnen, klicken, tippen, Bildschirm lesen, einen Ablauf starten), dann antworte "
-                       f"NUR mit {HAENDE_ZEICHEN} und sonst nichts – Watson übernimmt das dann mit seinen Händen."
-                       if hands_on else ""))
-            t0 = time.time()
-            try:
-                answer = ask_hermes(prompt)
-                used, tools = HERMES_ID, [f"🧠 Hermes hat geantwortet ({time.time() - t0:.0f} s)"]
-                if hands_on and HAENDE_ZEICHEN in answer:
-                    seen.append("✋ Hermes sagt: Das braucht Hände am Computer – Watson nimmt ein Gehirn mit Händen")
-                    brain = RANK_ID
-            except Exception as e:
-                # Ersatz: die Gratis-Rangliste springt ein
-                seen.append(f"⚠ Hermes: {str(e)[:120]} – Ersatz-Gehirn springt ein")
-                brain = RANK_ID
-            if brain == HERMES_ID:
-                return self._fertig(chat_id, text, kat, answer, used, seen + tools, t_start, gewaehlt)
         n = int(payload.get("rat_anzahl", cfg.get("rat_anzahl", 0)) or 0)
         if n > 0 and not getattr(self, "_stop", False):
             answers, asked = self._council(cfg, [{"role": "system", "content": system}] + history, n)
@@ -1675,6 +1655,8 @@ class Api:
         art, text = v.get("art"), v.get("text", "")
         if art == "merkzettel":
             MEM.add_fact(text)
+        elif art == "lehre":                 # aus dem Fehlerbuch (wenn Lehren nicht ohne Nachfrage erlaubt sind)
+            selbst.lehre_merken(text, "Aus eigenen Fehlern gelernt: " + v.get("grund", ""), "Watson (Fehlerbuch)")
         elif art == "charakter":
             cfg = load_config()
             ch = cfg.setdefault("charakter", {})
@@ -1757,7 +1739,6 @@ class Api:
 
     def ablage_oeffnen(self, pfad):
         """Zeigt eine Datei im Explorer (nur Dateien in Watsons Ablage)."""
-        import os
         p = Path(pfad)
         if p.exists() and pfade.ABLAGE in p.resolve().parents:
             subprocess.Popen(["explorer.exe", "/select,", str(p)])
@@ -1770,8 +1751,39 @@ class Api:
         return r
 
     # ---------- Lernbuch, Wissensbuch, Lehrer-Brücke ----------
-    def bewerten(self, lern_id, wert):
-        return {"ok": lernbuch.bewerten(int(lern_id), int(wert))}
+    def bewerten(self, lern_id, wert, frage="", antwort=""):
+        ok = lernbuch.bewerten(int(lern_id), int(wert))
+        fid = None
+        try:
+            if int(wert) < 0:               # 👎 -> ins Fehlerbuch, Watson denkt nachts darüber nach
+                fid = fehlerbuch.eintragen("daumen", "Der Nutzer fand diese Antwort schlecht (👎)", frage, antwort,
+                                           lern_id=int(lern_id))
+            else:
+                fehlerbuch.daumen_zurueck(int(lern_id))
+        except Exception as e:
+            fehler_melden("Fehlerbuch/Daumen", e)
+        return {"ok": ok, "fehler_id": fid}
+
+    def _korrektur_merken(self, chat_id, text):
+        try:
+            alt = MEM.messages(chat_id, limit=4)
+            antwort = next((m["content"] for m in reversed(alt) if m["role"] == "assistant"), "")
+            frage = next((m["content"] for m in reversed(alt) if m["role"] == "user"), "")
+            if antwort:
+                fehlerbuch.eintragen("korrektur", "Der Nutzer hat mich korrigiert: " + text[:400], frage, antwort,
+                                     richtig=text)
+        except Exception as e:
+            fehler_melden("Fehlerbuch/Korrektur", e)
+
+    # ---------- Meinungsbuch + Fehlerbuch (Seite Gedächtnis) ----------
+    def meinungen_liste(self):
+        return {"meinungen": list(reversed(meinungsbuch.alle())), "stufen": meinungsbuch.SICHERHEIT}
+
+    def fehler_liste(self):
+        return {"fehler": list(reversed(fehlerbuch.alle()[-60:])), "zahlen": fehlerbuch.zahlen(), "arten": fehlerbuch.ARTEN}
+
+    def fehler_erklaeren(self, fid, richtig):
+        return {"ok": fehlerbuch.erklaeren(int(fid), richtig)}
 
     def lernbuch_status(self):
         return lernbuch.statistik()
@@ -1844,7 +1856,29 @@ class Api:
             return {"error": "Kein Auftrag."}
         self._task_ok, self._task_text, self._stop = False, auftrag, False
         chat_id = payload.get("chat_id") or MEM.new_chat()
+        self._chat_aktuell = chat_id
         MEM.add_message(chat_id, "user", auftrag)
+
+        def melde(ev):
+            if WINDOW is not None:
+                try:
+                    WINDOW.evaluate_js(f"window.teamSchritt && window.teamSchritt({json.dumps(ev)})")
+                except Exception:
+                    pass
+        try:
+            r = self._team_lauf(auftrag, chat_id, melde, gestoppt=lambda: self._stop)
+        except Exception as e:
+            return {"error": str(e), "chat_id": chat_id}
+        modell = r["modelle"].get("Texter", "")
+        MEM.add_message(chat_id, "assistant", r["text"], name="Watson · Team", model=modell)
+        r["chat_id"], r["model"] = chat_id, modell
+        return r
+
+    def _team_lauf(self, auftrag, chat_id, melde=lambda ev: None, gestoppt=lambda: False, max_aufgaben=None):
+        """Der eigentliche Team-Ablauf (für den Team-Knopf und für Aufträge im Hintergrund)."""
+        # Achtung: Hier im Klassenkörper ist „team“ die Methode team(), nicht das Modul – darum TEAM_MODUL.
+        max_aufgaben = max_aufgaben or TEAM_MODUL.MAX_AUFGABEN
+        cfg = load_config()
         grund = build_system(cfg)
         wissen = self._context(cfg, auftrag, chat_id, schlank=True)   # einmal fürs ganze Team, nur das Wichtigste
         eigene = {a.get("name"): a.get("model") for a in cfg.get("agents") or []}
@@ -1863,24 +1897,111 @@ class Api:
         def recherche(text):
             return wachstum._internet(text, max_quellen=3)
 
-        def melde(ev):
-            if WINDOW is not None:
-                try:
-                    WINDOW.evaluate_js(f"window.teamSchritt && window.teamSchritt({json.dumps(ev)})")
-                except Exception:
-                    pass
         start = time.time()
-        try:
-            r = team.lauf(auftrag, frage, melde, gestoppt=lambda: self._stop, recherche=recherche)
-        except Exception as e:
-            return {"error": str(e), "chat_id": chat_id}
+        r = TEAM_MODUL.lauf(auftrag, frage, melde, gestoppt=gestoppt, recherche=recherche, max_aufgaben=max_aufgaben)
         r["sekunden"] = round(time.time() - start)
-        modell = r["modelle"].get("Texter", "")
-        MEM.add_message(chat_id, "assistant", r["text"], name="Watson · Team", model=modell)
         protokoll("watson__team", {"auftrag": auftrag[:100]},
                   f"{r['anfragen']} Anfragen, {r['sekunden']} s, {len(r['luecken'])} Lücken, nachgebessert={r['nachgebessert']}")
-        r["chat_id"], r["model"] = chat_id, modell
         return r
+
+    # ---------- Aufträge im Hintergrund (auftraege.py) ----------
+    def _hintergrund_ausfuehren(self, a):
+        """Arbeit für einen Hintergrund-Auftrag: das Team mit bis zu 5 Teilaufgaben."""
+        return self._team_lauf(a["auftrag"], a.get("chat_id"), max_aufgaben=5)
+
+    def _hintergrund_fertig(self, a):
+        """Watson meldet sich von selbst: Ergebnis ins Gespräch + Meldung auf dem Bildschirm."""
+        r = a.get("ergebnis") or {}
+        if a["status"] == "fertig" and r:
+            teile = [f"📬 **Fertig: „{a['titel']}“** – im Hintergrund erledigt ({r.get('sekunden', '?')} s).", "", r["text"]]
+            if r.get("warnungen"):
+                teile += ["", "**⚠ Bitte beachten (Prüfer):**"] + [f"- {w}" for w in r["warnungen"]]
+            if r.get("quellen"):
+                teile += ["", "**Gelesene Quellen:**"] + [f"- {q}" for q in r["quellen"][:12]]
+            text = "\n".join(teile)
+        else:
+            text = (f"📬 Den Hintergrund-Auftrag „{a['titel']}“ konnte ich leider nicht fertig machen: "
+                    f"{a.get('fehler') or 'unbekannter Fehler'}. Sag Bescheid, wenn ich es nochmal versuchen soll.")
+        chat_id = a.get("chat_id") or MEM.new_chat(f"📬 {a['titel'][:40]}")
+        MEM.add_message(chat_id, "assistant", text, name="Watson · Hintergrund", model=r.get("modelle", {}).get("Texter", ""))
+        try:
+            handy.melden({"chat_id": chat_id, "titel": a["titel"], "text": text})   # das Handy holt es ab
+        except Exception:
+            pass
+        if WINDOW is not None:
+            try:
+                WINDOW.evaluate_js(f"window.auftragFertig && window.auftragFertig({json.dumps({'chat_id': chat_id, 'titel': a['titel'], 'text': text, 'ok': a['status'] == 'fertig'})})")
+            except Exception:
+                pass
+
+    # ---------- 💓 Herzschlag: Watson schaut von selbst nach (herzschlag.py) ----------
+    def herzschlag_status(self):
+        return herzschlag.status()
+
+    def herzschlag_jetzt(self):
+        """Knopf „Jetzt prüfen“: ein Schlag sofort (im Hintergrund, Ergebnis kommt über herzPuls)."""
+        threading.Thread(target=herzschlag.schlag, args=("von Hand",), daemon=True).start()
+        return {"ok": True}
+
+    def herzschlag_setzen(self, an, minuten=None):
+        cfg = load_config()
+        cfg["herzschlag"] = bool(an)
+        if minuten:
+            cfg["herzschlag_minuten"] = max(5, min(120, int(minuten)))
+        save_config(cfg)
+        protokoll("watson__einstellung", {"herzschlag": bool(an), "minuten": cfg.get("herzschlag_minuten", 20)}, "ok")
+        return herzschlag.status()
+
+    def _herz_kalender(self):
+        """Kalender für den Herzschlag – Outlook nur, wenn es schon offen ist (sonst würde es jedes Mal starten)."""
+        outlook = False
+        try:
+            r = subprocess.run(["tasklist", "/FI", "IMAGENAME eq OUTLOOK.EXE", "/NH"], capture_output=True, text=True, encoding="cp850", errors="replace",
+                               timeout=10, creationflags=0x08000000)
+            outlook = "OUTLOOK.EXE" in r.stdout.upper()
+        except Exception:
+            pass
+        return self.kalender_termine(1, outlook=outlook)
+
+    def _herz_chat(self, d):
+        cid = d.get("chat_id")
+        if not cid or not any(c.get("id") == cid for c in MEM.list_chats(500)):
+            cid = MEM.new_chat("💓 Herzschlag")
+            herzschlag.chat_merken(cid)
+            d["chat_id"] = cid
+        return cid
+
+    def _herz_melden(self, texte, d):
+        """Wichtiges vom Herzschlag: Nachricht ins Gespräch „💓 Herzschlag“, Meldung, Handy. Nachts nie (siehe herzschlag)."""
+        cid = self._herz_chat(d)
+        text = "💓 **Herzschlag** – mir ist etwas aufgefallen:\n\n" + "\n".join(f"- {t}" for t in texte)
+        MEM.add_message(cid, "assistant", text, name="Watson · Herzschlag")
+        try:
+            handy.melden({"chat_id": cid, "titel": "💓 " + texte[0][:60], "text": text})
+        except Exception:
+            pass
+        if handy.handy_modus():
+            return                          # Nutzer ist am Handy -> Laptop bleibt still
+        import html as _html
+        self.benachrichtigung("Watson 💓", _html.escape(texte[0][:120] + (f" (+{len(texte) - 1})" if len(texte) > 1 else "")))
+        if WINDOW is not None:
+            try:
+                WINDOW.evaluate_js(f"window.auftragFertig && window.auftragFertig({json.dumps({'chat_id': cid, 'titel': texte[0], 'text': text, 'ok': True, 'herz': True})})")
+            except Exception:
+                pass
+
+    def _herz_puls(self, st):
+        if WINDOW is not None:
+            try:
+                WINDOW.evaluate_js(f"window.herzPuls && window.herzPuls({json.dumps(st)})")
+            except Exception:
+                pass
+
+    def auftraege_liste(self):
+        return {"offen": auftraege.alle(nur_offene=True)}
+
+    def auftrag_abbrechen(self, aid):
+        return auftraege.abbrechen(aid)
 
     def team_passt(self, text):
         """Soll Watson diese Frage selbst ans Team geben? Nur Recherche-Aufgaben, nur mit Dirigent, abschaltbar."""
@@ -2288,7 +2409,7 @@ class Api:
         """Zeigt eine Windows-Benachrichtigung unten rechts."""
         try:
             from winrt.windows.ui.notifications import (
-                ToastNotificationManager, ToastNotification, ToastTemplateType)
+                ToastNotificationManager, ToastNotification)
             from winrt.windows.data.xml.dom import XmlDocument
             app_id = "Watson.Assistent"
             xml_str = f"""<toast>
@@ -2410,13 +2531,15 @@ class Api:
             return {"error": str(e)}
 
     # ---------- Kalender ----------
-    def kalender_termine(self, tage=7):
+    def kalender_termine(self, tage=7, outlook=True):
         """Liest bevorstehende Kalendertermine (Outlook oder Windows-Kalender)."""
         import datetime
         jetzt = datetime.datetime.now()
         bis = jetzt + datetime.timedelta(days=int(tage))
         # Versuch 1: Outlook via COM
         try:
+            if not outlook:
+                raise RuntimeError("Outlook nicht gefragt")
             import win32com.client
             outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
             kalender = outlook.GetDefaultFolder(9)
@@ -2464,7 +2587,6 @@ class Api:
                     return {"error": f"Word-Datei konnte nicht gelesen werden: {e}"}
             if suffix == ".pdf":
                 try:
-                    import urllib.request as ur
                     # pdfminer.six falls installiert
                     from pdfminer.high_level import extract_text
                     text = extract_text(str(p))
@@ -2793,7 +2915,15 @@ if __name__ == "__main__":
     threading.Thread(target=_schnelltaste, daemon=True).start()
 
     _dark = load_config().get("theme") == "dunkel"
-    WINDOW = webview.create_window("Watson", str(HERE / "app.html"), js_api=Api(),
+    API = Api()
+    auftraege.init(ausfuehren=API._hintergrund_ausfuehren, fertig=API._hintergrund_fertig)
+    threading.Timer(40, auftraege.arbeiter_starten).start()     # unfertige Hintergrund-Aufträge weitermachen
+    herzschlag.init(load_config=load_config, fehler_melden=fehler_melden, kalender=API._herz_kalender,
+                    sicherung=sicherung, n8n_hub=n8n_hub, auftraege=auftraege, wachstum=wachstum,
+                    n8n_export=n8n_hub.export_workflows if n8n_hub.installed() else None,
+                    handy_still=handy.handy_modus, melden=API._herz_melden, puls=API._herz_puls)
+    threading.Thread(target=herzschlag.schleife, daemon=True).start()   # 💓 alle 20 Min. selbst nachschauen
+    WINDOW = webview.create_window("Watson", str(HERE / "app.html"), js_api=API,
                                    width=1240, height=800, min_size=(820, 560),
                                    maximized=True, minimized=False,   # beim Start immer sichtbar (früher: im Handy-Modus minimiert)
                                    background_color="#16181c" if _dark else "#f6f5f2")

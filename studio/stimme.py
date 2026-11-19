@@ -69,6 +69,7 @@ def _aus_vorrat(text):
         pass
     return None
 RATE = 16000
+FEHLER_MELDEN = None        # wird von watson_studio gesetzt (Fehler-Sammler für die Selbst-Wartung)
 FRAME = 480                      # 30 ms
 FOLLOWUP_SECONDS = 8
 
@@ -696,15 +697,30 @@ class Ohren:
             if audio is None:
                 self.followup_until = 0.0
                 continue
+            try:
+                self._wake_verarbeiten(audio, in_followup)
+            except Exception as e:
+                # Früher beendete ein einziger Fehler (z. B. Speicher voll in Whisper, 16.11.2026) die ganze
+                # „Hey Watson“-Schleife still bis zum Neustart. Jetzt: melden, kurz warten, weiter zuhören.
+                self._state(f"Spracherkennung: {str(e)[:80]} – ich höre gleich weiter")
+                if FEHLER_MELDEN:
+                    FEHLER_MELDEN("Stimme/Hey Watson", e)
+                if "malloc" in str(e) or isinstance(e, MemoryError):
+                    self.model = None              # Modell freigeben, beim nächsten Mal frisch laden
+                time.sleep(3)
+
+    def _wake_verarbeiten(self, audio, in_followup):
+        """Eine Aufnahme aus der „Hey Watson“-Schleife auswerten (eigene Methode, damit Fehler die Schleife nicht beenden)."""
+        if True:   # (Einrückung wie in der Schleife)
             text = self.transcribe(audio)
             if not text:
-                continue
+                return
             if STOP_RE.match(text):
                 self.mund.stop()
-                continue
+                return
             wake = WAKE_RE.search(text)
             if not wake and not in_followup:
-                continue
+                return
             # nur was NACH „Watson“ kommt, ist der Befehl (Wortreste davor ignorieren)
             command = text[wake.end():].strip(" ,.!?") if wake else text
             if wake and len(command) < 2:              # nur „Hey Watson“ -> Piepton, dann Frage
@@ -713,10 +729,10 @@ class Ohren:
                 with self.lock, sd.RawInputStream(samplerate=RATE, blocksize=FRAME, channels=1, dtype="int16") as s:
                     audio = self._record(s, wait_seconds=7)
                 if audio is None:
-                    continue
+                    return
                 command = self.transcribe(audio)
                 if not command:
-                    continue
+                    return
             self.followup_until = 0.0
             if self.on_command:
                 self._state("Watson denkt nach …")

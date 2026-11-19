@@ -50,7 +50,7 @@ def _sitzungen_speichern():
     try:
         with DATEN_SPERRE:
             daten = {k: v for k, v in list(SITZUNGEN.items()) if v > time.time()}
-        SITZUNGS_DATEI.write_text(json.dumps(daten), encoding="utf-8")
+        pfade.sicher_schreiben(SITZUNGS_DATEI, json.dumps(daten))
     except (OSError, RuntimeError):
         pass
 FEHLVERSUCHE = {"anzahl": 0, "gesperrt_bis": 0, "sperren": 0}
@@ -115,6 +115,14 @@ def sicherheit_log_lesen(n=30):
 H = {}                            # api (Api-Instanz), mund, stimme() -> auswahl, name() -> Watsons Name
 _server = None
 TAILSCALE = r"C:\Program Files\Tailscale\tailscale.exe"
+
+
+MELDUNGEN = []                    # Watson meldet sich von selbst (z. B. Hintergrund-Auftrag fertig) – das Handy holt sie ab
+
+
+def melden(daten):
+    MELDUNGEN.append({**daten, "zeit": time.time()})
+    del MELDUNGEN[:-20]
 
 
 def init(**helfer):
@@ -203,7 +211,7 @@ def _passkeys():
 
 
 def _passkeys_speichern(liste):
-    PASSKEYS.write_text(json.dumps(liste, ensure_ascii=False, indent=1), encoding="utf-8")
+    pfade.sicher_schreiben(PASSKEYS, json.dumps(liste, ensure_ascii=False, indent=1))
 
 
 def passkeys_liste():
@@ -321,7 +329,10 @@ class Handler(BaseHTTPRequestHandler):
         for k, v in (kopf or {}).items():
             self.send_header(k, v)
         self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.wfile.write(body)
+        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+            pass        # Handy hat die Seite geschlossen oder das Netz gewechselt – normal, kein Fehler
 
     def _angemeldet(self):
         for teil in (self.headers.get("Cookie") or "").split(";"):
@@ -497,6 +508,13 @@ class Handler(BaseHTTPRequestHandler):
             return self._video_datei()
         if pfad == "/api/fragen":
             return self._antwort(200, {"fragen": H["offene_fragen"]()})
+        if pfad == "/api/meldungen":
+            from urllib.parse import parse_qs, urlparse
+            try:
+                seit = float(parse_qs(urlparse(self.path).query).get("seit", ["0"])[0])
+            except ValueError:
+                seit = 0.0
+            return self._antwort(200, {"meldungen": [m for m in MELDUNGEN if m["zeit"] > seit], "jetzt": time.time()})
         if pfad.startswith("/api/stimme/"):
             import stimmtraining
             if pfad == "/api/stimme/status":

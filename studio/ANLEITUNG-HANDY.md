@@ -51,6 +51,22 @@ Also **drei Schlösser**: dein Tailscale-Konto, deine PIN bzw. dein Finger, und 
 3. Erlaube die **VPN-Verbindung**, wenn das Handy danach fragt. (Das ist der Tunnel – keine Sorge, Tailscale leitet nicht dein ganzes Internet um.)
 4. In der App sollten jetzt **beide Geräte** stehen: dein Computer und dein Handy.
 
+### Wichtig: Tailscale muss AN bleiben
+
+Ist Tailscale auf dem Handy **aus**, findet das Handy deinen Computer nicht. Dann zeigt Chrome nur eine alte **„Offline-Kopie dieser Seite“**, und das Anmelden geht nicht.
+
+Android schaltet Tailscale gern zum **Akkusparen** ab. So verhinderst du das:
+
+**Android (z. B. Samsung):**
+1. Öffne die **Einstellungen** des Handys.
+2. Tippe auf **Apps** und dann auf **Tailscale**.
+3. Tippe auf **Akku** und wähle **„Nicht eingeschränkt“**.
+4. Wenn du willst: Gehe in den Einstellungen zu **Verbindungen → Weitere Verbindungseinstellungen → VPN**, tippe bei Tailscale auf das Zahnrad ⚙️ und schalte **„Durchgehend aktives VPN“** ein. Dann startet Tailscale immer von selbst.
+
+**iPhone:** Öffne die Tailscale-App und schalte den Schalter oben auf **an**. In den Tailscale-Einstellungen kannst du **„VPN On Demand“** einschalten. Dann bleibt Tailscale von selbst verbunden.
+
+> Kurz prüfen: Öffne die Tailscale-App. Oben muss **„Connected“** (verbunden) stehen.
+
 ---
 
 ## Schritt 3 – Tunnel in Watson einschalten
@@ -135,6 +151,7 @@ Jetzt hast du ein **Watson-Symbol** und öffnest ihn mit einem Tipp.
 
 | Problem | Lösung |
 |---|---|
+| „Eine Offline-Kopie dieser Seite wird angezeigt“ und das Anmelden geht nicht | **Tailscale auf dem Handy ist aus.** Öffne die Tailscale-App, schalte sie ein („Connected“) und tippe dann in Watson auf **„Neu laden“**. Damit das nicht wieder passiert, lies oben „Tailscale muss AN bleiben“. |
 | „Seite nicht erreichbar“ | Ist Tailscale auf dem Handy **verbunden**? Ist der Computer **an** und nicht im Ruhezustand? Läuft Watson auf dem Computer? |
 | Watson antwortet nachts nicht | Der Computer ist wahrscheinlich in den **Ruhezustand** gegangen. Das kannst du in Windows unter **Einstellungen → System → Energie** selbst einstellen (Watson ändert keine Windows-Einstellungen für dich). |
 | „Tunnel einschalten“ zeigt einen Link | Das ist die einmalige Freigabe von „Serve“ – siehe Schritt 3. |

@@ -41,7 +41,7 @@ def lehre_merken(lehre, grund="", quelle="Nutzer"):
         d["lehren"].append({"id": d["naechste"], "lehre": lehre, "grund": " ".join(str(grund or "").split())[:600],
                             "quelle": quelle, "datum": time.strftime("%d.%m.%Y %H:%M")})
         d["naechste"] += 1
-        LEHREN.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
+        pfade.sicher_schreiben(LEHREN, json.dumps(d, ensure_ascii=False, indent=1))
     return f"Gespeichert als Lehre Nr. {d['naechste'] - 1}. Sie gilt ab der nächsten Antwort in jedem Gespräch."
 
 
@@ -49,7 +49,7 @@ def lehre_loeschen(lid):
     with _lock:
         d = _laden()
         d["lehren"] = [l for l in d["lehren"] if l["id"] != int(lid)]
-        LEHREN.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
+        pfade.sicher_schreiben(LEHREN, json.dumps(d, ensure_ascii=False, indent=1))
     return {"ok": True}
 
 
@@ -98,6 +98,15 @@ def wachstum_bericht(wachstum_modul):
             for x in r.get(k) or []:
                 teile.append(f"{titel}: „{x.get('frage', '')[:160]}“ -> " +
                              (f"gefunden: {x.get('antwort', '')[:300]}" if x.get("gefunden") else "nichts Verlässliches gefunden"))
+        f = r.get("fehler") or {}
+        if f.get("angeschaut"):
+            teile.append(f"Aus Fehlern gelernt: {f['angeschaut']} Fehler angeschaut" +
+                         (f"; neue Lehren: {'; '.join(f['lehren'])}" if f.get("lehren") else "") +
+                         (f"; {len(f['vorschlaege'])} Lehre(n) als Vorschlag für den Nutzer" if f.get("vorschlaege") else ""))
+        mn = r.get("meinungen") or {}
+        if mn.get("neu") or mn.get("geprueft"):
+            teile.append("Nachgedacht (Meinungsbuch): " + "; ".join(
+                [f"neue Meinung – {x}" for x in mn.get("neu", [])] + [f"geprüft – {x}" for x in mn.get("geprueft", [])]))
         g = r.get("gehirne") or {}
         if g.get("getestet"):
             teile.append("Neue Gehirne geprüft: " + ", ".join(f"{t['modell']} ({t['note']} %)" for t in g["getestet"]))
@@ -109,6 +118,13 @@ def wachstum_bericht(wachstum_modul):
     try:
         e = wachstum_modul.entwicklung()
         teile.append(f"Entwicklungsstufe: {e.get('stufe_name', e.get('name', ''))} {e.get('icon', '')}".strip())
+    except Exception:
+        pass
+    try:
+        import meinungsbuch, fehlerbuch
+        ms, fz = meinungsbuch.alle(), fehlerbuch.zahlen()
+        teile.append(f"Meinungsbuch: {len(ms)} eigene Meinungen" + (f" (zuletzt: {ms[-1]['thema']})" if ms else "") +
+                     f". Fehlerbuch: {fz['gesamt']} Fehler aufgeschrieben, {fz['gelernt']} daraus gelernt, {fz['offen']} offen.")
     except Exception:
         pass
     l = lehren()
@@ -148,14 +164,27 @@ HINWEIS = ("\n\nEHRLICH ÜBER DICH SELBST: Du kannst dein eigenes Programm (Code
            "Korrekturen und Grundsätze des Nutzers mit watson__lehre_merken dauerhaft speichern (dann änderst du dein "
            "Verhalten wirklich) und Programm-Wünsche mit watson__werkstatt_wunsch an die Werkstatt geben – und dem "
            "Nutzer dann ehrlich sagen, dass es noch nicht eingebaut ist. Fragen zu deinem nächtlichen Lernen beantwortest "
-           "du mit watson__wachstum_bericht, nie aus der Erinnerung.")
+           "du mit watson__wachstum_bericht, nie aus der Erinnerung. "
+           "BIETE NUR AN, WAS DU WIRKLICH KANNST: Schau auf deine Werkzeuge in diesem Gespräch. Du kannst z. B. KEIN "
+           "Python ausführen und keine Word-, PDF- oder Excel-Dateien erzeugen; Dateien schreiben geht nur als Text im "
+           "Ablage-Ordner, und nur wenn du dafür ein Werkzeug hast. Gibt es kein Werkzeug dafür, biete es nicht an – "
+           "sag stattdessen ehrlich, wie der Nutzer es selbst machen kann (z. B. Text kopieren und in Word einfügen).")
 
 
 def run(name, args, wachstum_modul=None):
     if name == "watson__lehre_merken":
         return lehre_merken(args.get("lehre"), args.get("grund", ""))
     if name == "watson__wachstum_bericht":
-        return wachstum_bericht(wachstum_modul)
+        bericht = wachstum_bericht(wachstum_modul)
+        try:
+            import tatpruefung
+            z = tatpruefung.zahlen(30)
+            bericht += (f"\n\nTat-Prüfung (letzte 30 Tage, Behauptungen „ich habe … getan“ gegen das Protokoll geprüft): "
+                        f"{z['korrigiert']}× hast du dich nach dem Nachhaken korrigiert, {z['falsch_geblieben']}× blieb eine "
+                        f"Behauptung ohne Beleg (der Nutzer hat einen Warnhinweis gesehen).")
+        except Exception:
+            pass
+        return bericht
     if name == "watson__werkstatt_wunsch":
         return wunsch_merken(args.get("wunsch"), args.get("warum", ""))
     return f"Unbekanntes Werkzeug: {name}"

@@ -35,6 +35,11 @@ You can also talk to him from your phone through a private, encrypted tunnel.
 - **Video Studio**: trim and join clips, automatic subtitles (you can correct them first), music, logo and text, and the right format for 14 social channels – a human always presses "Post". Also on the phone. Includes an overview of AI video platforms (free and paid) for people who don't know what exists.
 - **Learns like a human**: Watson forms his own views from what he has experienced and checked, and changes them openly when new evidence appears. Sources are checked critically – a majority is no proof, and Wikipedia is not used as a source. Always measured against the standard you chose.
 - **Grows over time**: nightly reflection and self-study, self-test, checking new free models and careful self-repair (only with your OK).
+- **Searches the web himself**: when Watson needs current or exact facts, he searches the internet in the middle of a conversation, really reads the best pages (no Wikipedia) and names his sources – clearly separating pages he read from mere search hits.
+- **Action check**: Watson may only say "I have opened / sent / saved …" if it is really in his log. If not, he has to actually do it or correct himself – otherwise a visible warning appears under the answer. He also only offers what his tools can really do.
+- **Heartbeat**: every 20 minutes Watson checks on his own – appointments, backup (makes it himself when due), disk space, AI brains reachable, automations (restarts n8n), stuck tasks, errors. Costs nothing (no AI brain). Important things he reports by himself; at night he stays quiet and tells you in the morning.
+- **Opinion book**: Watson forms his own opinions with reasons, a measure of how sure he is and, where fitting, Bible passages – and may change his mind; every change stays visible with its reason.
+- **Mistake book**: Watson writes down his mistakes (action check, 👎, your corrections) and turns the pattern behind them into a lesson at night. For similar questions he remembers earlier mistakes.
 
 ## Installation
 

@@ -77,7 +77,12 @@ header button{width:40px;height:40px;padding:0;display:grid;place-items:center;b
 .msg.user .kopierKnopf{background:rgba(255,255,255,.2);border-color:transparent;color:#fff}
 .bar{display:flex;gap:4px;margin:-2px 0 10px 4px}.bar button{padding:5px 10px;font-size:13.5px;border-radius:11px}.bar button.an{background:var(--accentSoft);border-color:rgba(109,139,255,.5)}
 .karte{border:1px solid rgba(109,139,255,.45);border-radius:var(--r);padding:12px 14px;margin:8px 0 14px;background:var(--glass);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
-.denkt{color:var(--muted);font-size:14px;margin:10px 6px;display:flex;align-items:center;gap:8px}
+.denkt{color:#E08A62;font-size:15px;margin:10px 6px;display:flex;align-items:center;gap:9px}
+.denkPunkte{display:inline-grid;grid-template-columns:5px 5px;gap:3px}
+.denkPunkte i{width:5px;height:5px;border-radius:50%;background:currentColor;animation:denkPuls 1.2s ease-in-out infinite}
+.denkPunkte i:nth-child(2){animation-delay:.3s}.denkPunkte i:nth-child(4){animation-delay:.6s}.denkPunkte i:nth-child(3){animation-delay:.9s}
+@keyframes denkPuls{0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:1;transform:scale(1.1)}}
+.denkZeit{color:var(--muted);font-size:13px}
 .denkt:before{content:"";width:34px;height:10px;background:radial-gradient(circle,var(--accent) 45%,transparent 50%) 0 50%/11px 10px repeat-x;animation:tipp 1s infinite steps(3)}
 @keyframes tipp{0%{opacity:.4}50%{opacity:1}100%{opacity:.4}}
 /* ---------- Eingabe-Dock ---------- */
@@ -330,7 +335,27 @@ async function api(pfad, daten) {
   return r.json();
 }
 function zeigeLogin() { $("#app").style.display = "none"; $("#login").style.display = "flex"; setTimeout(() => $("#pin").focus(), 100); }
-function zeigeApp() { $("#login").style.display = "none"; $("#app").style.display = "flex"; }
+function zeigeApp() { $("#login").style.display = "none"; $("#app").style.display = "flex"; meldungenStarten(); }
+// Watson meldet sich von selbst (z. B. wenn ein Hintergrund-Auftrag fertig ist): alle 20 s im Briefkasten nachsehen
+let meldSeit = null, meldUhr = null;
+function meldungenStarten() {
+  if (meldUhr) return;
+  const holen = async () => {
+    if (document.hidden) return;
+    try {
+      const r = await api("/api/meldungen?seit=" + (meldSeit ?? 0));
+      if (meldSeit === null) { meldSeit = r.jetzt; return; }      // beim Öffnen nur Neues, nicht alte Meldungen
+      meldSeit = r.jetzt;
+      for (const m of r.meldungen || []) {
+        if (chatId !== m.chat_id) { blase("📬 Neue Nachricht aus einem anderen Gespräch – die Antwort geht dort weiter.", "", "hinweis"); chatId = m.chat_id; }
+        blase(m.text, name + " · Hintergrund");
+        try { navigator.vibrate && navigator.vibrate([150, 80, 150]); } catch (e) {}
+      }
+    } catch (e) {}
+  };
+  holen(); meldUhr = setInterval(holen, 20000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) holen(); });
+}
 let status0 = {};
 async function start() {
   const s = status0 = await fetch("/api/status", {credentials: "same-origin"}).then(r => r.json());
@@ -487,7 +512,16 @@ async function senden() {
   if (!text || beschaeftigt) return;
   beschaeftigt = true; $("#senden").disabled = true; $("#eingabe").value = ""; groesse();
   blase(text, "", "user");
-  const denkt = document.createElement("div"); denkt.className = "denkt"; denkt.textContent = name + " denkt nach …"; $("#chat").appendChild(denkt);
+  // Arbeits-Anzeige wie bei Claude: Punkte, wechselndes Wort, Sekunden
+  const denkt = document.createElement("div"); denkt.className = "denkt";
+  denkt.innerHTML = '<span class="denkPunkte"><i></i><i></i><i></i><i></i></span><span class="denkWort"></span><span class="denkZeit"></span>';
+  $("#chat").appendChild(denkt); $("#chat").scrollTop = 1e9;
+  const DW = ["Denke nach", "Überlege", "Sortiere Gedanken", "Wäge ab", "Schlage nach", "Prüfe", "Formuliere", "Sammle", "Grüble"];
+  let dwi = Math.floor(Math.random() * DW.length); const dStart = Date.now();
+  const dTick = () => { const sek = Math.round((Date.now() - dStart) / 1000);
+    if (sek % 3 === 0) dwi = (dwi + 1) % DW.length;
+    denkt.querySelector(".denkWort").textContent = DW[dwi] + " …"; denkt.querySelector(".denkZeit").textContent = sek >= 2 ? "· " + sek + " s" : ""; };
+  dTick(); const dUhr = setInterval(dTick, 1000);
   const stopp = document.createElement("button"); stopp.className = "small"; stopp.textContent = "■ Stopp"; stopp.style.marginLeft = "8px";
   stopp.onclick = () => api("/api/stopp", {}); denkt.appendChild(stopp);
   frageUhr = setInterval(fragenHolen, 1500);
@@ -495,14 +529,14 @@ async function senden() {
     let volltext = text;
     if (anhang) { volltext = `${text}\n\n[Dokument „${anhang.name}“]\n${anhang.text}`; anhang = null; zeigeAnhang(""); }
     const r = await api("/api/chat", {text: volltext, chat_id: chatId});
-    denkt.remove();
+    clearInterval(dUhr); denkt.remove();
     if (r.error && !r.text) blase(r.error, "Hinweis");
     else {
       if (r.chat_id) { chatId = r.chat_id; try { localStorage.setItem("watsonChat", chatId); } catch (e) {} }
       const b = blase(r.text, name); lernLeiste(b, r);   // Blick hinter die Kulissen steckt im ℹ️-Knopf
       if (r.lehrer) lehrerKarte(r.lehrer);
     }
-  } catch (e) { denkt.remove(); blase("Keine Verbindung zu Watson: " + e.message, "Hinweis"); }
+  } catch (e) { clearInterval(dUhr); denkt.remove(); blase("Keine Verbindung zu Watson: " + e.message, "Hinweis"); }
   clearInterval(frageUhr); beschaeftigt = false; $("#senden").disabled = false;
 }
 function groesse() { const t = $("#eingabe"); t.style.height = "auto"; t.style.height = Math.min(140, t.scrollHeight) + "px"; }

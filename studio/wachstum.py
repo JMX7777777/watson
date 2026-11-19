@@ -440,7 +440,7 @@ def neue_gehirne(max_tests=2):
     # gute neue Gehirne (mind. 75 % und mind. so gut wie das schwächste der Stammgehirne) dem Dirigenten geben
     noten = _laden()["modell_noten"]
     gute = [m for m, n in noten.items() if n >= 75]
-    EXTRA.write_text(json.dumps(gute, ensure_ascii=False), encoding="utf-8")
+    pfade.sicher_schreiben(EXTRA, json.dumps(gute, ensure_ascii=False))
     return {"neu": neu, "getestet": getestet, "aufgenommen": gute}
 
 
@@ -488,6 +488,8 @@ def abendrunde(grund="nachts"):
         for name, schritt in (("rueckblick", lambda: tagesrueckblick(seit)),
                               ("neugier", neugier),
                               ("selbststudium", selbststudium),
+                              ("fehler", aus_fehlern_lernen),
+                              ("meinungen", meinungen_nachdenken),
                               ("gehirne", neue_gehirne),
                               ("wartung", lambda: H["wartung"].nachtpruefung()),
                               ("pruefung", lambda: pruefung(H["dirigent_modelle"]) if _pruefung_faellig() else None)):
@@ -497,6 +499,10 @@ def abendrunde(grund="nachts"):
                 eintrag[name] = {"fehler": str(e)[:300]}
                 if "fehler_melden" in H:
                     H["fehler_melden"]("Abendrunde/" + name, e)
+        # Lehren aus dem Fehlerbuch, die erst der Nutzer erlauben soll -> als Vorschlag ins Tagebuch
+        vs = (eintrag.get("fehler") or {}).get("vorschlaege") if isinstance(eintrag.get("fehler"), dict) else None
+        if vs and isinstance(eintrag.get("rueckblick"), dict):
+            eintrag["rueckblick"].setdefault("vorschlaege", []).extend(vs)
         if isinstance(eintrag.get("pruefung"), dict) and "einzeln" in eintrag["pruefung"]:
             eintrag["pruefung"] = {k: v for k, v in eintrag["pruefung"].items() if k != "einzeln"}
         eintrag["dauer"] = round(time.time() - t0)
@@ -508,6 +514,23 @@ def abendrunde(grund="nachts"):
         return eintrag
     finally:
         _laeuft.clear()
+
+
+# ---------------- Meinungsbuch + Fehlerbuch (nachts) ----------------
+def aus_fehlern_lernen():
+    """Offene Fehler lesen, Muster finden, Lehren daraus machen (siehe fehlerbuch.py)."""
+    import fehlerbuch, selbst
+    ohne_frage = H["lehren_ohne_frage"]() if "lehren_ohne_frage" in H else False
+    return fehlerbuch.lernen(H["frage"], H["stark"], _json_aus, selbst.lehre_merken, ohne_frage, _massstab())
+
+
+def meinungen_nachdenken():
+    """Aus dem neu Gelernten eigene Meinungen bilden, eine alte Meinung neu prüfen (siehe meinungsbuch.py)."""
+    import meinungsbuch
+    heute = time.strftime("%d.%m.%Y")
+    gestern = time.strftime("%d.%m.%Y", time.localtime(time.time() - 86400))
+    neu = [w for w in lernbuch.wissen_liste() if w.get("datum") in (heute, gestern)]
+    return meinungsbuch.nachdenken(H["frage"], H["stark"], _json_aus, _massstab(), neu)
 
 
 def _pruefung_faellig():

@@ -62,7 +62,9 @@ Get-ChildItem $Ziel -Recurse -File -Force | Where-Object { $_.FullName -notmatch
 }
 # Verbotene Dateien (falls doch etwas durchrutscht)
 $verboten = "einstellungen.json", "watson.db", "protokoll.log", "mcp.json", "handy_passkeys.json", "handy_sitzungen.json",
-            "lernbuch.json", "wissensbuch.json", "wachstum.json", "reparaturen.json", "vertrauen.json", "CLAUDE.md"
+            "lernbuch.json", "wissensbuch.json", "wachstum.json", "reparaturen.json", "vertrauen.json", "CLAUDE.md",
+            "lehren.json", "meinungsbuch.json", "fehlerbuch.json", "herzschlag.json", "auftraege.json", "tatpruefung.jsonl",
+            "dirigent_extra.json", "kanaele.json", "watson_status.txt"
 Get-ChildItem $Ziel -Recurse -File -Force | Where-Object { $verboten -contains $_.Name -or $_.Extension -in ".wav", ".db", ".log", ".m4a", ".mp3" } |
     ForEach-Object { $funde += "VERBOTENE DATEI: " + $_.FullName.Substring($Ziel.Length + 1) }
 

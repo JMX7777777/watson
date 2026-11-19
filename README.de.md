@@ -35,6 +35,11 @@ Er hört zu, spricht, merkt sich Dinge für dich, kann deinen Bildschirm lesen u
 - **Video-Studio**: Clips schneiden und zusammenfügen, Untertitel automatisch (vorher verbesserbar), Musik, Logo und Text, das richtige Format für 14 Kanäle – auf „Veröffentlichen“ drückt immer ein Mensch. Auch am Handy. Dazu eine Übersicht über KI-Video-Plattformen (kostenlos und bezahlt) für alle, die nicht wissen, was es gibt.
 - **Lernt wie ein Mensch**: Watson bildet sich aus dem, was er erfahren und geprüft hat, eine eigene Meinung und ändert sie offen, wenn neue Belege kommen. Quellen werden kritisch geprüft – eine Mehrheit ist kein Beweis, Wikipedia wird nicht als Quelle benutzt. Immer gemessen an dem Maßstab, den du gewählt hast.
 - **Wächst mit der Zeit**: nächtliche Abendrunde und Selbststudium, Selbst-Prüfung, neue kostenlose Modelle testen und vorsichtige Selbst-Reparatur (nur mit deinem OK).
+- **Sucht selbst im Internet**: Braucht Watson aktuelle oder genaue Fakten, sucht er mitten im Gespräch, liest die besten Seiten wirklich (ohne Wikipedia) und nennt seine Quellen – klar getrennt: gelesene Seiten und bloße Suchtreffer.
+- **Tat-Prüfung**: Watson darf nur sagen „Ich habe … geöffnet / gesendet / gespeichert“, wenn es wirklich in seinem Protokoll steht. Sonst muss er es wirklich tun oder sich korrigieren – sonst erscheint ein sichtbarer Hinweis unter der Antwort. Er bietet auch nur an, was seine Werkzeuge wirklich können.
+- **Herzschlag**: Alle 20 Minuten schaut Watson selbst nach – Termine, Sicherung (macht sie selbst, wenn fällig), Speicherplatz, Gehirne erreichbar, Abläufe (startet n8n neu), hängende Aufträge, Fehler. Kostet nichts (kein KI-Gehirn). Wichtiges meldet er von selbst; nachts bleibt er still und sagt es dir morgens.
+- **Meinungsbuch**: Watson bildet eigene Meinungen mit Begründung, wie sicher er ist und – wo es passt – Bibelstellen, und darf umdenken; jede Änderung bleibt mit Grund sichtbar.
+- **Fehlerbuch**: Watson schreibt seine Fehler auf (Tat-Prüfung, 👎, deine Korrekturen) und macht nachts aus dem Muster dahinter eine Lehre. Bei ähnlichen Fragen erinnert er sich an frühere Fehler.
 
 ## Installation
 

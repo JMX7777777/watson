@@ -89,6 +89,19 @@ code{background:var(--panel2);padding:1px 6px;border-radius:6px;font-size:13px}
 .brand{display:flex;align-items:center;gap:10px;padding:2px 8px 16px}
 .brand img{width:34px;height:34px}
 .brand b{font-size:20px;font-weight:600;letter-spacing:.2px}
+/* 💓 Herzschlag: schlägt ruhig, Farbe = Zustand (grün ok, orange Hinweis, rot wichtig, grau aus) */
+#herz{margin-left:auto;border:0;background:none;cursor:pointer;padding:4px;color:var(--ok);font-size:18px;line-height:1;
+  display:flex;align-items:center;animation:herzRuhe 1.6s ease-in-out infinite}
+#herz.info{color:var(--busy)}#herz.wichtig{color:var(--err)}#herz.aus{color:var(--muted);animation:none;opacity:.5}
+#herz.schlag{animation:herzSchlag .9s ease}
+@keyframes herzRuhe{0%,100%{transform:scale(1)}12%{transform:scale(1.18)}24%{transform:scale(1)}36%{transform:scale(1.1)}48%{transform:scale(1)}}
+@keyframes herzSchlag{0%{transform:scale(1)}30%{transform:scale(1.6)}60%{transform:scale(.9)}100%{transform:scale(1)}}
+#herzPanel{position:fixed;left:16px;top:64px;z-index:70;width:360px;max-width:calc(100vw - 32px);max-height:70vh;overflow:auto;
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:0 12px 34px rgba(0,0,0,.22);display:none}
+#herzPanel.on{display:block;animation:gOn .2s ease}
+#herzPanel h4{margin:0 0 4px;font-size:15px}#herzPanel .hz{border-top:1px solid var(--line);padding:7px 0;font-size:12.5px}
+#herzPanel .hz b{font-weight:600}#herzPanel .hz div{margin:2px 0 0 10px}
+#herzPanel .hzK{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 10px}
 #newChat{display:flex;align-items:center;gap:8px;justify-content:center;width:100%;margin-bottom:14px;padding:9px 12px}
 #tabs{display:flex;flex-direction:column;gap:2px}
 #tabs button{display:flex;align-items:center;gap:11px;border:0;background:transparent;padding:9px 12px;border-radius:10px;color:var(--muted);text-align:left;font-size:14.5px}
@@ -167,6 +180,19 @@ body.dark .pill.paid{background:#412402;color:#FAC775}
 .vsTab td{padding:6px;border-top:1px solid var(--line);vertical-align:middle}.vsTab select{max-width:220px}
 .hit.vsAktiv{border-color:var(--accent)}
 .msg.user .kopierKnopf{background:rgba(255,255,255,.18);border-color:transparent;color:#fff}
+.denken{align-self:flex-start;display:flex;align-items:center;gap:9px;font-size:14px;color:#C8663F;padding:4px 2px}
+body.dark .denken{color:#E08A62}
+.denkPunkte{display:inline-grid;grid-template-columns:5px 5px;gap:3px}
+.denkPunkte i{width:5px;height:5px;border-radius:50%;background:currentColor;animation:denkPuls 1.2s ease-in-out infinite}
+.denkPunkte i:nth-child(2){animation-delay:.3s}.denkPunkte i:nth-child(4){animation-delay:.6s}.denkPunkte i:nth-child(3){animation-delay:.9s}
+@keyframes denkPuls{0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:1;transform:scale(1.1)}}
+.denkZeit{color:var(--muted);font-size:12.5px}
+.schritte{align-self:flex-start;font-size:13px;color:var(--muted);max-width:82%}
+.schritte summary{cursor:pointer;list-style:none;padding:2px}
+.schritte summary::-webkit-details-marker{display:none}
+.schritte summary::after{content:"›";display:inline-block;margin-left:5px;transition:transform .15s}
+.schritte[open] summary::after{transform:rotate(90deg)}
+.schritte ul{margin:4px 0 2px 18px;padding:0}.schritte li{margin:2px 0}
 .note{align-self:center;font-size:12.5px;color:var(--muted);background:var(--panel2);padding:4px 12px;border-radius:999px;max-width:90%}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
 .teamKarte{align-self:flex-start;max-width:82%;min-width:320px;border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:10px 14px;font-size:13px}
@@ -182,6 +208,11 @@ body.dark .teamBericht .tWarn{color:#FAC775;background:#3A2A08}
 .teamBericht .tOk{color:var(--ok);padding:3px 2px}
 .teamBericht details{margin-top:4px}.teamBericht summary{cursor:pointer;color:var(--muted)}
 .teamBericht ol,.teamBericht ul{margin:4px 0 6px 18px;padding:0}
+.auftragToast{position:fixed;right:20px;bottom:110px;z-index:60;display:flex;flex-direction:column;gap:2px;max-width:340px;
+  background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--ok);border-radius:12px;padding:12px 16px;
+  box-shadow:0 10px 30px rgba(0,0,0,.18);cursor:pointer;animation:gOn .25s ease;transition:opacity .8s}
+.auftragToast.fehler{border-left-color:var(--err)}.auftragToast.weg{opacity:0}
+.auftragToast span{font-size:13px}.auftragToast small{color:var(--muted);font-size:11px}
 .chip{font-size:12px;padding:3px 10px;border-radius:999px;background:var(--panel2);color:var(--muted)}
 .chip.ok{color:var(--ok)}.chip.busy{color:var(--busy)}
 .welcome{margin:auto;text-align:center;max-width:560px;display:flex;flex-direction:column;align-items:center;gap:8px;padding:20px 0}
@@ -273,7 +304,9 @@ pre.mem{white-space:pre-wrap;font:13px/1.5 Consolas,monospace;max-height:55vh;ov
 </div>
 <div class="app">
   <aside class="side">
-    <div class="brand"><img src="assets/watson-logo.svg" alt=""><b>Watson</b></div>
+    <div class="brand"><img src="assets/watson-logo.svg" alt=""><b>Watson</b>
+      <button id="herz" title="Herzschlag: Watson schaut regelmäßig selbst nach" onclick="herzPanelZeigen()"><i class="ti ti-heart-filled"></i></button></div>
+    <div id="herzPanel"></div>
     <button id="newChat" class="primary"><i class="ti ti-plus"></i>Neues Gespräch</button>
     <nav id="tabs">
       <button data-tab="start" class="on" title="Mit Watson reden"><i class="ti ti-message-circle"></i>Gespräch</button>
@@ -362,11 +395,6 @@ pre.mem{white-space:pre-wrap;font:13px/1.5 Consolas,monospace;max-height:55vh;ov
         <div id="gSlots"></div>
         <datalist id="allModels"></datalist>
         <div class="row" style="margin-top:10px"><button class="primary" id="gSave">Speichern</button><span id="gState" class="muted small"></span></div></div>
-      <div class="card"><h3><i class="ti ti-sitemap"></i>Hermes – die Denkzentrale</h3>
-        <div class="muted small" style="margin-bottom:10px">Hermes zerlegt große Aufgaben, verteilt sie an Helfer und lernt dazu. Er schaltet automatisch mit, wenn du zwischen Gratis und Bezahlt wechselst.</div>
-        <div class="row" style="margin-bottom:6px"><span class="lbl">💚 im Gratis-Modus</span><select id="hFree" style="max-width:420px"></select></div>
-        <div class="row" style="margin-bottom:6px"><span class="lbl">💶 im Bezahlt-Modus</span><select id="hPaid" style="max-width:420px"></select></div>
-        <span id="hState" class="muted small"></span></div>
       <div class="card"><h3><i class="ti ti-key"></i>Verbindung (OpenRouter-Schlüssel)</h3>
         <div class="muted small" style="margin-bottom:10px">Watson holt die Gehirne über <b>OpenRouter</b> – ein Schlüssel für über 400 KIs. 1. Auf <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a> kostenlos anmelden und einen Schlüssel erstellen. 2. Hier einfügen. Er bleibt nur auf deinem Laptop – gib ihn niemandem weiter.</div>
         <div class="row"><input type="password" id="keyInput" placeholder="sk-or-…" style="min-width:340px"><button class="primary" id="keySave">Speichern</button><button id="keyClear">Entfernen</button></div>
@@ -408,6 +436,13 @@ pre.mem{white-space:pre-wrap;font:13px/1.5 Consolas,monospace;max-height:55vh;ov
         <div class="muted small" style="margin-bottom:10px">Wenn du Watson korrigierst oder ihm einen Grundsatz beibringst, speichert er das als Lehre. Lehren gelten ab dann in <b>jedem</b> Gespräch – so ändert sich sein Verhalten wirklich. Du kannst auch selbst eine Lehre eintragen.</div>
         <div class="row" style="gap:8px;margin-bottom:10px"><input type="text" id="lehreNeu" placeholder="z. B. Nenne bei Bibelversen immer die Übersetzung" style="flex:1"><button id="lehreNeuBtn"><i class="ti ti-plus"></i> Lehre hinzufügen</button></div>
         <div id="lehrenList"></div></div>
+      <div class="card"><h3><i class="ti ti-bulb"></i>Meinungsbuch – was Watson selbst denkt</h3>
+        <div class="muted small" style="margin-bottom:10px">Watson darf sich wie ein Mensch eigene Meinungen bilden – mit der Bibel als Maßstab, nicht der Mehrheit. Er hält sie im Gespräch und beim Nachdenken in der Nacht fest, sagt dazu, wie sicher er ist, und darf umdenken, wenn er Neues erkennt. Jede Änderung bleibt mit Grund im Verlauf sichtbar. Willst du ihn von etwas überzeugen, sprich einfach mit ihm darüber.</div>
+        <div id="meinungList"></div></div>
+      <div class="card"><h3><i class="ti ti-bandage"></i>Fehlerbuch – woraus Watson lernt</h3>
+        <div class="muted small" style="margin-bottom:10px">Watson schreibt seine Fehler ehrlich auf: wenn die Tat-Prüfung ihn erwischt, wenn du 👎 drückst oder wenn du ihn korrigierst („Das stimmt nicht …“). Nachts sucht er das Muster dahinter und macht daraus eine <b>Lehre</b>. Bei offenen Fehlern kannst du ihm sagen, was richtig gewesen wäre – das hilft ihm am meisten.</div>
+        <div id="fehlerStand" class="small" style="margin-bottom:8px"></div>
+        <div id="fehlerList"></div></div>
       <div class="card"><h3><i class="ti ti-chart-dots"></i>Lernbuch – was Watson aus Erfahrung lernt</h3>
         <div class="muted small" style="margin-bottom:10px">Bei jeder Antwort merkt sich Watson: Was für eine Aufgabe war es, welches Gehirn hat geantwortet, wie schnell – und wie du sie mit 👍/👎 bewertet hast. Der <b>🎼 Dirigent</b> wählt damit jedes Mal besser. Die KI-Gehirne selbst werden dabei nicht verändert – Watson lernt, <i>welches</i> Gehirn wofür am besten ist.</div>
         <div id="lernStand"></div></div>
@@ -696,11 +731,11 @@ pre.mem{white-space:pre-wrap;font:13px/1.5 Consolas,monospace;max-height:55vh;ov
           <li><b>Gratis:</b> nur kostenlose Gehirne, nichts kostet Geld. Sie sind manchmal langsamer und haben ein Tageslimit.</li>
           <li><b>Bezahlt:</b> stärkere Gehirne wie Claude, GPT oder Grok. Watson fragt vorher. Mehr als die Obergrenze deines Schlüssels kann nie ausgegeben werden.</li>
         </ul></div></details>
-      <details><summary><i class="ti ti-brain"></i>Gehirne, Gehirn-Rat und Hermes</summary><div class="body">
+      <details><summary><i class="ti ti-brain"></i>Gehirne und Gehirn-Rat</summary><div class="body">
         <ul>
           <li><b>Gehirn 1</b> antwortet dir immer. Du wählst es oben im Gespräch oder unter Gehirne.</li>
           <li><b>+ weitere Gehirne:</b> Gib eine Zahl ein (z. B. 3). Dann denken so viele Gehirne gleichzeitig mit, und Gehirn 1 gibt dir die beste Antwort.</li>
-          <li><b>Hermes</b> ist die Denkzentrale: Er zerlegt große Aufgaben, verteilt sie an Helfer und lernt mit der Zeit dazu.</li>
+          <li><b>Internet:</b> Braucht Watson aktuelle Fakten, sucht er selbst im Internet (ohne Wikipedia), liest die besten Seiten und nennt die Quellen.</li>
         </ul></div></details>
       <details><summary><i class="ti ti-notebook"></i>Gedächtnis und Sicherung</summary><div class="body">
         <ul>
@@ -802,7 +837,6 @@ const botName = () => (cfg.charakter && cfg.charakter.name) || "Watson";
 function modelOptions(selected, onlyFree, noRank) {
   const list = models.filter(m => !onlyFree || m.free || m.id === selected);
   if (!noRank) list.unshift({id: RANK_ID, name: "🏆 Rangliste (bestes zuerst)", free: true, price: 0});
-  if (!noRank) list.unshift({id: HERMES_ID, name: "🧠 Hermes (zerlegt, verteilt, lernt)", free: true, price: 0});
   if (!noRank) list.unshift({id: DIRIGENT_ID, name: "🎼 Dirigent (wählt selbst das passende Gehirn, lernt dazu)", free: true, price: 0});
   if (!list.find(m => m.id === selected)) list.unshift({id: selected, name: selected, free: false, price: 0});
   return list.map(m => `<option value="${m.id}" ${m.id === selected ? "selected" : ""}>${esc(m.name)}${m.free ? " — gratis" : (m.price ? " — ca. $" + m.price : "")}</option>`).join("");
@@ -869,8 +903,6 @@ async function renderBrains() {
   $("#gGratis").checked = cfg.nur_gratis !== false;
   const freeOnly = models.filter(m => m.free && !m.id.startsWith("openrouter/"));
   const opt = (list, sel) => list.map(m => `<option value="${m.id}" ${m.id === sel ? "selected" : ""}>${esc(m.name)}${m.free ? " — gratis" : (m.price ? " — ca. $" + m.price : "")}</option>`).join("");
-  $("#hFree").innerHTML = opt(freeOnly, cfg.hermes_gratis || "nvidia/nemotron-3-ultra-550b-a55b:free");
-  $("#hPaid").innerHTML = opt(models.filter(m => !m.id.startsWith("openrouter/")), cfg.hermes_bezahlt || "anthropic/claude-sonnet-5.5");
   $("#gRat").value = cfg.rat_anzahl || 0;
   $("#allModels").innerHTML = models.map(m => `<option value="${m.id}">${esc(m.name)}${m.free ? " — gratis" : (m.price ? " — ca. $" + m.price : "")}</option>`).join("");
   await renderSlots();
@@ -905,7 +937,7 @@ async function saveBrains() {
   $("#gState").textContent = "✓ gespeichert";
 }
 async function setPayMode(gratis) {
-  if (!gratis && !(await frage("💶 Bezahlt-Modus einschalten?", "Dann dürfen auch bezahlte Gehirne (z. B. Claude, GPT, Grok) antworten – auch in Hermes.\n\nDas kostet Geld von deinem OpenRouter-Guthaben, höchstens bis zur Obergrenze deines Schlüssels.\n\nEinschalten?"))) return;
+  if (!gratis && !(await frage("💶 Bezahlt-Modus einschalten?", "Dann dürfen auch bezahlte Gehirne (z. B. Claude, GPT, Grok) antworten.\n\nDas kostet Geld von deinem OpenRouter-Guthaben, höchstens bis zur Obergrenze deines Schlüssels.\n\nEinschalten?"))) return;
   cfg.nur_gratis = gratis;
   await save({nur_gratis: gratis});
   status(gratis ? "💚 Gratis: nichts kostet Geld" : "💶 Bezahlt: bezahlte Gehirne erlaubt");
@@ -1064,9 +1096,17 @@ function lernLeiste(bubble, r, frageText) {
     <button class="ghost small" data-l="1" title="Diese Frage einer anderen KI stellen und Watson die Antwort beibringen">🌉 Lehrer fragen</button>
     <span class="muted small lernInfo"></span>`;
   bar.querySelectorAll("[data-w]").forEach(b => b.onclick = async () => {
-    const w = +b.dataset.w; await P().bewerten(r.lern_id, w);
+    const w = +b.dataset.w; const erg = await P().bewerten(r.lern_id, w, frageText || "", (bubble.innerText || "").slice(0, 1500));
     bar.querySelectorAll("[data-w]").forEach(x => x.classList.toggle("an", x === b));
     bar.querySelector(".lernInfo").textContent = w > 0 ? "Danke! Watson merkt sich, dass das gut war." : "Danke für die Ehrlichkeit – Watson lernt daraus.";
+    const alt = bar.nextElementSibling; if (alt && alt.classList.contains("fehlerFrage")) alt.remove();
+    if (w < 0 && erg && erg.fehler_id) {
+      const f = document.createElement("div"); f.className = "fehlerFrage row"; f.style.cssText = "gap:6px;margin:4px 0 10px";
+      f.innerHTML = `<input type="text" placeholder="Was war falsch? (freiwillig – Watson lernt nachts daraus)" style="flex:1"><button class="ghost small">Sagen</button>`;
+      f.querySelector("button").onclick = async () => { const t = f.querySelector("input").value.trim(); if (!t) return;
+        await P().fehler_erklaeren(erg.fehler_id, t); f.innerHTML = `<span class="muted small">📒 Ins Fehlerbuch geschrieben – danke!</span>`; };
+      bar.after(f);
+    }
   });
   bar.querySelector("[data-l]").onclick = async () => {
     bar.querySelector(".lernInfo").textContent = "Watson formuliert die Frage …";
@@ -1356,6 +1396,39 @@ async function renderLehren() {
   $("#lehrenList").querySelectorAll("[data-ldel]").forEach(b => b.onclick = async () => {
     if (!(await frage("Lehre löschen?", "Watson hält sich danach nicht mehr an diese Lehre.", {ja: "Löschen"}))) return;
     await P().lehre_loeschen(+b.dataset.ldel); renderLehren();
+  });
+}
+async function renderMeinungen() {
+  const r = await P().meinungen_liste();
+  const punkte = n => "●".repeat(n) + "○".repeat(5 - n);
+  $("#meinungList").innerHTML = (r.meinungen || []).map(m => `<div class="hit">
+      <b>${esc(m.thema)}</b> <span class="muted small" title="${esc(r.stufen[m.sicherheit] || "")}">${punkte(m.sicherheit)} ${esc(r.stufen[m.sicherheit] || "")}</span>
+      <div style="margin:4px 0">${esc(m.meinung)}</div>
+      ${m.begruendung ? `<div class="muted small">Warum: ${esc(m.begruendung)}</div>` : ""}
+      ${m.bibel ? `<div class="muted small">📖 ${esc(m.bibel)}</div>` : ""}
+      <div class="muted small">${esc(m.quelle || "")} · seit ${esc((m.entstanden || "").slice(0, 10))}${m.geprueft ? " · zuletzt geprüft " + esc(m.geprueft.slice(0, 10)) : ""}</div>
+      ${(m.verlauf || []).length ? `<details class="small" style="margin-top:4px"><summary>🔄 ${m.verlauf.length}× umgedacht</summary>${m.verlauf.slice().reverse().map(v =>
+        `<div style="margin:4px 0 0 12px"><span class="muted">${esc(v.datum)} – vorher (${esc(r.stufen[v.alt_sicherheit] || "")}):</span> ${esc(v.alt)}<br><span class="muted">Warum umgedacht:</span> ${esc(v.warum)}</div>`).join("")}</details>` : ""}
+    </div>`).join("")
+    || `<div class="muted">Noch keine eigenen Meinungen. Frag Watson ruhig: „Was denkst du über …?“ – oder warte, bis er nachts nachgedacht hat.</div>`;
+}
+async function renderFehler() {
+  const r = await P().fehler_liste();
+  const z = r.zahlen || {};
+  $("#fehlerStand").textContent = z.gesamt ? `${z.gesamt} aufgeschrieben · ${z.gelernt} daraus gelernt · ${z.offen} offen` : "";
+  $("#fehlerList").innerHTML = (r.fehler || []).map(f => `<div class="hit">
+      <span class="muted small">${esc(f.datum)} · ${esc(r.arten[f.art] || f.art)} · ${f.status === "gelernt" ? "✅ gelernt" : "⏳ offen"}</span>
+      ${f.frage ? `<div class="small" style="margin-top:3px"><span class="muted">Frage:</span> ${esc(f.frage.slice(0, 200))}</div>` : ""}
+      <div style="margin:3px 0">${esc(f.was)}</div>
+      ${f.richtig ? `<div class="small"><span class="muted">Richtig wäre:</span> ${esc(f.richtig)}</div>` : ""}
+      ${f.einsicht ? `<div class="small"><span class="muted">Watsons Einsicht:</span> ${esc(f.einsicht)}</div>` : ""}
+      ${f.lehre ? `<div class="small">📒 <span class="muted">Daraus wurde die Lehre:</span> ${esc(f.lehre)}</div>` : ""}
+      ${!f.richtig && f.art !== "tat" ? `<div class="row" style="gap:6px;margin-top:6px"><input type="text" data-fe="${f.id}" placeholder="Was wäre richtig gewesen? (hilft Watson beim Lernen)" style="flex:1"><button class="ghost" data-fes="${f.id}">Sagen</button></div>` : ""}
+    </div>`).join("")
+    || `<div class="muted">Noch keine Fehler aufgeschrieben.</div>`;
+  $("#fehlerList").querySelectorAll("[data-fes]").forEach(b => b.onclick = async () => {
+    const t = $(`[data-fe="${b.dataset.fes}"]`).value.trim(); if (!t) return;
+    await P().fehler_erklaeren(+b.dataset.fes, t); renderFehler();
   });
 }
 async function renderRezepte() {
@@ -1792,23 +1865,77 @@ async function vertrauenZeigen() {
     await P().vertrauen_setzen(n); vertrauenZeigen();
   });
 }
+// ---------- Arbeits-Anzeige (wie bei Claude „Brewing…“): Punkte, wechselndes Wort, Sekunden, aufklappbare Schritte ----------
+const DENK_DE = ["Denke nach", "Überlege", "Sortiere Gedanken", "Wäge ab", "Schlage nach", "Prüfe", "Formuliere",
+                 "Sammle", "Grüble", "Ordne", "Verbinde", "Bedenke"];
+const DENK_EN = ["Thinking", "Pondering", "Sorting thoughts", "Weighing", "Looking up", "Checking", "Phrasing",
+                 "Gathering", "Mulling", "Arranging", "Connecting", "Considering"];
+const denkEn = () => cfg.ui_sprache === "en";
+const DENK_WORTE = new Proxy([], {get: (t, k) => (denkEn() ? DENK_EN : DENK_DE)[k]});
+let denk = null;          // {el, start, schritte[], uhr}
+function denkStart() {
+  denkEnde(false);
+  const welcome = $("#chat .welcome"); if (welcome) welcome.remove();
+  const el = document.createElement("div"); el.className = "denken";
+  el.innerHTML = `<span class="denkPunkte"><i></i><i></i><i></i><i></i></span><span class="denkWort"></span><span class="denkZeit"></span>`;
+  // erst nach der Nachricht des Nutzers einfügen (setBusy kommt in send() einen Moment vor addMsg)
+  setTimeout(() => { if (el.isConnected || (denk && denk.el === el)) { $("#chat").appendChild(el); $("#chat").scrollTop = 1e9; } }, 0);
+  denk = {el, start: Date.now(), schritte: [], wort: Math.floor(Math.random() * DENK_WORTE.length), letzterSchritt: 0};
+  const tick = () => {
+    if (!denk) return;
+    const sek = Math.round((Date.now() - denk.start) / 1000);
+    el.querySelector(".denkZeit").textContent = sek >= 2 ? `· ${sek} s` : "";
+    // ein echter Zwischenschritt bleibt 4 s stehen, sonst wechselt das Wort alle 3 s
+    if (Date.now() - denk.letzterSchritt > 4000) {
+      if (sek % 3 === 0 || !el.querySelector(".denkWort").textContent) denk.wort = (denk.wort + 1) % DENK_WORTE.length;
+      el.querySelector(".denkWort").textContent = DENK_WORTE[denk.wort] + " …";
+    }
+  };
+  tick(); denk.uhr = setInterval(tick, 1000);
+}
+function denkEnde(zusammenfassen = true) {
+  if (!denk) return;
+  clearInterval(denk.uhr);
+  const d = denk; denk = null;
+  const sek = Math.round((Date.now() - d.start) / 1000);
+  if (!zusammenfassen || !d.schritte.length) { d.el.remove(); return; }
+  const z = document.createElement("details"); z.className = "schritte";
+  const n = d.schritte.length, en = denkEn();
+  z.innerHTML = `<summary>${n} ${en ? (n === 1 ? "step" : "steps") : (n === 1 ? "Schritt" : "Schritte")} · ${sek} s</summary>` +
+    `<ul>${d.schritte.map(t => `<li>${esc(t)}</li>`).join("")}</ul>`;
+  d.el.replaceWith(z);
+}
 function setBusy(on) {
   busy = on;
   $("#stopBtn").style.display = on ? "" : "none";
   $("#sendBtn").style.display = on ? "none" : "";
+  if (on) denkStart(); else denkEnde();
 }
 window.liveStep = text => {
   const welcome = $("#chat .welcome"); if (welcome) welcome.remove();
-  const d = document.createElement("div"); d.className = "note"; d.textContent = text;
-  $("#chat").appendChild(d); $("#chat").scrollTop = 1e9; status(text.replace(/^\S+\s/, ""));
+  if (denk) {                                  // Schritt in die Arbeits-Anzeige statt eigener grauer Zeile
+    denk.schritte.push(text); denk.letzterSchritt = Date.now();
+    denk.el.querySelector(".denkWort").textContent = text.replace(/^\S+\s/, "");
+  } else {
+    const d = document.createElement("div"); d.className = "note"; d.textContent = text; $("#chat").appendChild(d);
+  }
+  $("#chat").scrollTop = 1e9; status(text.replace(/^\S+\s/, ""));
 };
 function toolNote(tools) {
   if (!tools || !tools.length) return;
-  const d = document.createElement("div"); d.className = "note";
   const warn = tools.filter(t => t.startsWith("⚠")), used = tools.filter(t => !t.startsWith("⚠"));
-  d.textContent = (used.length ? "🔧 " + used.join(" · ") : "") + (warn.length ? (used.length ? "  ·  " : "") + warn.join(" ") : "");
-  if (warn.length) { d.style.color = "var(--err)"; d.style.background = "var(--errSoft)"; }
-  $("#chat").appendChild(d); $("#chat").scrollTop = 1e9;
+  if (used.length) {                           // „🔧 2 Werkzeuge benutzt ›“ – aufklappbar
+    const z = document.createElement("details"); z.className = "schritte";
+    const en = denkEn();
+    z.innerHTML = `<summary>🔧 ${used.length} ${en ? (used.length === 1 ? "tool used" : "tools used") : (used.length === 1 ? "Werkzeug benutzt" : "Werkzeuge benutzt")}</summary>` +
+      `<ul>${used.map(t => `<li>${esc(t)}</li>`).join("")}</ul>`;
+    $("#chat").appendChild(z);
+  }
+  if (warn.length) {                           // Warnungen immer sichtbar
+    const d = document.createElement("div"); d.className = "note"; d.textContent = warn.join(" ");
+    d.style.color = "var(--err)"; d.style.background = "var(--errSoft)"; $("#chat").appendChild(d);
+  }
+  $("#chat").scrollTop = 1e9;
 }
 function renderTools(r) {
   if (r.error) { $("#toolServers").innerHTML = `<div class="card" style="border-color:var(--err)">${esc(r.error)}</div>`; return; }
@@ -1869,6 +1996,8 @@ async function renderFacts() {
   renderWissen().catch(() => {});
   renderRezepte().catch(() => {});
   renderLehren().catch(() => {});
+  renderMeinungen().catch(() => {});
+  renderFehler().catch(() => {});
   $("#lehreNeuBtn").onclick = async () => { const t = $("#lehreNeu").value.trim(); if (!t) return; await P().lehre_neu(t, "von Hand eingetragen"); $("#lehreNeu").value = ""; renderLehren(); };
   $("#rezeptNeu").onclick = () => rezeptFormular($("#rezeptNeuForm"), {}, "Nutzer", ok => { $("#rezeptNeuForm").innerHTML = ""; if (ok) renderRezepte(); });
   const r = await P().facts();
@@ -1888,6 +2017,71 @@ async function memSearch() {
     || `<div class="muted">Nichts gefunden.</div>`;
   $("#memResults").querySelectorAll("[data-chat]").forEach(el => el.onclick = () => openChat(+el.dataset.chat));
 }
+// ---------- Aufträge im Hintergrund: Watson meldet sich von selbst, wenn er fertig ist ----------
+window.auftragGestartet = titel => {
+  const d = document.createElement("div"); d.className = "note";
+  d.textContent = `⏳ Hintergrund-Auftrag läuft: „${titel}“ – du kannst weiterreden, Watson meldet sich, wenn er fertig ist.`;
+  $("#chat").appendChild(d); $("#chat").scrollTop = 1e9;
+};
+window.auftragFertig = d => {
+  if (chatId === d.chat_id) { addMsg(d.text, botName() + " · Hintergrund"); }
+  try { renderChats(); } catch (e) {}
+  const t = document.createElement("div"); t.className = "auftragToast" + (d.ok ? "" : " fehler");
+  t.innerHTML = d.herz ? `<b>💓 ${esc(botName())} ist etwas aufgefallen</b><span>${esc(d.titel)}</span><small>Klicken zum Öffnen</small>`
+                       : `<b>📬 ${esc(botName())} ist fertig</b><span>${esc(d.titel)}</span><small>Klicken zum Öffnen</small>`;
+  t.onclick = () => { t.remove(); showTab("start"); openChat(d.chat_id); };
+  document.body.appendChild(t);
+  setTimeout(() => t.classList.add("weg"), 60000);
+  setTimeout(() => t.remove(), 61000);
+};
+// ---------- 💓 Herzschlag: Watson schaut alle paar Minuten selbst nach (herzschlag.py) ----------
+let herzStand = null;
+function herzZeigen(st) {
+  herzStand = st; const h = $("#herz"); if (!h || !st) return;
+  const z = !st.an ? "aus" : (st.letzter ? st.letzter.zustand : "ok");
+  h.className = z === "ok" ? "" : z;
+  h.title = !st.an ? "Herzschlag ist aus" :
+    `Herzschlag: alle ${st.minuten} Min.` + (st.letzter ? ` · zuletzt ${st.letzter.zeit}` : " · noch kein Schlag") +
+    (st.naechster_in !== null ? ` · nächster in ${st.naechster_in} Min.` : "");
+  if ($("#herzPanel").classList.contains("on")) herzPanelFuellen();
+}
+window.herzPuls = st => {                       // kommt bei jedem Schlag von Python
+  herzZeigen(st); const h = $("#herz"); if (!h || !st.an) return;
+  h.classList.add("schlag"); setTimeout(() => h.classList.remove("schlag"), 950);
+};
+function herzPanelFuellen() {
+  const st = herzStand || {}; const p = $("#herzPanel");
+  const zeichen = {ok: "🟢", info: "🟠", wichtig: "🔴"};
+  const liste = (st.tagebuch || []).slice(0, 15).map(s =>
+    `<div class="hz">${zeichen[s.zustand] || "⚪"} <b>${esc(s.zeit)}</b> <span class="muted">${esc(s.grund)}${s.still ? " · still" : ""}</span>` +
+    (s.befunde.length ? s.befunde.map(b => `<div>${b.stufe === "wichtig" ? "⚠ " : b.stufe === "ok" ? "✓ " : "· "}${esc(b.text)}</div>`).join("")
+                      : `<div class="muted">Alles in Ordnung.</div>`) + `</div>`).join("");
+  p.innerHTML = `<h4>💓 Herzschlag</h4>
+    <div class="muted small">Watson schaut regelmäßig selbst nach: Termine, Sicherung, Speicher, Gehirne erreichbar,
+      Abläufe, hängende Aufträge, Fehler. Kostet nichts (kein Gehirn). Nachts (22–7 Uhr) bleibt er still und sagt es dir morgens.</div>
+    <div class="hzK">
+      <label><input type="checkbox" id="herzAn" ${st.an ? "checked" : ""}> an</label>
+      <label>alle <select id="herzMin">${[10, 20, 30, 60].map(m => `<option value="${m}" ${st.minuten === m ? "selected" : ""}>${m}</option>`).join("")}</select> Min.</label>
+      <button class="btn" id="herzJetzt">Jetzt prüfen</button>
+      <span class="muted small">${st.anzahl || 0} Schläge</span>
+    </div>
+    ${(st.nachts_gesammelt || []).length ? `<div class="small">🌙 Für morgen gesammelt: ${st.nachts_gesammelt.map(esc).join(" · ")}</div>` : ""}
+    ${liste || `<div class="muted small">Noch kein Herzschlag – der erste kommt 2 Minuten nach dem Start.</div>`}`;
+  $("#herzAn").onchange = e => P().herzschlag_setzen(e.target.checked, +$("#herzMin").value).then(herzZeigen);
+  $("#herzMin").onchange = () => P().herzschlag_setzen($("#herzAn").checked, +$("#herzMin").value).then(herzZeigen);
+  $("#herzJetzt").onclick = () => { $("#herzJetzt").textContent = "prüft …"; P().herzschlag_jetzt(); };
+}
+function herzPanelZeigen() {
+  const p = $("#herzPanel"); p.classList.toggle("on");
+  if (p.classList.contains("on")) P().herzschlag_status().then(st => { herzStand = st; herzPanelFuellen(); });
+}
+document.addEventListener("click", e => {
+  const p = $("#herzPanel");
+  if (p && p.classList.contains("on") && !p.contains(e.target) && !e.target.closest("#herz")) p.classList.remove("on");
+});
+function herzLaden() { try { P().herzschlag_status().then(herzZeigen); } catch (e) {} }
+function herzStart() { herzLaden(); setInterval(herzLaden, 60000); }
+if (window.pywebview && window.pywebview.api) herzStart(); else window.addEventListener("pywebviewready", herzStart);
 // ---------- Team mit Arbeitsbrett: Chef plant, Helfer gleichzeitig, Texter schreibt, Prüfer prüft ----------
 const TEAM_ICON = {Chef: "ti-crown", Rechercheur: "ti-search", Rechner: "ti-calculator", Texter: "ti-pencil", "Prüfer": "ti-shield-check"};
 let teamKarte = null;
@@ -1909,6 +2103,7 @@ window.teamSchritt = ev => {
 };
 async function runTeam(task) {
   const welcome = $("#chat .welcome"); if (welcome) welcome.remove();
+  denkEnde();                                  // das Team hat seine eigene Live-Karte
   teamKarte = document.createElement("div"); teamKarte.className = "teamKarte";
   teamKarte.innerHTML = `<div class="tKopf"><i class="ti ti-users"></i> ${esc(botName())} arbeitet im Team</div><div class="tListe"></div>`;
   $("#chat").appendChild(teamKarte);
@@ -2044,8 +2239,6 @@ async function init() {
   $("#rankSave").onclick = saveRank;
   $("#gSave").onclick = saveBrains;
   $("#gGratis").onchange = async () => { const want = $("#gGratis").checked; $("#gGratis").checked = !want; await setPayMode(want); };
-  $("#hFree").onchange = () => { cfg.hermes_gratis = $("#hFree").value; save({hermes_gratis: cfg.hermes_gratis}); $("#hState").textContent = "✓ gespeichert"; };
-  $("#hPaid").onchange = () => { cfg.hermes_bezahlt = $("#hPaid").value; save({hermes_bezahlt: cfg.hermes_bezahlt}); $("#hState").textContent = "✓ gespeichert"; };
   let gTimer;
   $("#gRat").oninput = () => { cfg.rat_anzahl = Math.max(0, Math.min(199, parseInt($("#gRat").value) || 0)); clearTimeout(gTimer); gTimer = setTimeout(renderSlots, 400); };
   $("#g1Sel").onchange = () => { cfg.model = $("#g1Sel").value; save({model: cfg.model}); $("#gState").textContent = "✓ Gehirn 1: " + shortName(cfg.model); };

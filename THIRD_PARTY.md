@@ -29,7 +29,6 @@ official sources. Their own licenses apply. This list was checked carefully, but
 | Component | Notes |
 |---|---|
 | **n8n** (`n8n-linux/installieren.sh`) | Sustainable Use License (fair-code) – free for personal and internal use; read the license before commercial use. |
-| **Hermes Agent** (Nous Research) | MIT |
 | **omnivoice.cpp** (own voice, `studio/eigene-stimme/`) | code MIT; the **OmniVoice model weights do not allow commercial use**. Clone only your own voice or a voice you have written permission for. |
 | **FFmpeg** (Video Studio) | downloaded only when you choose it, from the official BtbN builds (GitHub), checked with SHA-256; GPL-3.0 build. You can also point Watson to your own FFmpeg. |
 | **Tailscale** (phone access) | proprietary client, free for personal use |
