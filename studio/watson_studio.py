@@ -325,6 +325,11 @@ def brain_message(model, messages, api_key, tools=None, timeout=180):
     if load_config().get("nur_gratis", True) and not is_free_model(model):
         # Gratis-Sperre: kein Geld ausgeben -> bezahlte Gehirne werden nie gefragt
         raise RuntimeError(f"Gratis-Modus: {model} kostet Geld und wird übersprungen.")
+    if not api_key:
+        # nur mit ChatGPT-Plan eingerichtet und der ist gerade nicht verfügbar (z. B. Kontingent leer)
+        raise RuntimeError("Dein ChatGPT-Kontingent ist gerade leer und für die Gratis-Gehirne fehlt noch ein Schlüssel. "
+                           "Tipp: Unter „Gehirne“ einen kostenlosen Schlüssel holen (2 Minuten) – dann springt Watson "
+                           "in so einem Fall von selbst ein.")
     payload = {"model": model, "messages": messages}
     if tools:
         payload["tools"] = tools
@@ -716,6 +721,7 @@ class Api:
     def get_config(self):
         cfg = load_config()
         cfg["has_key"] = bool(cfg.get("api_key"))
+        cfg["has_chatgpt"] = chatgpt_plan.aktiv(cfg)      # ChatGPT-Plan verbunden -> Watson braucht keinen Schlüssel
         cfg["has_n8n_key"] = bool(cfg.get("n8n_api_key"))
         for k in _secret_ids(cfg):              # Schlüssel nie an die Oberfläche geben
             cfg.pop(k, None)
@@ -1474,8 +1480,9 @@ class Api:
     def chat(self, payload):
         """Normale Unterhaltung: speichert alles im Gedächtnis und holt passendes Wissen dazu."""
         cfg = load_config()
-        if not cfg["api_key"]:
-            return {"error": "Noch kein Schlüssel eingetragen. Geh oben auf den Tab „Gehirne“."}
+        if not cfg["api_key"] and not chatgpt_plan.aktiv(cfg):
+            return {"error": "Noch kein Gehirn verbunden. Geh auf „Gehirne“: entweder „Mit ChatGPT anmelden“ "
+                             "(wenn du ChatGPT Plus hast) oder einen kostenlosen Schlüssel holen."}
         text = (payload.get("text") or "").strip()
         if not payload.get("von_handy"):
             handy.laptop_benutzt()          # Nutzer tippt am Laptop -> Handy-Modus aus

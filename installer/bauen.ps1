@@ -4,7 +4,7 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Studio = Join-Path (Split-Path -Parent $Root) "studio"
 $Bau = Join-Path $Root "bau"; $Prog = Join-Path $Bau "programm"; $Aus = Join-Path $Root "Ausgabe"
-$Version = "1.3." + (Get-Date -Format "yyMMdd")
+$Version = "1.4." + (Get-Date -Format "yyMMdd")
 Remove-Item $Bau -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $Prog, $Aus | Out-Null
 $utf8bom = New-Object System.Text.UTF8Encoding($true)

@@ -344,7 +344,12 @@ def modelle_laden():
             daten = json.loads(r.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         _http_fehler(e)
-    liste = [m.get("id") for m in daten.get("data", []) if m.get("visibility", "list") == "list" and m.get("id")]
+    # Die Liste kommt je nach Stand als „models“ oder „data“, mit „slug“ oder „id“ (so auch in Sentient, 2026);
+    # OpenAI gibt eine Rangfolge vor („priority“, kleiner = zuerst), sonst gilt die Reihenfolge der Liste.
+    roh = [m for m in (daten.get("models") or daten.get("data") or []) if isinstance(m, dict)]
+    eintraege = [(m.get("priority") if isinstance(m.get("priority"), (int, float)) else 1e9, i, m.get("slug") or m.get("id"))
+                 for i, m in enumerate(roh) if m.get("visibility", "list") == "list" and (m.get("slug") or m.get("id"))]
+    liste = [s for _, _, s in sorted(eintraege)]
     cfg = _cfg()
     gewaehlt = cfg.get("chatgpt_modell") if cfg.get("chatgpt_modell") in liste else (liste[0] if liste else "")
     _cfg_setzen(chatgpt_modelle=liste, chatgpt_modell=gewaehlt)
@@ -426,6 +431,7 @@ def umwandeln(messages, tools=None):
                           "description": t["function"].get("description", ""),
                           "parameters": t["function"].get("parameters") or {"type": "object", "properties": {}}}
                          for t in tools if t.get("type") == "function"]
+        body["tool_choice"] = "auto"                 # wie in Sentient; „any“/erzwungen ist nicht erlaubt
     return body
 
 
@@ -436,9 +442,44 @@ def nachricht(model, messages, tools=None, timeout=180):
     modell = str(model)[len(PREFIX):] if ist_chatgpt(model) else model
     body = umwandeln(messages, tools)
     body["model"] = modell
+    for versuch in range(2):            # Lehnt OpenAI den Zugang ab (401), einmal erneuern und nochmal (wie Shelley)
+        try:
+            fertig, gesammelt = _streamen(body, zugang(), timeout)
+            break
+        except PlanFehler as e:
+            if e.art != "anmeldung" or versuch:
+                raise
+            _zugang.update(token="", bis=0)
+    if fertig.get("status") not in (None, "completed"):
+        grund = (fertig.get("incomplete_details") or {}).get("reason") or fertig.get("status")
+        raise PlanFehler("fehler", f"Antwort unvollständig ({grund}).")
+    if (_cfg().get("chatgpt_status") or "ok") != "ok":
+        _cfg_setzen(chatgpt_status="ok")
+    # Bei store=false kann die Schluss-Meldung ohne „output“ kommen -> dann die unterwegs gesammelten Teile nehmen
+    # (so machen es auch Sentient und Codex: Antwort aus den einzelnen Stream-Ereignissen zusammensetzen)
+    text, aufrufe = [], []
+    for item in fertig.get("output") or gesammelt["items"]:
+        if item.get("type") == "message":
+            for teil in item.get("content") or []:
+                if teil.get("type") in ("output_text", "text"):
+                    text.append(teil.get("text", ""))
+        elif item.get("type") == "function_call":
+            aufrufe.append({"id": item.get("call_id") or item.get("id") or "", "type": "function",
+                            "function": {"name": item.get("name", ""), "arguments": item.get("arguments") or "{}"}})
+    if not text and not aufrufe and gesammelt["text"]:
+        text = gesammelt["text"]                     # nur Text-Stückchen kamen an
+    msg = {"role": "assistant", "content": "".join(text)}
+    if aufrufe:
+        msg["tool_calls"] = aufrufe
+    return msg, PREFIX + (fertig.get("model") or modell)
+
+
+def _streamen(body, token, timeout):
+    """Eine Anfrage an /v1/responses; liest den Stream. -> (Schluss-Antwort, unterwegs gesammelte Teile)."""
     req = urllib.request.Request(API + "/responses", json.dumps(body).encode("utf-8"), {
-        "Content-Type": "application/json", "Accept": "text/event-stream", "Authorization": "Bearer " + zugang()})
+        "Content-Type": "application/json", "Accept": "text/event-stream", "Authorization": "Bearer " + token})
     fertig, ende = None, time.time() + timeout
+    gesammelt = {"items": [], "text": [], "args": {}}
     try:
         with urllib.request.urlopen(req, timeout=60) as r:
             daten = []
@@ -459,36 +500,25 @@ def nachricht(model, messages, tools=None, timeout=180):
                 except ValueError:
                     continue
                 typ = ev.get("type")
-                if typ == "response.completed":
+                if typ == "response.output_text.delta" and ev.get("delta"):
+                    gesammelt["text"].append(ev["delta"])
+                elif typ == "response.function_call_arguments.done" and ev.get("arguments") is not None:
+                    gesammelt["args"][ev.get("item_id") or ""] = ev["arguments"]
+                elif typ == "response.output_item.done" and isinstance(ev.get("item"), dict):
+                    item = dict(ev["item"])
+                    if item.get("type") == "function_call" and not item.get("arguments"):
+                        item["arguments"] = gesammelt["args"].get(item.get("id") or "", "")
+                    gesammelt["items"].append(item)
+                elif typ in ("response.completed", "response.incomplete"):
                     fertig = ev.get("response") or {}
                     break
-                if typ in ("response.failed", "error"):
+                elif typ in ("response.failed", "error"):
                     err = (ev.get("response") or {}).get("error") or ev.get("error") or {}
                     _fehler_code(err.get("code") or "", 0, err.get("message") or "")
-                if typ == "response.incomplete":
-                    fertig = ev.get("response") or {}
-                    break
     except urllib.error.HTTPError as e:
         _http_fehler(e)
     except urllib.error.URLError:
         raise PlanFehler("pause", "Keine Verbindung zu ChatGPT (Internet?).")
     if fertig is None:
-        raise PlanFehler("fehler", "Antwort kam nicht vollständig an.")
-    if fertig.get("status") not in (None, "completed"):
-        grund = (fertig.get("incomplete_details") or {}).get("reason") or fertig.get("status")
-        raise PlanFehler("fehler", f"Antwort unvollständig ({grund}).")
-    if (_cfg().get("chatgpt_status") or "ok") != "ok":
-        _cfg_setzen(chatgpt_status="ok")
-    text, aufrufe = [], []
-    for item in fertig.get("output") or []:
-        if item.get("type") == "message":
-            for teil in item.get("content") or []:
-                if teil.get("type") in ("output_text", "text"):
-                    text.append(teil.get("text", ""))
-        elif item.get("type") == "function_call":
-            aufrufe.append({"id": item.get("call_id") or item.get("id") or "", "type": "function",
-                            "function": {"name": item.get("name", ""), "arguments": item.get("arguments") or "{}"}})
-    msg = {"role": "assistant", "content": "".join(text)}
-    if aufrufe:
-        msg["tool_calls"] = aufrufe
-    return msg, PREFIX + (fertig.get("model") or modell)
+        raise PlanFehler("fehler", "Antwort kam nicht vollständig an.")    # ohne „completed“ gilt sie als Fehler
+    return fertig, gesammelt

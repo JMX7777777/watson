@@ -2086,9 +2086,14 @@ function cgZeigen(st) {
     $("#cgAb").onclick = async () => { if (await frage("Von ChatGPT abmelden?", "Watson nutzt danach wieder nur die kostenlosen Gehirne. Du kannst dich jederzeit wieder anmelden.", {ja: "Abmelden"})) P().chatgpt_abmelden().then(cgZeigen); };
     if ($("#cgLos")) $("#cgLos").onclick = cgAnmelden;
   }
+  const jetzt = !!(an && st.an && !["kein_plan", "neu_anmelden"].includes(st.zustand));
+  if (typeof cfg === "object" && cfg && cfg.has_chatgpt !== jetzt) {
+    cfg.has_chatgpt = jetzt;
+    if (!chatId && document.querySelector("#chat .welcome")) greet();     // Begrüßung passend zeigen
+  }
   // Banner im Gespräch + Anzeige unter dem Eingabefeld
   let weg = false; try { weg = localStorage.getItem("cgBannerWeg") === "1"; } catch (e) {}
-  $("#cgBanner").classList.toggle("on", !an && !weg && !laeuft);
+  $("#cgBanner").classList.toggle("on", !an && !weg && !laeuft && !!(cfg && cfg.has_key));   // nur für bisherige Nutzer; neue sehen die Wahl im Willkommen
   const hint = $("#cgHint"), aktiv = an && st.an && !["kein_plan", "neu_anmelden"].includes(st.zustand);
   hint.className = aktiv ? (st.pause_bis ? "on grenze" : "on") : "";
   hint.innerHTML = aktiv ? (st.pause_bis ? ` · ⏸ ChatGPT: Nutzungsgrenze erreicht (bis ca. ${esc(st.pause_bis)}) · <a onclick="P().chatgpt_nutzung()">Verbrauch verwalten</a>`
@@ -2220,10 +2225,13 @@ function greet() {
   const tag = h < 11 ? "Guten Morgen" : h < 18 ? "Guten Tag" : "Guten Abend";
   const name = userName();
   const w = document.createElement("div"); w.className = "welcome";
-  if (!cfg.has_key) {
+  if (!cfg.has_key && !cfg.has_chatgpt) {
     w.innerHTML = `<img src="assets/watson-logo.svg" alt=""><h2>Willkommen bei ${esc(botName())}</h2>
-      <div class="muted">Damit ich antworten kann, brauche ich einmal einen Schlüssel für die Gehirne. Das dauert 2 Minuten.</div>
-      <div class="row" style="margin-top:14px;justify-content:center"><button class="primary" id="goKey"><i class="ti ti-key"></i> Jetzt einrichten</button><button id="goHelp"><i class="ti ti-help-circle"></i> Anleitung</button></div>`;
+      <div class="muted">Damit ich denken kann, brauche ich einmal ein „Gehirn“. Such dir einen Weg aus:</div>
+      <div style="margin-top:16px"><button class="cgKnopf" id="goChatgpt"><i class="ti ti-message-chatbot"></i> Mit ChatGPT anmelden</button>
+        <div class="muted small" style="margin-top:6px">Wenn du ChatGPT Plus oder Pro hast – ein Klick, fertig.</div></div>
+      <div class="row" style="margin-top:16px;justify-content:center"><button class="primary" id="goKey"><i class="ti ti-key"></i> Kein ChatGPT? Kostenlosen Schlüssel holen</button><button id="goHelp"><i class="ti ti-help-circle"></i> Anleitung</button></div>
+      <div class="muted small" style="margin-top:6px">Der kostenlose Weg dauert etwa 2 Minuten.</div>`;
   } else {
     w.innerHTML = `<img src="assets/watson-logo.svg" alt=""><h2>${tag}${name ? ", " + esc(name) : ""}</h2>
       <div class="muted">Wobei kann ich dir heute helfen?</div>
@@ -2231,6 +2239,7 @@ function greet() {
   }
   $("#chat").innerHTML = ""; $("#chat").appendChild(w);
   const gk = $("#goKey"); if (gk) gk.onclick = () => showTab("gehirne");
+  const gc = $("#goChatgpt"); if (gc) gc.onclick = () => cgAnmelden();
   const gh = $("#goHelp"); if (gh) gh.onclick = () => showTab("hilfe");
   w.querySelectorAll("[data-s]").forEach(b => b.onclick = () => {
     const s = SUGGESTIONS[+b.dataset.s];
