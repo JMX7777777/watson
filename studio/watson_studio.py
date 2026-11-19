@@ -34,6 +34,7 @@ import tatpruefung
 import herzschlag
 import meinungsbuch
 import suche
+import chatgpt_plan
 import fehlerbuch
 import video_studio
 import wachstum
@@ -312,11 +313,15 @@ def ask_brain(model, messages, api_key):
 
 
 def is_free_model(model):
-    return str(model).endswith(":free") or model in ("openrouter/free", HERMES_ID, "watson/dirigent")
+    # ChatGPT-Plan: kostet nichts extra (läuft über das ChatGPT-Abo des Besitzers)
+    return str(model).endswith(":free") or model in ("openrouter/free", HERMES_ID, "watson/dirigent") or \
+        chatgpt_plan.ist_chatgpt(model)
 
 
 def brain_message(model, messages, api_key, tools=None, timeout=180):
     """Schickt das Gespräch ans Gehirn und gibt seine ganze Antwort zurück (Text oder Werkzeug-Wünsche)."""
+    if chatgpt_plan.ist_chatgpt(model):          # ChatGPT-Plan des Besitzers (Responses API, eigener Anschluss)
+        return chatgpt_plan.nachricht(model, messages, tools, timeout)
     if load_config().get("nur_gratis", True) and not is_free_model(model):
         # Gratis-Sperre: kein Geld ausgeben -> bezahlte Gehirne werden nie gefragt
         raise RuntimeError(f"Gratis-Modus: {model} kostet Geld und wird übersprungen.")
@@ -596,6 +601,7 @@ wachstum.init(massstab=lambda: massstab_text(load_config()) + ("\n\n" + selbst.l
               frage=gehirn_frage, modelle=_gratis_ids, mem=MEM, wartung=wartung, schnell=dirigent.SCHNELL,
               stark=dirigent.STARK, dirigent_modelle=_pruef_kandidaten, fehler_melden=fehler_melden,
               lehren_ohne_frage=lambda: bool(load_config().get("lehren_ohne_frage")))
+chatgpt_plan.init(load_config=load_config, save_config=save_config, fehler_melden=fehler_melden)
 
 
 VISION_MODELS = ["google/gemma-4-31b-it:free", "nvidia/nemotron-3.5-super-vl:free", "google/gemma-4-26b-a4b-it:free"]
@@ -1016,7 +1022,7 @@ class Api:
             except Exception as e:
                 last_error = str(e)
                 if "Schlüssel" in last_error or is_money_error(last_error) or "Fehler 400" in last_error \
-                        or "Fehler 404" in last_error:
+                        or "Fehler 404" in last_error or last_error.startswith("ChatGPT-Plan:"):
                     break      # Neu-Versuchen hilft hier nicht -> gleich zum Ersatz
             time.sleep(2 * (attempt + 1))
             if model.endswith(":free"):
@@ -1237,6 +1243,10 @@ class Api:
                 msg, used = brain_message(model, msgs, api_key, tools, timeout=60)
             except Exception as e:
                 err = str(e)
+                if err.startswith("ChatGPT-Plan:") and candidates:
+                    log.append("💬 " + err[:140] + " – ein Gratis-Gehirn springt ein")
+                    model, retries = candidates.pop(0), 0
+                    continue
                 if "Schlüssel" in err:
                     raise
                 if candidates and ("timeout" in err.lower() or "timed out" in err.lower() or "Zu viele Anfragen" in err):
@@ -1507,6 +1517,9 @@ class Api:
             bezahlt = [m for m in rank_list(cfg) if m not in (RANK_ID, HERMES_ID, "openrouter/free")
                        and not is_free_model(m)]
             brain, grund = dirigent.waehle(kat, cfg, RANK_ID, HERMES_ID, False, bezahlt)
+            if chatgpt_plan.bereit(cfg):
+                brain = chatgpt_plan.modell_id(cfg)
+                grund = f"{dirigent.NAMEN.get(kat, kat)} → 💬 dein ChatGPT-Plan ({cfg.get('chatgpt_modell')})"
             gewaehlt = brain
             seen.append("🎼 Dirigent: " + grund)
         n = int(payload.get("rat_anzahl", cfg.get("rat_anzahl", 0)) or 0)
@@ -1933,6 +1946,44 @@ class Api:
                 WINDOW.evaluate_js(f"window.auftragFertig && window.auftragFertig({json.dumps({'chat_id': chat_id, 'titel': a['titel'], 'text': text, 'ok': a['status'] == 'fertig'})})")
             except Exception:
                 pass
+
+    # ---------- 💬 ChatGPT-Plan (chatgpt_plan.py) ----------
+    def chatgpt_status(self):
+        return chatgpt_plan.status()
+
+    def chatgpt_anmelden(self):
+        protokoll("watson__chatgpt", {"aktion": "Anmeldung gestartet"}, "Browser geöffnet")
+        return chatgpt_plan.anmelden_starten()
+
+    def chatgpt_abmelden(self):
+        protokoll("watson__chatgpt", {"aktion": "abgemeldet"}, "ok")
+        return chatgpt_plan.abmelden()
+
+    def chatgpt_setzen(self, an=None, modell=None, willkommen=None):
+        cfg = load_config()
+        if an is not None:
+            cfg["chatgpt_an"] = bool(an)
+        if modell and modell in (cfg.get("chatgpt_modelle") or []):
+            cfg["chatgpt_modell"] = modell
+        if willkommen:
+            cfg["chatgpt_willkommen"] = True
+        if an:                                   # wieder einschalten -> Pause/Grenze vergessen, neu probieren
+            cfg.pop("chatgpt_pause_bis", None)
+            if cfg.get("chatgpt_status") == "grenze":
+                cfg["chatgpt_status"] = "ok"
+        save_config(cfg)
+        return chatgpt_plan.status()
+
+    def chatgpt_modelle_neu(self):
+        try:
+            chatgpt_plan.modelle_laden()
+        except Exception as e:
+            return dict(chatgpt_plan.status(), fehler=str(e)[:200])
+        return chatgpt_plan.status()
+
+    def chatgpt_nutzung(self):
+        webbrowser.open(chatgpt_plan.NUTZUNG_URL)
+        return {"ok": True}
 
     # ---------- 💓 Herzschlag: Watson schaut von selbst nach (herzschlag.py) ----------
     def herzschlag_status(self):

@@ -121,6 +121,16 @@ code{background:var(--panel2);padding:1px 6px;border-radius:6px;font-size:13px}
 .pageHead{max-width:860px;margin-bottom:20px}
 .pageHead h1{margin:0 0 4px;font-size:24px;font-weight:600;display:flex;align-items:center;gap:10px}
 .pageHead p{margin:0;color:var(--muted)}
+/* 💬 ChatGPT-Plan */
+.cgKnopf{display:inline-flex;align-items:center;gap:10px;font-size:17px;font-weight:600;padding:12px 22px;border-radius:12px;
+  background:#10a37f;border:0;color:#fff;cursor:pointer}.cgKnopf:hover{filter:brightness(1.08)}.cgKnopf:disabled{opacity:.6;cursor:wait}
+.cgSchritte{margin:10px 0 14px 18px;padding:0;font-size:14px;line-height:1.7}
+.cgOk{color:var(--ok);font-weight:600}.cgWarn{color:var(--busy)}.cgFehler{color:var(--err)}
+#cgBanner{display:none;align-items:center;gap:10px;margin:0 auto 8px;max-width:820px;padding:9px 14px;border-radius:12px;
+  background:var(--panel);border:1px solid var(--line);font-size:14px}
+#cgBanner.on{display:flex}#cgBanner .cgKnopf{font-size:14px;padding:7px 14px}
+#cgHint{display:none;color:var(--ok);margin-left:6px}#cgHint.on{display:inline}#cgHint.grenze{color:var(--busy)}
+#cgHint a{color:inherit;text-decoration:underline;cursor:pointer}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:14px;max-width:860px}
 .card h3{margin:0 0 8px;font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px}
 .muted{color:var(--muted)}
@@ -332,6 +342,9 @@ pre.mem{white-space:pre-wrap;font:13px/1.5 Consolas,monospace;max-height:55vh;ov
       <div class="topbar" id="ribbon"></div>
       <div id="chat"></div>
       <div class="inputwrap">
+        <div id="cgBanner"><span style="flex:1">💬 <b>Hast du ChatGPT Plus?</b> Dann kann Watson damit denken – ein Klick, ohne Schlüssel.</span>
+          <button class="cgKnopf" onclick="cgAnmelden()">Mit ChatGPT anmelden</button>
+          <button class="ghost" title="Nicht mehr zeigen" onclick="cgBannerWeg()"><i class="ti ti-x"></i></button></div>
         <div class="inputbar">
           <!-- Plus-Menü -->
           <div class="plusMenuWrap">
@@ -356,7 +369,7 @@ pre.mem{white-space:pre-wrap;font:13px/1.5 Consolas,monospace;max-height:55vh;ov
           <button id="stopBtn" style="display:none" title="Watson sofort anhalten"><i class="ti ti-player-stop"></i> Stopp</button>
           <button id="sendBtn" class="primary" title="Senden (Enter)"><i class="ti ti-arrow-up"></i></button>
         </div>
-        <div class="hint">Enter = senden · Umschalt + Enter = neue Zeile · Watson kann sich irren – prüfe Wichtiges.</div>
+        <div class="hint">Enter = senden · Umschalt + Enter = neue Zeile · Watson kann sich irren – prüfe Wichtiges.<span id="cgHint"></span></div>
       </div>
     </div>
 
@@ -385,6 +398,7 @@ pre.mem{white-space:pre-wrap;font:13px/1.5 Consolas,monospace;max-height:55vh;ov
     <!-- ============ Gehirne ============ -->
     <div id="pageGehirne" class="page">
       <div class="pageHead"><h1><i class="ti ti-brain"></i>Gehirne</h1><p>Ein „Gehirn“ ist die KI, die für Watson denkt. Hier wählst du, welche – und ob es gratis bleibt.</p></div>
+      <div class="card" id="cgKarte"><h3><i class="ti ti-message-chatbot"></i>Dein ChatGPT-Plan</h3><div id="cgInhalt"></div></div>
       <div class="card"><h3><i class="ti ti-coin"></i>Gratis oder bezahlt?</h3>
         <label style="display:flex;gap:10px;align-items:flex-start;font-size:15px"><input type="checkbox" id="gGratis" style="margin-top:5px"><span><b>💚 Nur kostenlose Gehirne</b><br><span class="muted small">Nichts kostet Geld. Bezahlte Gehirne werden immer übersprungen – auch als Ersatz und im Gehirn-Rat. Ausschalten = 💶 Bezahlt-Modus (Watson fragt vorher nach).</span></span></label></div>
       <div class="card"><h3><i class="ti ti-brain"></i>Deine Gehirne</h3>
@@ -2034,6 +2048,74 @@ window.auftragFertig = d => {
   setTimeout(() => t.classList.add("weg"), 60000);
   setTimeout(() => t.remove(), 61000);
 };
+// ---------- 💬 ChatGPT-Plan: so einfach, dass es ein Kind kann (chatgpt_plan.py) ----------
+let cgStand = null, cgTimer = null;
+function cgZeigen(st) {
+  cgStand = st; const k = $("#cgInhalt"); if (!k || !st) return;
+  const an = st.angemeldet, laeuft = st.anmeldung && st.anmeldung.laeuft;
+  const fehler = st.anmeldung && st.anmeldung.status === "fehler" ? st.anmeldung.fehler : "";
+  if (!an) {
+    k.innerHTML = `<div class="muted small">Hast du ein <b>ChatGPT Plus</b>- oder <b>Pro</b>-Abo? Dann kann Watson damit denken – ohne Schlüssel und ohne
+        Extra-Kosten. OpenAI erlaubt das für Programme wie Watson offiziell. Watson sieht dabei <b>nicht</b> deine ChatGPT-Gespräche.</div>
+      <ol class="cgSchritte"><li>Auf den grünen Knopf drücken</li><li>Im Browser bei ChatGPT anmelden und <b>„Erlauben“</b> drücken</li><li>Fertig – zurück zu Watson</li></ol>
+      <button class="cgKnopf" id="cgLos" ${laeuft ? "disabled" : ""}><i class="ti ti-message-chatbot"></i>${laeuft ? "Warte auf den Browser …" : "Mit ChatGPT anmelden"}</button>
+      <div class="small" style="margin-top:10px">${laeuft ? esc(st.anmeldung.status) : ""}${fehler ? `<span class="cgFehler">⚠ ${esc(fehler)}</span>` : ""}</div>
+      <div class="muted small" style="margin-top:8px">Kein ChatGPT-Abo? Kein Problem – Watson denkt weiter mit den kostenlosen Gehirnen.</div>`;
+    $("#cgLos").onclick = cgAnmelden;
+  } else {
+    const z = st.zustand;
+    const zeile = z === "kein_plan" ? `<span class="cgFehler">⚠ Dein ChatGPT-Konto hat keinen passenden Plan (nötig: Plus oder Pro). Watson nutzt die Gratis-Gehirne.</span>`
+      : z === "neu_anmelden" ? `<span class="cgWarn">⚠ Die Verbindung ist abgelaufen – bitte einmal neu anmelden.</span>`
+      : st.pause_bis ? `<span class="cgWarn">⏸ ${z === "grenze" ? "Nutzungsgrenze erreicht" : "ChatGPT gerade nicht erreichbar"} – bis etwa ${esc(st.pause_bis)} Uhr denkt Watson mit den Gratis-Gehirnen.</span>`
+      : st.an ? `<span class="cgOk">✓ Watson denkt mit deinem ChatGPT-Plan.</span>` : `<span class="muted">Ausgeschaltet – Watson nutzt die Gratis-Gehirne.</span>`;
+    k.innerHTML = `<div style="margin-bottom:10px">${zeile}</div>
+      <div class="row" style="gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <label><input type="checkbox" id="cgAn" ${st.an ? "checked" : ""}> ChatGPT-Plan benutzen</label>
+        <span class="lbl">Gehirn</span><select id="cgModell" style="max-width:260px">${(st.modelle || []).map(m => `<option ${m === st.modell ? "selected" : ""}>${esc(m)}</option>`).join("") || "<option>(noch keine Liste)</option>"}</select>
+        <button class="ghost" id="cgNeu" title="Liste der ChatGPT-Gehirne neu laden"><i class="ti ti-refresh"></i></button></div>
+      <div class="row" style="gap:10px;flex-wrap:wrap">
+        <button id="cgNutzung"><i class="ti ti-chart-bar"></i> Verbrauch verwalten</button>
+        ${z === "neu_anmelden" ? `<button class="cgKnopf" id="cgLos"><i class="ti ti-message-chatbot"></i>Neu anmelden</button>` : ""}
+        <button class="ghost" id="cgAb"><i class="ti ti-logout"></i> Abmelden</button>
+        <span class="muted small">${st.email ? "angemeldet als " + esc(st.email) : ""}</span></div>
+      <div class="muted small" style="margin-top:10px">Ist dein ChatGPT-Kontingent aufgebraucht, nimmt Watson von selbst die Gratis-Gehirne und sagt es dir. Nachts (Abendrunde) und im Team nutzt Watson weiter die Gratis-Gehirne, damit dein ChatGPT-Kontingent für dich bleibt.</div>`;
+    $("#cgAn").onchange = e => P().chatgpt_setzen(e.target.checked).then(cgZeigen);
+    $("#cgModell").onchange = e => P().chatgpt_setzen(null, e.target.value).then(cgZeigen);
+    $("#cgNeu").onclick = () => P().chatgpt_modelle_neu().then(cgZeigen);
+    $("#cgNutzung").onclick = () => P().chatgpt_nutzung();
+    $("#cgAb").onclick = async () => { if (await frage("Von ChatGPT abmelden?", "Watson nutzt danach wieder nur die kostenlosen Gehirne. Du kannst dich jederzeit wieder anmelden.", {ja: "Abmelden"})) P().chatgpt_abmelden().then(cgZeigen); };
+    if ($("#cgLos")) $("#cgLos").onclick = cgAnmelden;
+  }
+  // Banner im Gespräch + Anzeige unter dem Eingabefeld
+  let weg = false; try { weg = localStorage.getItem("cgBannerWeg") === "1"; } catch (e) {}
+  $("#cgBanner").classList.toggle("on", !an && !weg && !laeuft);
+  const hint = $("#cgHint"), aktiv = an && st.an && !["kein_plan", "neu_anmelden"].includes(st.zustand);
+  hint.className = aktiv ? (st.pause_bis ? "on grenze" : "on") : "";
+  hint.innerHTML = aktiv ? (st.pause_bis ? ` · ⏸ ChatGPT: Nutzungsgrenze erreicht (bis ca. ${esc(st.pause_bis)}) · <a onclick="P().chatgpt_nutzung()">Verbrauch verwalten</a>`
+                                         : ` · 💬 Nutzt deinen ChatGPT-Plan · <a onclick="P().chatgpt_nutzung()">Verbrauch verwalten</a>`) : "";
+  // Begrüßung genau einmal nach der ersten erfolgreichen Anmeldung
+  if (an && st.an && !st.willkommen_gezeigt && !cgZeigen.begruesst) {
+    cgZeigen.begruesst = true;
+    frageZeigen({titel: "Du nutzt jetzt deinen ChatGPT-Plan 🎉", ja: "Verstanden", nein: "Verbrauch ansehen",
+      text: "Watson denkt ab jetzt mit deinem ChatGPT-Abo – ohne Extra-Kosten. Was du in Watson fragst, zählt zu deinem ChatGPT-Kontingent. " +
+            "Unter dem Eingabefeld siehst du immer, dass dein Plan benutzt wird. Ist das Kontingent aufgebraucht, nimmt Watson von selbst die Gratis-Gehirne. " +
+            "Watson sieht deine ChatGPT-Gespräche nicht."})
+      .then(ok => { if (!ok) P().chatgpt_nutzung(); P().chatgpt_setzen(null, null, true); });
+  }
+}
+async function cgAnmelden() {
+  showTab("gehirne");
+  await P().chatgpt_anmelden();
+  clearInterval(cgTimer);
+  cgTimer = setInterval(async () => {                // Fortschritt zeigen, bis die Anmeldung fertig ist
+    const st = await P().chatgpt_status(); cgZeigen(st);
+    if (!st.anmeldung.laeuft) clearInterval(cgTimer);
+  }, 1500);
+}
+function cgBannerWeg() { try { localStorage.setItem("cgBannerWeg", "1"); } catch (e) {} $("#cgBanner").classList.remove("on"); }
+function cgLaden() { try { P().chatgpt_status().then(cgZeigen); } catch (e) {} }
+function cgStart() { cgLaden(); setInterval(cgLaden, 60000); }
+if (window.pywebview && window.pywebview.api) cgStart(); else window.addEventListener("pywebviewready", cgStart);
 // ---------- 💓 Herzschlag: Watson schaut alle paar Minuten selbst nach (herzschlag.py) ----------
 let herzStand = null;
 function herzZeigen(st) {
