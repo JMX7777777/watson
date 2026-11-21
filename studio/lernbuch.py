@@ -113,7 +113,8 @@ def statistik():
 STOP = set("der die das ein eine einer eines und oder aber ich du er sie es wir ihr mir mich dir dich ist sind war "
            "wie was wer wo wann warum wieso welche welcher welches mit von zu zum zur im in am an auf für bei über "
            "unter nach vor aus bitte kannst kann können soll sollte mein meine dein deine watson nicht noch auch "
-           "nur schon sehr mal denn dann wenn ob als so ja nein".split())
+           "nur schon sehr mal denn dann wenn ob als so ja nein meiner meinem meinen deiner deinem deinen heute geht "
+           "gibt steht machen mache sagen sag bitte gerade jetzt immer viel viele gut dieses diese dieser fass zusammen".split())
 
 
 def _woerter(t):
@@ -144,14 +145,18 @@ def wissen_loeschen(eid):
 
 def wissen_passend(frage, anzahl=3):
     """Die Einträge, die am besten zur Frage passen (einfacher Wortvergleich)."""
-    q = _woerter(frage)
+    q = _woerter(re.sub(r"https?://\S+|www\.\S+", " ", frage or ""))     # Link-Teile sind keine Wörter
     if not q:
         return []
+    # 22.11.2026: Früher reichte EIN gemeinsames Wort („geht“) -> bei „Wie geht es dir?“ kamen Einträge über
+    # Ehefrau und Mutter mit (~900 Tokens, die nichts mit der Frage zu tun hatten). Jetzt braucht es 2 passende Wörter
+    # (bei Ein-Wort-Fragen 1). Teilwörter zählen mit („frau“ passt zu „ehefrau“).
+    noetig = 1 if len(q) == 1 else 2
     treffer = []
     for e in _laden(WISSEN, {"eintraege": []})["eintraege"]:
         w = _woerter(e["frage"] + " " + (e["kurz"] or e["antwort"][:1500]))
-        gemeinsam = len(q & w)
-        if gemeinsam >= max(1, min(2, len(q) // 3)):
+        gemeinsam = sum(1 for x in q if x in w or (len(x) >= 4 and any(x in y for y in w)))
+        if gemeinsam >= noetig:
             treffer.append((gemeinsam / (len(q) ** 0.5), e))
     treffer.sort(key=lambda x: x[0], reverse=True)
     return [e for _, e in treffer[:anzahl]]

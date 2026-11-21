@@ -26,7 +26,23 @@ DATEI = pfade.DATEN / "herzschlag.json"
 H = {}                     # Helfer aus watson_studio (init)
 _lock = threading.Lock()
 _laeuft = threading.Event()
-WIEDERHOLEN_NACH = 6 * 3600
+# 22.11.2026: vorher alle 6 Std. -> dieselbe Meldung kam 6× in 2 Tagen (Watson schrieb selbst „Spam-Gefühl“).
+# Jetzt: höchstens 1× pro Tag und insgesamt höchstens 3× dieselbe Sache.
+WIEDERHOLEN_NACH = 24 * 3600
+MAX_MELDUNGEN = 3
+
+
+def _kurz(text, n):
+    """Sauber kürzen: am Satzende oder wenigstens an einer Wortgrenze, mit „…“ (nicht mitten im Wort)."""
+    text = " ".join(str(text or "").split())
+    if len(text) <= n:
+        return text
+    stueck = text[:n]
+    satz = max(stueck.rfind(". "), stueck.rfind("! "), stueck.rfind("? "))
+    if satz >= n * 0.5:
+        return stueck[:satz + 1]
+    wort = stueck.rfind(" ")
+    return (stueck[:wort] if wort > 0 else stueck).rstrip(" ,;:–-") + " …"
 
 
 def init(**helfer):
@@ -40,6 +56,7 @@ def _laden():
         d = {}
     d.setdefault("schlaege", [])          # Puls-Tagebuch (letzte 200)
     d.setdefault("gemeldet", {})          # schlüssel -> Zeit (gegen Wiederholung)
+    d.setdefault("gemeldet_zahl", {})     # schlüssel -> wie oft schon gemeldet
     d.setdefault("nachts_gesammelt", [])
     d.setdefault("anzahl", 0)
     d.setdefault("netz_fehler", 0)
@@ -49,10 +66,20 @@ def _laden():
 def _speichern(d):
     d["schlaege"] = d["schlaege"][-200:]
     jetzt = time.time()
-    d["gemeldet"] = {k: v for k, v in d["gemeldet"].items() if jetzt - v < 2 * 86400}
+    d["gemeldet"] = {k: v for k, v in d["gemeldet"].items() if jetzt - v < 7 * 86400}
+    d["gemeldet_zahl"] = {k: n for k, n in d.get("gemeldet_zahl", {}).items() if k in d["gemeldet"]}
     tmp = DATEI.with_suffix(".tmp")
     tmp.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
-    tmp.replace(DATEI)
+    # 22.11.2026: Windows sperrt die Datei manchmal kurz (Virenscanner, OneDrive, Lesen der Oberfläche)
+    # -> „Zugriff verweigert“. Dann kurz warten und nochmal versuchen statt Fehler.
+    for versuch in range(5):
+        try:
+            tmp.replace(DATEI)
+            return
+        except PermissionError:
+            if versuch == 4:
+                raise
+            time.sleep(0.2 * (versuch + 1))
 
 
 def _cfg():
@@ -290,7 +317,7 @@ def pruef_werkzeug_wuensche(d):
         offen = werkzeug_wahl.offene()
     except Exception:
         return []
-    return [_b("werkzeug", f"🔌 Ich wünsche mir ein neues Werkzeug: „{w['titel']}“ – {w['warum'][:200]} "
+    return [_b("werkzeug", f"🔌 Ich wünsche mir ein neues Werkzeug: „{w['titel']}“ – {_kurz(w['warum'], 200)} "
                "Sag Ja oder Nein unter „Skills“ (Laptop oder Handy).", "wichtig", f"werkzeug:{w['id']}") for w in offen[:3]]
 
 
@@ -314,11 +341,11 @@ def pruef_wartung(d):
     try:
         import wartung
         offen = [v for v in wartung._laden()["vorschlaege"] if v["status"] == "vorgeschlagen"
-                 and wartung.zustimmung(v)[0] >= 2]
+                 and wartung.zustimmung(v)[0] >= 2 and (v.get("oberpruefung") or {}).get("urteil") is True]
     except Exception:
         return []
-    return [_b("wartung", f"🔧 Mein Wartungs-Team hat in „{v['datei']}“ etwas gefunden: {v.get('erklaerung', '')[:160]} "
-               "Der Code-Rat stimmt zu. Sag Ja oder Nein unter „Wachstum“ (Laptop oder Handy).", "wichtig",
+    return [_b("wartung", f"🔧 Mein Wartungs-Team hat in „{v['datei']}“ etwas gefunden: {_kurz(v.get('erklaerung', ''), 200)} "
+               f"Der Code-Rat und {(v.get('oberpruefung') or {}).get('wer', 'der Oberprüfer')} stimmen zu. Sag Ja oder Nein unter „Wachstum“ (Laptop oder Handy).", "wichtig",
                f"wartung:{v['id']}") for v in offen[:2]]
 
 
@@ -348,16 +375,30 @@ def schlag(grund="Takt"):
                 if "fehler_melden" in H:
                     H["fehler_melden"]("Herzschlag/" + name, e)
         jetzt = time.time()
+        zahl = d.setdefault("gemeldet_zahl", {})
+        gesammelt = {(x.get("schluessel") if isinstance(x, dict) else x) for x in d["nachts_gesammelt"]}
         neu_wichtig = [b for b in befunde if b["stufe"] == "wichtig"
+                       and b["schluessel"] not in gesammelt                   # liegt schon im Nacht-Stapel
+                       and zahl.get(b["schluessel"], 0) < MAX_MELDUNGEN
                        and jetzt - d["gemeldet"].get(b["schluessel"], 0) > WIEDERHOLEN_NACH]
-        for b in neu_wichtig:
-            d["gemeldet"][b["schluessel"]] = jetzt
         still = nachtruhe() or _handy_still()
         zu_melden = []
         if nachtruhe():
-            d["nachts_gesammelt"] = (d["nachts_gesammelt"] + [b["text"] for b in neu_wichtig])[-20:]
+            # nachts nur sammeln – gezählt wird erst, wenn es morgens wirklich gemeldet wird
+            d["nachts_gesammelt"] = (d["nachts_gesammelt"] + [{"text": b["text"], "schluessel": b["schluessel"]}
+                                                              for b in neu_wichtig])[-20:]
         else:
-            zu_melden = d["nachts_gesammelt"] + [b["text"] for b in neu_wichtig]
+            stapel = [x if isinstance(x, dict) else {"text": x, "schluessel": "alt:" + x[:60]}
+                      for x in d["nachts_gesammelt"]] + [{"text": b["text"], "schluessel": b["schluessel"]}
+                                                         for b in neu_wichtig]
+            schon = set()
+            for x in stapel:                       # nichts doppelt in einer Nachricht
+                if x["schluessel"] in schon or x["text"] in zu_melden:
+                    continue
+                schon.add(x["schluessel"])
+                zu_melden.append(x["text"])
+                d["gemeldet"][x["schluessel"]] = jetzt      # Zeit ab dem ECHTEN Melden (nicht ab dem Sammeln)
+                zahl[x["schluessel"]] = zahl.get(x["schluessel"], 0) + 1
             d["nachts_gesammelt"] = []
         zustand = "wichtig" if any(b["stufe"] == "wichtig" for b in befunde) else \
             "info" if any(b["stufe"] == "info" for b in befunde) else "ok"
@@ -408,7 +449,7 @@ def status():
     return {"an": an(cfg), "minuten": minuten(cfg), "anzahl": d["anzahl"], "letzter": letzter,
             "naechster_in": max(0, round(((d.get("letzter_schlag") or time.time()) + minuten(cfg) * 60 - time.time()) / 60))
             if an(cfg) else None,
-            "tagebuch": list(reversed(d["schlaege"][-30:])), "nachts_gesammelt": d["nachts_gesammelt"],
+            "tagebuch": list(reversed(d["schlaege"][-30:])), "nachts_gesammelt": [x["text"] if isinstance(x, dict) else x for x in d["nachts_gesammelt"]],
             "updates": updates_info()}
 
 

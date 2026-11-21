@@ -1705,7 +1705,12 @@ function codeRat(v) {
       ${x ? `<details class="small"><summary>Begründung</summary><div style="white-space:pre-wrap">${esc(x.grund)}</div></details>` : ""}
       ${v.status === "vorgeschlagen" ? `<button class="ghost small" data-rat="${v.id}|extern|${i + 1}">Andere KI eintragen</button>` : ""}</div>`;
   }).join("");
-  return `<div class="ratBox"><div><b>🧑‍💻 Code-Rat: ${v.ja || 0} von 3 sagen Ja</b> <span class="muted small">– mindestens 2 müssen zustimmen${v.ja === 3 ? ", hier sogar einstimmig 🎉" : ""}</span></div>${plaetze}
+  // Oberprüfer (22.11.2026): ChatGPT (falls verbunden) oder Claude in der Werkstatt prüft mit dem ganzen Code
+  const ob = v.oberpruefung;
+  const ober = ob ? `<div class="ratPlatz">${ob.urteil === true ? "✅" : ob.urteil === false ? "❌" : "⏳"} <b>Oberprüfer:</b> ${esc(ob.wer || "")}${ob.urteil == null ? " <span class='muted'>– prüft mit dem ganzen Programmcode (beim nächsten Gespräch in der Werkstatt)</span>" : ""}
+      ${ob.grund ? `<details class="small"><summary>Begründung</summary><div style="white-space:pre-wrap">${esc(ob.grund)}</div></details>` : ""}</div>`
+    : (v.ja >= 2 && v.status === "vorgeschlagen" ? `<div class="ratPlatz">⏳ <b>Oberprüfer:</b> <span class="muted">noch nicht gefragt</span></div>` : "");
+  return `<div class="ratBox"><div><b>🧑‍💻 Code-Rat: ${v.ja || 0} von 3 sagen Ja</b> <span class="muted small">– mindestens 2 müssen zustimmen${v.ja === 3 ? ", hier sogar einstimmig 🎉" : ""}</span></div>${plaetze}${ober}
     ${v.status === "vorgeschlagen" ? `<div class="row" style="gap:8px;margin-top:6px;flex-wrap:wrap"><button class="small" data-rat="${v.id}|auto">Freie Plätze automatisch fragen</button><button class="small" data-rat="${v.id}|datei">📄 Als Textdatei für Claude, ChatGPT, Gemini …</button></div>` : ""}
     <div class="small ratInfo" style="margin-top:6px"></div><div class="ratForm"></div></div>`;
 }

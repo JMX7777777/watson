@@ -314,6 +314,12 @@ def anwenden(vid):
         if ja < 2:
             return {"error": f"Der Code-Rat hat noch nicht zugestimmt ({ja} von 3 sagen Ja). Mindestens 2 von 3 "
                              "Gutachtern müssen einverstanden sein."}
+        ob = v.get("oberpruefung") or {}
+        if ob.get("urteil") is not True:
+            return {"error": "Der Oberprüfer hat noch nicht zugestimmt. " + (
+                f"{ob.get('wer', 'Er')} sagt NEIN: {ob.get('grund', '')[:300]}" if ob.get("urteil") is False else
+                "Die Prüfung mit dem echten Programmcode (ChatGPT, falls verbunden, sonst Claude in der Werkstatt) "
+                "steht noch aus.")}
         pfad = pfade.PROGRAMM / v["datei"]
         quelle = pfad.read_text(encoding="utf-8")
         if quelle.count(v["alt"]) != 1:
@@ -430,6 +436,11 @@ def gutachten_automatisch(vid):
                 x["gutachten"] = gutachten
                 ja, n = zustimmung(x)
         _speichern(d)
+    if ja >= 2:
+        try:
+            oberpruefung(vid)          # erst ChatGPT (falls gemietet) oder die Werkstatt prüft mit echtem Code
+        except Exception:
+            pass
     return {"ok": True, "ja": ja, "von": n}
 
 
@@ -461,6 +472,127 @@ def gutachten_extern(vid, platz, quelle, antwort):
         ja, n = zustimmung(v)
         _speichern(d)
     return {"ok": True, "ja": ja, "von": n}
+
+
+# ---------------- Oberprüfung (22.11.2026, Wunsch des Besitzers) ----------------
+# Anlass: Reparatur Nr. 1 (auftraege.py) – drei Gratis-Gehirne sagten JA, aber der „Fehler“ gab es gar nicht und die
+# Änderung hätte nach einem Abbruch eine falsche Fehlermeldung in den Chat geschrieben. Die Gutachter sahen nur den
+# kleinen Ausschnitt, nicht den Rest des Programms. Darum jetzt: Bevor der Besitzer gefragt wird, prüft ein starker
+# Oberprüfer MIT dem ganzen Code der Datei und den Stellen, die sie benutzen:
+#   - ChatGPT, wenn der Besitzer seinen ChatGPT-Plan verbunden hat (automatisch, nachts)
+#   - sonst Claude in der Werkstatt: der Vorschlag landet in WERKSTATT_DATEI, Claude prüft beim nächsten Gespräch
+#     und urteilt mit werkzeuge/werkstatt_urteil.py
+# Sagt der Oberprüfer NEIN, wird der Vorschlag abgelehnt (am Programm ändert sich dadurch nichts).
+WERKSTATT_DATEI = pfade.WATSON_HOME / "werkstatt-pruefung.md"
+
+
+def _umfeld(v, max_datei=40000, max_fremd=12000):
+    """Der ganze Code der Datei + Stellen in anderen Programmteilen, die diese Datei benutzen."""
+    pfad = pfade.PROGRAMM / v["datei"]
+    try:
+        code = pfad.read_text(encoding="utf-8")
+    except OSError:
+        code = ""
+    if len(code) > max_datei:
+        i = max(0, code.find(v["alt"][:200]))
+        code = code[max(0, i - max_datei // 2): i + max_datei // 2]
+    name = pfad.stem + "."
+    fremd = []
+    for f in _programm_dateien():
+        if f.name == pfad.name or f.suffix != ".py":
+            continue
+        zeilen = f.read_text(encoding="utf-8", errors="replace").splitlines()
+        for nr, z in enumerate(zeilen):
+            if name in z and not z.lstrip().startswith("#"):
+                fremd.append(f"# {f.name}, Zeile {nr + 1}\n" + "\n".join(zeilen[max(0, nr - 3): nr + 4]))
+    fremd_text = "\n\n".join(fremd)[:max_fremd]
+    return code, fremd_text
+
+
+def _ober_anfrage(v):
+    code, fremd = _umfeld(v)
+    gut = "\n".join(f"- {g['wer']}: {'JA' if g['urteil'] else 'NEIN'}" for g in (v.get("gutachten") or []) if g)
+    return (f"Watson (Python 3.12, pywebview) möchte sein eigenes Programm ändern. Drei kleine Gutachter haben nur den "
+            f"Ausschnitt gesehen und so geurteilt:\n{gut}\n\nDu bist der OBERPRÜFER und siehst den GANZEN Code. Prüfe "
+            "genau: 1) Gibt es den beschriebenen Fehler wirklich (lies die Funktionen, die beteiligt sind – auch die, die "
+            "den Zustand vorher ändern)? 2) Behebt die Änderung ihn, ohne an anderer Stelle etwas zu verschlechtern "
+            "(z. B. falsche Meldungen an den Nutzer)? Sag NEIN, wenn der Fehler nicht echt ist oder du unsicher bist.\n\n"
+            f"Datei: {v['datei']}\nBehaupteter Fehler: {v['fehler']}\nErklärung: {v.get('erklaerung', '')}\n\n"
+            f"--- ALTER CODE ---\n{v['alt']}\n\n--- NEUER CODE ---\n{v['neu']}\n\n"
+            f"--- GANZE DATEI {v['datei']} ---\n{code}\n\n--- STELLEN IN ANDEREN DATEIEN, DIE SIE BENUTZEN ---\n"
+            f"{fremd or '(keine)'}\n\nAntworte so:\nURTEIL: JA  (oder)  URTEIL: NEIN\nBEGRÜNDUNG: zwei bis vier Sätze")
+
+
+def oberpruefung(vid):
+    """ChatGPT (falls verbunden) prüft sofort; sonst wartet der Vorschlag auf Claude in der Werkstatt."""
+    v = next((x for x in _laden()["vorschlaege"] if x["id"] == int(vid)), None)
+    if not v or v["status"] != "vorgeschlagen" or (v.get("oberpruefung") or {}).get("urteil") is not None:
+        return {"error": "Nichts zu prüfen."}
+    ergebnis = None
+    if H.get("chatgpt_frage"):
+        try:
+            ergebnis = H["chatgpt_frage"]([
+                {"role": "system", "content": "Du bist ein sehr erfahrener, vorsichtiger Python-Entwickler. Du prüfst "
+                                              "Code-Änderungen gründlich und ehrlich."},
+                {"role": "user", "content": _ober_anfrage(v)}])
+        except Exception:
+            ergebnis = None
+    if ergebnis:
+        text, wer = ergebnis
+        u = _urteil(text)
+        if u is not None:
+            return urteil_setzen(vid, u, text.strip()[:3000], "ChatGPT (dein Plan" + (f", {wer.split('/')[-1]})" if wer else ")"))
+    with _lock:
+        d = _laden()
+        for x in d["vorschlaege"]:
+            if x["id"] == int(vid):
+                x["oberpruefung"] = {"wer": "Claude (Werkstatt)", "urteil": None, "wartet": True,
+                                     "datum": time.strftime("%d.%m.%Y %H:%M")}
+        _speichern(d)
+    werkstatt_datei_schreiben()
+    return {"ok": True, "wartet": "Werkstatt"}
+
+
+def urteil_setzen(vid, urteil, grund, wer):
+    """Urteil des Oberprüfers eintragen. NEIN -> Vorschlag abgelehnt (am Programm ändert sich nichts)."""
+    with _lock:
+        d = _laden()
+        v = next((x for x in d["vorschlaege"] if x["id"] == int(vid)), None)
+        if not v:
+            return {"error": "Vorschlag nicht gefunden."}
+        v["oberpruefung"] = {"wer": wer, "urteil": bool(urteil), "grund": grund, "datum": time.strftime("%d.%m.%Y %H:%M")}
+        if not urteil and v["status"] == "vorgeschlagen":
+            v["status"], v["ergebnis"] = "abgelehnt", f"Vom Oberprüfer ({wer}) abgelehnt: {grund[:300]}"
+        _speichern(d)
+    werkstatt_datei_schreiben()
+    return {"ok": True, "urteil": bool(urteil)}
+
+
+def werkstatt_offen():
+    return [v for v in _laden()["vorschlaege"] if v["status"] == "vorgeschlagen"
+            and (v.get("oberpruefung") or {}).get("wartet") and (v.get("oberpruefung") or {}).get("urteil") is None]
+
+
+def werkstatt_datei_schreiben():
+    """Liste für Claude: Vorschläge, die auf die Prüfung in der Werkstatt warten (leer -> Datei weg)."""
+    offen = werkstatt_offen()
+    if not offen:
+        try:
+            WERKSTATT_DATEI.unlink()
+        except OSError:
+            pass
+        return
+    teile = ["# Werkstatt-Prüfung – Reparatur-Vorschläge warten auf Claude", "",
+             "Watsons Wartungs-Team hat diese Änderungen vorgeschlagen, der Code-Rat (Gratis-Gehirne) stimmt zu. "
+             "Claude: Prüfe jede mit dem ECHTEN Code (Datei ganz lesen, beteiligte Funktionen und Aufrufer ansehen). "
+             "Urteil eintragen mit:", "",
+             "    studio\\.venv\\Scripts\\python.exe werkzeuge\\werkstatt_urteil.py <Nr> ja|nein \"Begründung in einfachen Worten\"",
+             "", "Danach dem Besitzer kurz sagen, was du entschieden hast und warum.", ""]
+    for v in offen:
+        teile += [f"## Nr. {v['id']} – {v['datei']} ({v['datum']}, {v.get('herkunft', '')})", "",
+                  f"**Behaupteter Fehler:** {v['fehler']}", "", f"**Erklärung:** {v.get('erklaerung', '')}", "",
+                  "Alter Code:", "```python", v["alt"], "```", "Neuer Code:", "```python", v["neu"], "```", ""]
+    WERKSTATT_DATEI.write_text("\n".join(teile), encoding="utf-8")
 
 
 # ---------------- Lernen im Netz: neue Programmier-Methoden ----------------

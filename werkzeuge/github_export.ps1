@@ -25,7 +25,7 @@ foreach ($ordner in "assets", "eigene-stimme") {         # mit Unterordnern (z. 
 foreach ($d in "setup.ps1", "bauen.ps1", "deinstallieren.ps1", "starter.cs", "starter.manifest") {
     Kopie (Join-Path $Watson "installer\$d") (Join-Path $Ziel "installer\$d") }
 # 3) Werkzeuge für Entwickler
-foreach ($d in "i18n_bauen.py", "i18n_texte.py", "i18n_kern.js", "jslex.py", "github_export.ps1") {
+foreach ($d in "i18n_bauen.py", "i18n_texte.py", "i18n_kern.js", "jslex.py", "github_export.ps1", "werkstatt_urteil.py") {
     Kopie (Join-Path $Watson "werkzeuge\$d") (Join-Path $Ziel "werkzeuge\$d") }
 Kopie (Join-Path $Watson "n8n-linux\installieren.sh") (Join-Path $Ziel "n8n-linux\installieren.sh")
 # 4) Texte fürs Projekt (liegen in werkzeuge\github\)
@@ -65,7 +65,7 @@ $verboten = "einstellungen.json", "watson.db", "protokoll.log", "mcp.json", "han
             "lernbuch.json", "wissensbuch.json", "wachstum.json", "reparaturen.json", "vertrauen.json", "CLAUDE.md",
             "lehren.json", "meinungsbuch.json", "fehlerbuch.json", "herzschlag.json", "auftraege.json", "tatpruefung.jsonl",
             "dirigent_extra.json", "kanaele.json", "watson_status.txt", "widersprueche.json", "tokens.jsonl",
-            "ideenbuch.json", "nach_anmeldung.log"
+            "ideenbuch.json", "nach_anmeldung.log", "werkstatt-pruefung.md", "reparaturen.json"
 Get-ChildItem $Ziel -Recurse -File -Force | Where-Object { $verboten -contains $_.Name -or $_.Extension -in ".wav", ".db", ".log", ".m4a", ".mp3" } |
     ForEach-Object { $funde += "VERBOTENE DATEI: " + $_.FullName.Substring($Ziel.Length + 1) }
 

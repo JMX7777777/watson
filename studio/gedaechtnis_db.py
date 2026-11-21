@@ -30,7 +30,7 @@ eines er es etwas euch euer für hab habe haben hat hatte hier hin ich ihm ihn i
 jedes jetzt kann kannst kein keine können mache machen mal man mein meine mich mir mit muss nach nicht nichts noch nun
 nur ob oder ohne sehr sein seine sich sie sind so soll sollte sondern über um und uns unser unter viel vom von vor war
 waren was weil welche wenn wer werde werden wie wieder will wir wird wirst wo wollen würde zu zum zur zwischen bitte
-watson hallo danke gut okay ok gibt geht schon mehr ganz immer einfach
+watson hallo danke gut okay ok gibt geht schon mehr ganz immer einfach heute steht
 """.split())
 
 

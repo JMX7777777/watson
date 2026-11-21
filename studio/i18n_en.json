@@ -1230,5 +1230,12 @@
  "📚 Zuletzt übers Programmieren gelernt:": "📚 Recently learned about programming:",
  "📝 Deine Notiz: {0}": "📝 Your note: {0}",
  "🛠 Einbauen lassen": "🛠 Have it built in",
- "alles passt": "all fine"
+ "alles passt": "all fine",
+ "Oberprüfer:": "Senior reviewer:",
+ "Oberprüfer: {0}": "Senior reviewer: {0}",
+ "noch nicht gefragt": "not asked yet",
+ "– prüft mit dem ganzen Programmcode (beim nächsten Gespräch in der Werkstatt)": "– checks with the full program code (at the next workshop session)",
+ "⏳ noch nicht gefragt": "⏳ not asked yet",
+ "⏳ prüft noch": "⏳ still checking",
+ "disabled title=\"Erst müssen 2 von 3 Gutachtern und der Oberprüfer zustimmen\"": "disabled title=\"2 of 3 reviewers and the senior reviewer must agree first\""
 }

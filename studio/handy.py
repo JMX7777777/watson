@@ -598,7 +598,8 @@ class Handler(BaseHTTPRequestHandler):
             cg = api.chatgpt_status()
             rep = [{"id": v["id"], "datum": v["datum"], "datei": v["datei"], "fehler": v["fehler"][:300],
                     "erklaerung": v.get("erklaerung", "")[:400], "ja": wartung.zustimmung(v)[0], "von": wartung.zustimmung(v)[1],
-                    "herkunft": v.get("herkunft", "Fehler-Sammler")} for v in wartung._laden()["vorschlaege"]
+                    "herkunft": v.get("herkunft", "Fehler-Sammler"),
+                    "ober": {k: (v.get("oberpruefung") or {}).get(k) for k in ("wer", "urteil")}} for v in wartung._laden()["vorschlaege"]
                    if v["status"] == "vorgeschlagen"][-10:]
             return {"herz": {"an": hs["an"], "minuten": hs["minuten"], "letzter": hs["letzter"], "updates": hs.get("updates"),
                              "nachts": hs.get("nachts_gesammelt")},
