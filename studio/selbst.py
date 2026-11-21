@@ -103,6 +103,17 @@ def wachstum_bericht(wachstum_modul):
             teile.append(f"Aus Fehlern gelernt: {f['angeschaut']} Fehler angeschaut" +
                          (f"; neue Lehren: {'; '.join(f['lehren'])}" if f.get("lehren") else "") +
                          (f"; {len(f['vorschlaege'])} Lehre(n) als Vorschlag für den Nutzer" if f.get("vorschlaege") else ""))
+        er = r.get("erfinder") or {}
+        if isinstance(er, dict) and (er.get("ideen") or er.get("programmieren")):
+            pg = er.get("programmieren") or {}
+            if pg.get("thema"):
+                teile.append(f"Erfinder-Zeit – Programmieren gelernt: {pg['thema']}" + ("" if pg.get("gefunden") else " (nichts Brauchbares gefunden)"))
+            if er.get("problem"):
+                teile.append(f"Erfinder-Zeit – erforschtes Problem: {er['problem'][:200]}; Ideen: " +
+                             ("; ".join(f"Nr. {i['id']} „{i['titel']}“ ({i['bewertung']}/5)" for i in er.get("ideen") or []) or "keine"))
+        wz = r.get("werkzeuge") or {}
+        if wz.get("gewaehlt"):
+            teile.append(f"Werkzeug-Wunsch (nachts selbst ausgesucht): {wz['gewaehlt']} – wartet auf Ja/Nein des Nutzers")
         mn = r.get("meinungen") or {}
         if mn.get("neu") or mn.get("geprueft"):
             teile.append("Nachgedacht (Meinungsbuch): " + "; ".join(

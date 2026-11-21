@@ -36,7 +36,8 @@ watson hallo danke gut okay ok gibt geht schon mehr ganz immer einfach
 
 # Bedeutungs-Treffer zählen nur, wenn sie deutlich herausragen (gemessen 15.11.2026: 11/12 richtig, wenige Fehltreffer).
 # e5-Werte liegen alle eng um 0,8 – darum wird die „Grundähnlichkeit“ (Mittelwert aller Einträge) abgezogen.
-SEM_Z = 2.0      # mindestens 2 Standardabweichungen über dem Durchschnitt
+ARCHIV_VERSION = 2   # 21.11.2026: lange Stichpunkte werden an Satzenden zerlegt
+SEM_Z = 2.0     # mindestens 2 Standardabweichungen über dem Durchschnitt
 SEM_MIN = 0.15   # und eine kleine Mindest-Ähnlichkeit nach dem Abziehen
 
 
@@ -87,7 +88,17 @@ class Memory:
                     stueck = []
                 stueck.append(zeile)
             teile.append("\n".join(stueck).strip())
-            aus.extend((titel, t) for t in teile if t)
+            # Ein einzelner Riesen-Stichpunkt (gemessen 21.11.2026: ~10.000 Zeichen) ging sonst ganz mit.
+            # -> an Satzenden weiter zerlegen, damit jeder Ausschnitt klein bleibt (spart Tokens).
+            kleine = []
+            for t in teile:
+                while len(t) > max_zeichen * 1.5:
+                    schnitt = max(t.rfind(". ", 0, max_zeichen), t.rfind("; ", 0, max_zeichen), t.rfind("\n", 0, max_zeichen))
+                    schnitt = schnitt + 1 if schnitt > max_zeichen // 3 else max_zeichen
+                    kleine.append(t[:schnitt].strip())
+                    t = t[schnitt:].strip()
+                kleine.append(t)
+            aus.extend((titel, t) for t in kleine if t)
 
         for zeile in text.splitlines():
             m = re.match(r"^(#{1,4})\s+(.*)", zeile)
@@ -108,7 +119,7 @@ class Memory:
         for alt in [n for n in stand if n not in namen]:              # Datei gibt es nicht mehr
             self._archiv_leeren(alt)
         for d in dateien:
-            mt = d.stat().st_mtime
+            mt = f"{d.stat().st_mtime}|{ARCHIV_VERSION}"   # neue Zerlege-Art -> alles einmal neu zerlegen
             if stand.get(d.name) == mt:
                 continue
             self._archiv_leeren(d.name)
@@ -285,9 +296,22 @@ class Memory:
         return mid
 
     def messages(self, chat_id, limit=None):
-        sql = "SELECT role, name, content, model FROM messages WHERE chat_id=? ORDER BY id"
+        sql = "SELECT id, role, name, content, model FROM messages WHERE chat_id=? ORDER BY id"
         rows = [dict(r) for r in self._x(sql, (chat_id,)).fetchall()]
         return rows[-limit:] if limit else rows
+
+    def kuerzen_ab(self, chat_id, msg_id):
+        """Löscht die Nachricht msg_id und alle späteren im Gespräch (für „Nachricht bearbeiten“). Gibt die Anzahl zurück."""
+        ids = [r["id"] for r in self._x("SELECT id FROM messages WHERE chat_id=? AND id>=?", (chat_id, msg_id)).fetchall()]
+        if not ids:
+            return 0
+        with self.lock:
+            self.db.executemany("DELETE FROM messages_fts WHERE rowid=?", [(i,) for i in ids])
+            self.db.execute("DELETE FROM messages WHERE chat_id=? AND id>=?", (chat_id, msg_id))
+            self.db.execute("UPDATE chats SET updated=? WHERE id=?", (time.time(), chat_id))
+            self.db.commit()
+        self._v_loeschen("msg", ids)
+        return len(ids)
 
     # ---------- Merkzettel (Fakten) ----------
     def add_fact(self, text, chat_id=None):

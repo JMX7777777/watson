@@ -144,6 +144,127 @@ def reparatur_vorschlagen(g):
     return {"ergebnis": "vorgeschlagen" if vid else "schon vorgeschlagen", "id": vid}
 
 
+# ---------------- Wartungs-Team: Bug-Jäger und Gegenprüfer (sucht Fehler, BEVOR sie passieren) ----------------
+# Bisher reagierte die Wartung nur auf Fehler, die schon passiert waren. Das Team liest jede Nacht ein Stück Code
+# (der Reihe nach durch das ganze Programm), sucht echte Fehler und lässt jeden Fund von einem ANDEREN Gehirn
+# gegenprüfen (kostenlose Gehirne „finden“ gern Fehler, die keine sind). Bestätigte Funde werden zu einem
+# Reparatur-Vorschlag, den der Code-Rat (3 Gutachter, 2 müssen zustimmen) prüft. Angewendet wird NUR nach dem Ja
+# des Besitzers – mit Sicherung, echtem Ladetest und automatischem Zurückholen, wenn etwas schiefgeht.
+def _bloecke(pfad, max_zeilen=170):
+    """Zerlegt eine Datei in Stücke entlang der Funktionen (ast), höchstens max_zeilen lang."""
+    import ast
+    text = pfad.read_text(encoding="utf-8")
+    zeilen = text.splitlines()
+    try:
+        baum = ast.parse(text)
+    except SyntaxError:
+        return []
+    grenzen = []
+    for n in baum.body:
+        kinder = n.body if isinstance(n, ast.ClassDef) else [n]
+        for k in kinder:
+            if hasattr(k, "lineno"):
+                grenzen.append((k.lineno, getattr(k, "end_lineno", k.lineno)))
+    bloecke, start, ende = [], None, None
+    for a, b in grenzen:
+        if start is None:
+            start, ende = a, b
+        elif b - start + 1 <= max_zeilen:
+            ende = b
+        else:
+            bloecke.append((start, ende))
+            start, ende = a, b
+    if start is not None:
+        bloecke.append((start, ende))
+    return [(a, min(b, a + max_zeilen * 2), zeilen) for a, b in bloecke]
+
+
+GEGENPRUEFER_HINWEIS = ("Du bist ein strenger Gegenprüfer. Ein anderes KI-Gehirn behauptet, im folgenden Python-Code "
+                        "einen Fehler gefunden zu haben. KI-Gehirne irren sich oft. Prüfe NUR am gezeigten Code, ob der "
+                        "Fehler wirklich so passieren kann (konkretes Szenario), und ob die Reparatur ihn behebt, ohne "
+                        "etwas anderes kaputtzumachen. Antworte NUR als JSON: {\"bestaetigt\": true|false, \"grund\": \"…\"}")
+
+
+def fehlerjagd(max_bloecke=1):
+    """Ein Stück Code auf echte Fehler untersuchen (der Reihe nach durchs ganze Programm)."""
+    dateien = _programm_dateien()
+    if not dateien:
+        return {"ruhig": True}
+    with _lock:
+        d = _laden()
+        stand = d.setdefault("jagd", {"datei": 0, "block": 0})
+    bericht = []
+    for _ in range(max_bloecke):
+        i = stand["datei"] % len(dateien)
+        pfad = dateien[i]
+        bl = _bloecke(pfad)
+        if not bl or stand["block"] >= len(bl):
+            stand["datei"], stand["block"] = i + 1, 0
+            continue
+        a, b, zeilen = bl[stand["block"]]
+        stand["block"] += 1
+        ausschnitt = "\n".join(f"{n + 1:5}| {zeilen[n]}" for n in range(a - 1, min(b, len(zeilen))))
+        text, jaeger = H["frage"]([
+            {"role": "system", "content": "Du bist ein sorgfältiger Python-Entwickler und suchst im Programm „Watson“ "
+             "(persönlicher Assistent, Windows, mehrere Threads, JSON-Dateien, SQLite, pywebview) nach ECHTEN Fehlern: "
+             "Absturz, falsches Ergebnis, Datenverlust, Wettlauf zwischen Threads, Sicherheitslücke, Endlosschleife. "
+             "KEINE Stil-Fragen, keine Vermutungen ohne konkretes Szenario, keine großen Umbauten. Höchstens 2 Funde. "
+             "Für jeden: kleine Reparatur als exakter Ausschnitt. Antworte NUR als JSON: {\"funde\": [{\"problem\": "
+             "\"…\", \"szenario\": \"wann genau passiert es\", \"alt\": \"exakter Code-Ausschnitt (ohne Zeilennummern, "
+             "mind. 2 Zeilen)\", \"neu\": \"Ersatz\", \"erklaerung\": \"ein einfacher Satz auf Deutsch\"}]} – oder "
+             "{\"funde\": []}, wenn du nichts Echtes findest (das ist ein gutes Ergebnis)."},
+            {"role": "user", "content": f"Datei: {pfad.name}, Zeilen {a}–{b}:\n{ausschnitt}"}], H["stark"])
+        m = re.search(r"\{.*\}", text or "", re.S)
+        try:
+            funde = (json.loads(m.group(0)) if m else {}).get("funde") or []
+        except ValueError:
+            funde = []
+        eintrag = {"datei": pfad.name, "zeilen": f"{a}–{b}", "jaeger": jaeger, "funde": len(funde), "bestaetigt": 0,
+                   "vorschlaege": []}
+        quelle = pfad.read_text(encoding="utf-8")
+        gegen = [x for x in GUTACHTER if x != jaeger] or H["stark"]
+        for f in funde[:2]:
+            if not (isinstance(f, dict) and f.get("alt") and f.get("neu") and quelle.count(f["alt"]) == 1):
+                continue
+            try:
+                compile(quelle.replace(f["alt"], f["neu"]), str(pfad), "exec")
+            except SyntaxError:
+                continue
+            t2, pruefer = H["frage"]([
+                {"role": "system", "content": GEGENPRUEFER_HINWEIS},
+                {"role": "user", "content": f"Datei {pfad.name}:\n{ausschnitt}\n\nBehaupteter Fehler: {f.get('problem')}\n"
+                 f"Szenario: {f.get('szenario')}\n\n--- ALT ---\n{f['alt']}\n--- NEU ---\n{f['neu']}"}], gegen)
+            m2 = re.search(r"\{.*\}", t2 or "", re.S)
+            try:
+                urteil = json.loads(m2.group(0)) if m2 else {}
+            except ValueError:
+                urteil = {}
+            if urteil.get("bestaetigt") is not True:
+                continue
+            eintrag["bestaetigt"] += 1
+            with _lock:
+                d = _laden()
+                if any(v["datei"] == pfad.name and v["alt"] == f["alt"] and v["status"] == "vorgeschlagen"
+                       for v in d["vorschlaege"]):
+                    continue
+                vid = d["naechste"]; d["naechste"] += 1
+                d["vorschlaege"].append({
+                    "id": vid, "datum": time.strftime("%d.%m.%Y %H:%M"), "datei": pfad.name,
+                    "fehler": f"Gefunden vom Bug-Jäger (noch nicht passiert): {str(f.get('problem'))[:200]} – "
+                              f"Szenario: {str(f.get('szenario'))[:200]}",
+                    "anzahl": 0, "alt": f["alt"], "neu": f["neu"], "erklaerung": str(f.get("erklaerung", ""))[:500],
+                    "von": jaeger, "gegenpruefer": pruefer, "gegen_grund": str(urteil.get("grund", ""))[:400],
+                    "herkunft": "Wartungs-Team", "status": "vorgeschlagen"})
+                _speichern(d)
+            eintrag["vorschlaege"].append({"id": vid, "code_rat": gutachten_automatisch(vid)})
+        bericht.append(eintrag)
+    with _lock:
+        d = _laden()
+        d["jagd"] = stand
+        _speichern(d)
+    return bericht
+
+
 def nachtpruefung(max_vorschlaege=2):
     code = code_pruefung()
     gruppen = _fehler_gruppen()
@@ -157,11 +278,15 @@ def nachtpruefung(max_vorschlaege=2):
         except Exception as e:
             vorschlaege.append({"ergebnis": "Fehler", "grund": str(e)[:200]})
     try:
+        jagd = fehlerjagd(max_bloecke=2)               # Wartungs-Team: Fehler suchen, bevor sie passieren
+    except Exception as e:
+        jagd = [{"fehler": str(e)[:200]}]
+    try:
         netz = im_netz_lernen()
     except Exception as e:
         netz = [{"fehler": str(e)[:200]}]
     eintrag = {"datum": time.strftime("%d.%m.%Y %H:%M"), "code": code, "fehlerarten": len(gruppen),
-               "vorschlaege": vorschlaege, "netz": netz}
+               "vorschlaege": vorschlaege, "jagd": jagd, "netz": netz}
     with _lock:
         d = _laden(); d["pruefungen"].append(eintrag); _speichern(d)
     return eintrag
@@ -169,11 +294,14 @@ def nachtpruefung(max_vorschlaege=2):
 
 # ---------------- 4. Anwenden nur mit Erlaubnis – mit Sicherung, Prüfung, Probestart ----------------
 def _probestart(dateiname):
+    """Echter Ladetest: geänderte Datei UND das ganze Watson laden (import watson_studio; Api()).
+    Nur die eine Datei zu laden reicht nicht – am 16.11.2026 hätte ein Namenskonflikt Watson sonst lahmgelegt."""
     modul = dateiname[:-3]
-    r = subprocess.run([sys.executable, "-c", f"import sys; sys.path.insert(0, r'{pfade.PROGRAMM}'); import {modul}"],
+    r = subprocess.run([sys.executable, "-c", f"import sys; sys.path.insert(0, r'{pfade.PROGRAMM}'); import {modul}; "
+                        "import watson_studio; watson_studio.Api(); print('LADETEST OK')"],
                        capture_output=True, text=True, timeout=120, cwd=str(pfade.PROGRAMM),
                        env={**__import__("os").environ, "WATSON_PROBESTART": "1"}, creationflags=0x08000000)
-    return r.returncode == 0, (r.stderr or "")[-800:]
+    return r.returncode == 0 and "LADETEST OK" in (r.stdout or ""), (r.stderr or r.stdout or "")[-800:]
 
 
 def anwenden(vid):

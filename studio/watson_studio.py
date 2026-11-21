@@ -33,8 +33,12 @@ import selbst
 import tatpruefung
 import herzschlag
 import meinungsbuch
+import widerspruch
+import werkzeug_auswahl
 import suche
 import chatgpt_plan
+import werkzeug_wahl
+import erfinder
 import fehlerbuch
 import video_studio
 import wachstum
@@ -366,7 +370,23 @@ def brain_message(model, messages, api_key, tools=None, timeout=180):
         raise RuntimeError("Keine Verbindung zum Internet oder zu OpenRouter.")
     if "error" in data:
         raise RuntimeError(str(data["error"].get("message", data["error"])))
+    tokens_zaehlen(data.get("usage"), len(body), bool(tools))
     return data["choices"][0]["message"], data.get("model", model)
+
+
+TOKENS_FILE = pfade.DATEN / "tokens.jsonl"
+
+
+def tokens_zaehlen(usage, bytes_gesendet, mit_werkzeugen):
+    """Token-Zähler (21.11.2026): pro Gehirn-Anfrage eine Zeile – damit man messen kann, ob Sparen wirkt."""
+    try:
+        u = usage or {}
+        zeile = {"zeit": time.strftime("%Y-%m-%d %H:%M:%S"), "rein": u.get("prompt_tokens"),
+                 "raus": u.get("completion_tokens"), "bytes": bytes_gesendet, "werkzeuge": mit_werkzeugen}
+        with open(TOKENS_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps(zeile) + "\n")
+    except Exception:
+        pass
 
 
 # Starke kostenlose Gehirne, die Werkzeuge gut benutzen (statt Zufall vom Gratis-Verteiler)
@@ -466,8 +486,9 @@ LIVE_NAMES = {"search_nodes": "sucht passende Bausteine", "get_node": "liest die
               "get_current_time": "schaut auf die Uhr", "browser_navigate": "öffnet eine Webseite",
               "browser_snapshot": "liest die Webseite", "browser_click": "klickt auf der Webseite",
               "browser_type": "tippt auf der Webseite", "write_file": "schreibt eine Datei", "read_text_file": "liest eine Datei",
-              "lehre_merken": "📒 merkt sich eine Lehre", "meinung_bilden": "💭 hält seine Meinung fest", "internet_suchen": "🔎 sucht im Internet und liest Seiten", "wachstum_bericht": "🌱 liest seinen Wachstums-Bericht",
-              "werkstatt_wunsch": "🛠 schreibt einen Wunsch an die Werkstatt"}
+              "lehre_merken": "📒 merkt sich eine Lehre", "meinung_bilden": "💭 hält seine Meinung fest", "internet_suchen": "🔎 sucht im Internet und liest Seiten", "fertigkeit_schreiben": "📒 schreibt sich eine Fertigkeit", "werkzeug_wuenschen": "🔌 sucht sich ein neues Werkzeug aus", "wachstum_bericht": "🌱 liest seinen Wachstums-Bericht",
+              "werkstatt_wunsch": "🛠 schreibt einen Wunsch an die Werkstatt",
+              "ideenbuch": "💡 schaut ins Ideenbuch"}
 
 
 def live(name, args):
@@ -605,7 +626,10 @@ wachstum.init(massstab=lambda: massstab_text(load_config()) + ("\n\n" + selbst.l
               nutzer=lambda: (load_config().get("charakter") or {}).get("nutzer") or "der Nutzer",
               frage=gehirn_frage, modelle=_gratis_ids, mem=MEM, wartung=wartung, schnell=dirigent.SCHNELL,
               stark=dirigent.STARK, dirigent_modelle=_pruef_kandidaten, fehler_melden=fehler_melden,
-              lehren_ohne_frage=lambda: bool(load_config().get("lehren_ohne_frage")))
+              lehren_ohne_frage=lambda: bool(load_config().get("lehren_ohne_frage")),
+              # Programmier-Prüfung (erfinder.py): alle kostenlosen Gehirne + der ChatGPT-Plan, wenn verbunden
+              programmier_kandidaten=lambda: [m for m in _gratis_ids() if "stealth" not in m] +
+                  ([chatgpt_plan.modell_id(load_config())] if chatgpt_plan.bereit(load_config()) else []))
 chatgpt_plan.init(load_config=load_config, save_config=save_config, fehler_melden=fehler_melden)
 
 
@@ -1098,6 +1122,17 @@ class Api:
                                f"{str(args.get('beschreibung', ''))[:300]}", knopf_ja="Eintragen", knopf_nein="Nein")
         if fullname == meinungsbuch.NAME:     # eigene Meinung bilden = Denken, keine Handlung -> nie fragen (Grundsatz des Besitzers)
             return True
+        if fullname == werkzeug_wahl.NAME:    # nur suchen und WÜNSCHEN – eingesteckt wird erst nach Ja des Besitzers
+            return True
+        if fullname == erfinder.NAME:         # Ideenbuch = Denken/Aufschreiben, baut nichts ein -> nie fragen
+            return True
+        if fullname == rezepte.NAME:          # Fertigkeit = Wissen, kein fremder Code; Besitzer entscheidet per Einstellung
+            if cfg.get("fertigkeiten_ohne_frage"):
+                return True
+            return self._frage("📒 Watson möchte sich eine Fertigkeit merken",
+                               f"„{str(args.get('titel', ''))[:200]}“\n\n" + "\n".join(
+                                   f"{i + 1}. {str(s)[:200]}" for i, s in enumerate((args.get("schritte") or [])[:10])),
+                               knopf_ja="Ja, merken", knopf_nein="Nein")
         if fullname in selbst.NAMES:
             if fullname == "watson__lehre_merken":
                 # Jeder Besitzer entscheidet selbst (Einstellung „lehren_ohne_frage“, Seite Wissen → Lehren).
@@ -1199,12 +1234,19 @@ class Api:
         plan = [PLAN_TOOL] if (hands and vertrauen.stufe(cfg_now) == 2) else []
         sysw = systemw.TOOLS if cfg_now.get("use_system") else []
         tools = (HUB.openai_tools() + ([READ_TOOL, SCREEN_TOOL] if screen else []) + hands + plan + flows + sysw +
-                 selbst.TOOLS + [meinungsbuch.TOOL, suche.TOOL] + ([auftraege.TOOL] if screen else [])) if use_tools else []
+                 selbst.TOOLS + [meinungsbuch.TOOL, suche.TOOL, rezepte.TOOL, werkzeug_wahl.TOOL, erfinder.TOOL] + ([auftraege.TOOL] if screen else [])) if use_tools else []
+        # Werkzeuge nach Bedarf (21.11.2026): große Gruppen nur, wenn sie zur Frage passen – spart viele Tokens.
+        # Fehlt etwas, holt das Gehirn die Gruppe selbst (watson__werkzeuge_holen).
+        weg = {}
+        if tools:
+            texte = [m["content"] for m in messages if m.get("role") == "user" and isinstance(m.get("content"), str)][-3:]
+            tools, weg = werkzeug_auswahl.auswaehlen(tools, texte, systemw.NAMES)
+            sysw = [t for t in sysw if t in tools]
         extra = (HANDS_HINT + (PLAN_HINT if plan else "")) if hands else ""
         if sysw and use_tools:
             extra += systemw.HINWEIS
         if use_tools:
-            extra += selbst.HINWEIS + meinungsbuch.HINWEIS + suche.HINWEIS + (auftraege.HINWEIS if screen else "")
+            extra += selbst.HINWEIS + meinungsbuch.HINWEIS + suche.HINWEIS + erfinder.HINWEIS + (auftraege.HINWEIS if screen else "")
         if any(t["function"]["name"].startswith("n8n-baukasten__") for t in tools):
             extra += FLOW_HINT
         if flows and cfg_now.get("ablaeufe"):
@@ -1246,6 +1288,7 @@ class Api:
                 return "Okay, ich habe aufgehört. Sag mir, wenn ich weitermachen soll.", model, log
             try:
                 # Kostenlose Gehirne sind manchmal minutenlang überlastet -> nach 60 s das nächste nehmen
+                werkzeug_auswahl.kuerzen(msgs)        # alte, schon verarbeitete Werkzeug-Ergebnisse kürzen
                 msg, used = brain_message(model, msgs, api_key, tools, timeout=60)
             except Exception as e:
                 err = str(e)
@@ -1321,6 +1364,16 @@ class Api:
                     continue
                 if not isinstance(args, dict):
                     args = {}
+                if name == werkzeug_auswahl.NAME:
+                    # Werkzeugkasten aufmachen – keine Handlung, darum ohne Nachfrage
+                    result = werkzeug_auswahl.holen(args, tools, weg)
+                    if any(t["function"]["name"].startswith("n8n-baukasten__") for t in tools) and "n8n" in result:
+                        result += FLOW_HINT
+                    if "system" in result and "Geladen" in result:
+                        result += systemw.HINWEIS
+                    log.append("🧰 " + result.split(".")[0])
+                    msgs.append({"role": "tool", "tool_call_id": c.get("id", name), "content": result})
+                    continue
                 try:
                     erlaubt = self._allowed(name, args)
                 except Exception as e:
@@ -1350,6 +1403,12 @@ class Api:
                             result = haende.run(name, args)
                         elif name in systemw.NAMES:
                             result = systemw.run(name, args)
+                        elif name == rezepte.NAME:
+                            result = rezepte.run(args)
+                        elif name == werkzeug_wahl.NAME:
+                            result = werkzeug_wahl.run(args)
+                        elif name == erfinder.NAME:
+                            result = erfinder.run(args, selbst.wunsch_merken)
                         elif name == suche.NAME:
                             result = suche.suchen(args.get("suchbegriffe", ""), args.get("seiten", 3))
                         elif name.endswith("__fetch") and suche.gesperrt(args.get("url")):
@@ -1447,7 +1506,7 @@ class Api:
             facts = MEM.relevant_facts(question)
             if facts:
                 parts.append("Dein Merkzettel über den Nutzer (passend zur Frage):\n" +
-                             "\n".join(f"- {f['text']}" for f in facts))
+                             "\n".join(f"- {f['text']}{widerspruch.hinweis('merkzettel', f['id'])}" for f in facts))
             past = MEM.relevant_past(question, exclude_chat=chat_id)
             if past:
                 parts.append("Stellen aus früheren Gesprächen, die passen könnten:\n" + "\n".join(
@@ -1458,7 +1517,7 @@ class Api:
             parts.append("WISSENSBUCH – Wissen, das dir beigebracht wurde (mit Quelle; nutze es, nenne die Quelle, "
                          "wenn es hilft, und sag ehrlich, wenn es veraltet sein könnte):\n" + "\n".join(
                              f"- [{e['quelle']}, {e['datum']}] Frage: {e['frage'][:300]}\n  Wissen: "
-                             f"{(e['kurz'] or e['antwort'])[:1500]}" for e in wissen))
+                             f"{(e['kurz'] or e['antwort'])[:1500]}{widerspruch.hinweis('wissen', e['id'])}" for e in wissen))
         passende = rezepte.passend(question)
         self._rezept_ids = [r["id"] for r in passende]
         if passende:
@@ -1492,7 +1551,7 @@ class Api:
         self._chat_aktuell = chat_id                 # damit ein Hintergrund-Auftrag weiß, wohin er sich meldet
         if payload.get("chat_id") and fehlerbuch.KORREKTUR_RE.match(text):
             self._korrektur_merken(chat_id, text)          # Nutzer korrigiert Watson -> ins Fehlerbuch
-        MEM.add_message(chat_id, "user", text)
+        self._user_mid = MEM.add_message(chat_id, "user", text)   # damit die Oberfläche die Nachricht später bearbeiten kann
         system = build_system(cfg) + "\n\n" + self._context(cfg, text, chat_id)
         seen = []
         look = payload.get("look")
@@ -1512,6 +1571,10 @@ class Api:
             except Exception as e:
                 return {"error": str(e), "chat_id": chat_id}
         history = [{"role": m["role"], "content": m["content"]} for m in MEM.messages(chat_id, limit=24)]
+        # Ältere lange Nachrichten kürzen (die letzten 4 bleiben ganz) – spart Tokens bei langen Gesprächen (21.11.2026)
+        for h in history[:-4]:
+            if isinstance(h["content"], str) and len(h["content"]) > 1500:
+                h["content"] = h["content"][:1500] + " … (gekürzt)"
         brain = payload.get("model") or cfg["model"]
         if brain == HERMES_ID:              # Hermes wurde entfernt (19.11.2026) -> der Dirigent wählt
             brain = dirigent.ID
@@ -1557,7 +1620,12 @@ class Api:
         extra = {}
         if auftrag and vertrauen.erfolgreich(auftrag) and sum(1 for s in auftrag["schritte"] if s["ok"]) >= 2:
             # Aufgabe am Computer hat geklappt -> Watson bietet an, sich das Vorgehen als Rezept zu merken
-            extra["rezept_vorschlag"] = {"aufgabe": text[:300], "schritte": [s["was"] for s in auftrag["schritte"]][:30]}
+            if cfg.get("fertigkeiten_ohne_frage"):
+                threading.Thread(target=self._fertigkeit_selbst, daemon=True,
+                                 args=(text[:300], [s["was"] for s in auftrag["schritte"]][:30])).start()
+                seen.append("📒 Watson schreibt sich daraus eine Fertigkeit")
+            else:
+                extra["rezept_vorschlag"] = {"aufgabe": text[:300], "schritte": [s["was"] for s in auftrag["schritte"]][:30]}
         return self._fertig(chat_id, text, kat, answer, used, seen + tools, t_start, gewaehlt, extra)
 
     def _fertig(self, chat_id, text, kat, answer, used, tools, t_start, gewaehlt, extra=None):
@@ -1580,7 +1648,7 @@ class Api:
         self._rezept_ids = []
         MEM.add_message(chat_id, "assistant", answer, name="Watson", model=used)
         return {"text": answer, "model": used, "chat_id": chat_id, "tools": tools, "lern_id": lid,
-                "lehrer": lehrer, "kategorie": kat, **(extra or {})}
+                "lehrer": lehrer, "kategorie": kat, "user_id": getattr(self, "_user_mid", None), **(extra or {})}
 
     # ---------- Lehren (Korrekturen des Nutzers, gelten in jedem Gespräch) ----------
     def lehren_liste(self):
@@ -1617,6 +1685,34 @@ class Api:
         rezepte.loeschen(int(rid))
         return {"ok": True}
 
+    def _fertigkeit_selbst(self, aufgabe, schritte):
+        """Watson macht aus einer gelungenen Aufgabe selbst eine Fertigkeit (im Hintergrund)."""
+        try:
+            e = self.rezept_entwurf(aufgabe, schritte)
+            if e.get("titel") and e.get("schritte"):
+                rezepte.run({"titel": e["titel"], "wann": e.get("wann", ""), "schritte": e["schritte"]})
+                protokoll(rezepte.NAME, {"titel": e["titel"][:80]}, "selbst geschrieben")
+        except Exception as ex:
+            fehler_melden("Fertigkeit/selbst", ex)
+
+    # ---------- 🔌 Werkzeug-Wünsche (werkzeug_wahl.py): Watson wählt, der Besitzer sagt Ja/Nein ----------
+    def werkzeug_wuensche(self):
+        return {"wuensche": list(reversed(werkzeug_wahl.alle()[-40:])), "offen": len(werkzeug_wahl.offene()),
+                "fertigkeiten_ohne_frage": bool(load_config().get("fertigkeiten_ohne_frage"))}
+
+    def werkzeug_antwort(self, wid, ja):
+        r = werkzeug_wahl.antworten(int(wid), bool(ja), self.mcp_einstecken)
+        protokoll("watson__werkzeug_wunsch", {"id": int(wid), "antwort": "ja" if ja else "nein"},
+                  r.get("error") or ("eingesteckt" if ja else "abgelehnt"))
+        return r
+
+    def fertigkeiten_ohne_frage_setzen(self, an):
+        cfg = load_config()
+        cfg["fertigkeiten_ohne_frage"] = bool(an)
+        save_config(cfg)
+        protokoll("watson__einstellung", {"fertigkeiten_ohne_frage": bool(an)}, "ok")
+        return {"ok": True}
+
     def rezept_entwurf(self, aufgabe, schritte):
         """Macht aus den konkreten Schritten eines gelungenen Auftrags ein allgemeines Rezept (Entwurf zum Prüfen)."""
         cfg = load_config()
@@ -1644,6 +1740,22 @@ class Api:
     def gesundheit(self):
         return fehler_bericht()
 
+    # ---------- 💡 Erfinder-Zeit / Ideenbuch (erfinder.py) ----------
+    def ideen_liste(self):
+        return erfinder.fuer_oberflaeche()
+
+    def idee_bewerten(self, iid, urteil, notiz=""):
+        r = erfinder.bewerten(int(iid), str(urteil), str(notiz or "")[:400], selbst.wunsch_merken)
+        if r.get("ok"):
+            protokoll("watson__idee_beurteilt", {"id": int(iid), "urteil": urteil}, "ok")
+        return r
+
+    def erfinder_starten(self):
+        if erfinder._laeuft.is_set() or wachstum._laeuft.is_set():
+            return {"error": "Watson denkt gerade schon nach (Erfinder-Zeit oder Abendrunde läuft)."}
+        threading.Thread(target=wachstum.erfinder_zeit, daemon=True).start()
+        return {"ok": True}
+
     # ---------- Wachstum: Abendrunde, Prüfung, Entwicklungsstufen ----------
     def wachstum_status(self):
         e = wachstum.entwicklung()
@@ -1670,6 +1782,8 @@ class Api:
         except (TypeError, KeyError, IndexError):
             return {"error": "Vorschlag nicht gefunden."}
         if not annehmen:
+            if v.get("art") == "widerspruch":
+                widerspruch.erledigt(v.get("fund"), "kein_widerspruch")
             wachstum.vorschlag_erledigt(zeit, int(index), "abgelehnt")
             return {"ok": True}
         art, text = v.get("art"), v.get("text", "")
@@ -1682,6 +1796,8 @@ class Api:
             ch = cfg.setdefault("charakter", {})
             ch["eigenes"] = ((ch.get("eigenes") or "").rstrip() + "\n- " + text).strip()
             save_config(cfg)
+        elif art == "widerspruch":           # „Annehmen“ = geklärt (die Quelle wurde berichtigt oder es ist so in Ordnung)
+            widerspruch.erledigt(v.get("fund"), "geklaert")
         wachstum.vorschlag_erledigt(zeit, int(index), "angenommen")
         protokoll("watson__abendrunde", {"vorschlag": art, "text": text[:100]}, "angenommen")
         return {"ok": True, "art": art, "text": text}
@@ -2001,6 +2117,27 @@ class Api:
         threading.Thread(target=herzschlag.schlag, args=("von Hand",), daemon=True).start()
         return {"ok": True}
 
+    def updates_jetzt(self):
+        """Der Besitzer sitzt am Laptop und will die Windows-Updates jetzt: Wächter gibt sie frei, Einstellungen öffnen sich."""
+        try:
+            herzschlag.updates_wunsch("jetzt")
+        except OSError:
+            return {"error": "Der Update-Wächter ist noch nicht eingerichtet."}
+        protokoll("watson__updates", {"wunsch": "jetzt"}, "freigegeben (am Laptop)")
+        try:
+            import os
+            os.startfile("ms-settings:windowsupdate")
+        except Exception:
+            pass
+        return {"ok": True, "text": "In 1–2 Minuten gibt der Wächter die Updates frei – Windows zeigt dir dann den Fortschritt."}
+
+    def updates_pausieren(self):
+        try:
+            herzschlag.updates_wunsch("pause")
+        except OSError:
+            return {"error": "Der Update-Wächter ist noch nicht eingerichtet."}
+        return {"ok": True}
+
     def herzschlag_setzen(self, an, minuten=None):
         cfg = load_config()
         cfg["herzschlag"] = bool(an)
@@ -2143,6 +2280,30 @@ class Api:
     def delete_chat(self, chat_id):
         MEM.delete_chat(chat_id)
         return {"ok": True}
+
+    def chat_kuerzen(self, chat_id, msg_id=None, text=""):
+        """„Nachricht bearbeiten“ (wie Gemini/ChatGPT): die eigene Nachricht und alles danach aus dem Gespräch löschen.
+        Ohne msg_id (Nachricht gerade erst geschickt) wird die letzte eigene Nachricht mit diesem Text gesucht.
+        Gibt einen angehängten Dokument-Teil zurück, damit er beim neuen Absenden wieder mitgeht."""
+        try:
+            chat_id = int(chat_id)
+        except (TypeError, ValueError):
+            return {"error": "Kein Gespräch."}
+        eigene = [m for m in MEM.messages(chat_id) if m["role"] == "user"]
+        ziel = None
+        if msg_id:
+            ziel = next((m for m in eigene if m["id"] == int(msg_id)), None)
+        else:
+            t = (text or "").strip()
+            ziel = next((m for m in reversed(eigene)
+                         if m["content"].strip() == t or m["content"].startswith(t + "\n\n[Dokument „")), None)
+        if not ziel:
+            return {"error": "Diese Nachricht habe ich im Gespräch nicht gefunden."}
+        teil = ziel["content"].find("\n\n[Dokument „")
+        anhang = ziel["content"][teil:] if teil >= 0 else ""
+        n = MEM.kuerzen_ab(chat_id, ziel["id"])
+        protokoll("watson__nachricht_bearbeiten", {"chat_id": chat_id, "geloescht": n}, "ok")
+        return {"ok": True, "geloescht": n, "anhang": anhang}
 
     def search(self, text):
         return MEM.search(text)

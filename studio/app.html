@@ -190,6 +190,20 @@ body.dark .pill.paid{background:#412402;color:#FAC775}
 .vsTab td{padding:6px;border-top:1px solid var(--line);vertical-align:middle}.vsTab select{max-width:220px}
 .hit.vsAktiv{border-color:var(--accent)}
 .msg.user .kopierKnopf{background:rgba(255,255,255,.18);border-color:transparent;color:#fff}
+/* Unter eigenen Nachrichten: Kopieren + Bearbeiten (wie Gemini) – am Laptop beim Drüberfahren, auf Touch immer */
+.nutzerLeiste{align-self:flex-end;display:flex;gap:4px;margin-top:-10px;opacity:0;transition:opacity .15s}
+.msg.user:hover+.nutzerLeiste,.nutzerLeiste:hover,.nutzerLeiste:focus-within{opacity:1}
+@media (hover:none){.nutzerLeiste{opacity:1}}
+.nutzerLeiste[hidden]{display:none}
+.nutzerLeiste button{width:28px;height:28px;padding:0;border-radius:8px;display:grid;place-items:center;background:#1f2330;border:1px solid rgba(255,255,255,.08);color:#d7dbe6;cursor:pointer;font-size:13px}
+.nutzerLeiste button:hover{background:#2a2f3e;color:#fff}
+.nutzerLeiste button.ok{color:var(--ok);border-color:var(--ok)}
+.msg.user.bearbeiten{width:min(640px,82%)}
+.nlFeld{width:100%;box-sizing:border-box;resize:none;background:rgba(0,0,0,.22);color:inherit;border:1px solid rgba(255,255,255,.35);border-radius:10px;padding:8px 10px;font:inherit;line-height:1.5}
+.nlKnoepfe{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}
+.nlKnoepfe button{padding:6px 14px;border-radius:999px;font-size:13px;cursor:pointer}
+.nlAb{background:transparent;color:inherit;border:1px solid rgba(255,255,255,.45)}
+.nlOk{background:#fff;color:#1f2330;border:1px solid #fff;font-weight:600}
 .denken{align-self:flex-start;display:flex;align-items:center;gap:9px;font-size:14px;color:#C8663F;padding:4px 2px}
 body.dark .denken{color:#E08A62}
 .denkPunkte{display:inline-grid;grid-template-columns:5px 5px;gap:3px}
@@ -443,6 +457,7 @@ pre.mem{white-space:pre-wrap;font:13px/1.5 Consolas,monospace;max-height:55vh;ov
         <div id="wissenList"></div></div>
       <div class="card"><h3><i class="ti ti-list-check"></i>Fertigkeiten – erprobte Vorgehensweisen</h3>
         <div class="muted small" style="margin-bottom:10px">Wenn eine Aufgabe am Computer geklappt hat, kann Watson sich das Vorgehen als Fertigkeit merken. Du kannst Watson auch <b>selbst Fertigkeiten beibringen</b> – z. B. wie deine Briefe aussehen sollen. Passt eine neue Aufgabe dazu, nutzt Watson diese Fertigkeit.</div>
+        <label class="row" style="gap:8px;margin:2px 0 10px;cursor:pointer;align-items:flex-start"><input type="checkbox" id="fkOhneFrage" style="margin-top:3px"><span><b>Watson darf Fertigkeiten selbst schreiben, ohne zu fragen</b><br><span class="muted small">Fertigkeiten sind Anleitungen (Wissen), kein fremder Programmcode. Du siehst sie hier und kannst jede löschen.</span></span></label>
         <div class="row" style="margin-bottom:10px"><button id="rezeptNeu"><i class="ti ti-plus"></i> Eigene Fertigkeit schreiben</button></div>
         <div id="rezeptNeuForm"></div>
         <div id="rezeptList"></div></div>
@@ -561,9 +576,13 @@ pre.mem{white-space:pre-wrap;font:13px/1.5 Consolas,monospace;max-height:55vh;ov
         <div id="wsFehlt" class="small" style="margin-top:10px"></div>
         <div id="wsZahlen" class="muted small" style="margin-top:8px"></div></div>
       <div class="card"><h3><i class="ti ti-moon-stars"></i>Abendrunde – Watson denkt über den Tag nach</h3>
-        <div class="muted small" style="margin-bottom:10px">Jede Nacht zwischen 1 und 5 Uhr (wenn der Computer an ist), lautlos: Tagesrückblick, offene Fragen selbst nachforschen (Wikipedia, mit Quelle), neue kostenlose Gehirne prüfen, das eigene Programm prüfen. <b>Vorschläge setzt Watson nur um, wenn du sie annimmst.</b></div>
+        <div class="muted small" style="margin-bottom:10px">Jede Nacht zwischen 1 und 5 Uhr (wenn der Computer an ist), lautlos: Tagesrückblick, offene Fragen und eigene Interessen im Internet nachforschen (ohne Wikipedia, mit Quellen), Erfinder-Zeit, neue kostenlose Gehirne prüfen, das eigene Programm prüfen. <b>Vorschläge setzt Watson nur um, wenn du sie annimmst.</b></div>
         <div class="row" style="gap:8px;margin-bottom:10px"><button id="wsRunde"><i class="ti ti-player-play"></i> Abendrunde jetzt starten</button><span id="wsRundeInfo" class="muted small"></span></div>
         <div id="wsTagebuch"></div></div>
+      <div class="card"><h3><i class="ti ti-bulb"></i>Ideenbuch – Watsons Erfinder-Zeit</h3>
+        <div class="muted small" style="margin-bottom:10px">Jede Nacht lernt Watson im Internet besser programmieren, erforscht, womit Menschen Mühe haben, und denkt sich Ideen aus. Programm-Ideen probiert er in einer geschützten Kiste aus (kein Internet, keine Dateien von deinem Laptop). Ein strenger Prüfer bewertet jede Idee. <b>Eingebaut wird nichts von selbst</b> – sag ihm einfach, wie du eine Idee findest. Daraus lernt er, was Menschen wirklich hilft.</div>
+        <div class="row" style="gap:8px;margin-bottom:10px"><button id="idStart"><i class="ti ti-bulb"></i> Erfinder-Zeit jetzt starten</button><span id="idInfo" class="muted small"></span></div>
+        <div id="idListe"></div><div id="idGelernt" class="muted small" style="margin-top:10px"></div></div>
       <div class="card"><h3><i class="ti ti-certificate"></i>Prüfung</h3>
         <div class="muted small" style="margin-bottom:10px">12 Fragen aus Rechnen, Wissen, Sprache, Logik und Ehrlichkeit – mit festen richtigen Antworten. Einmal pro Woche in der Abendrunde, oder jetzt von Hand. So sieht man, ob Watson wirklich besser wird.</div>
         <div class="row" style="gap:8px;margin-bottom:10px"><button id="wsPruefung"><i class="ti ti-pencil-check"></i> Prüfung jetzt</button><span id="wsPruefInfo" class="muted small"></span></div>
@@ -701,6 +720,9 @@ pre.mem{white-space:pre-wrap;font:13px/1.5 Consolas,monospace;max-height:55vh;ov
     <!-- ============ Skills ============ -->
     <div id="pageSkills" class="page">
       <div class="pageHead"><h1><i class="ti ti-puzzle"></i>Skills</h1><p>Neue Fähigkeiten für Watson – such etwas, klick auf Hinzufügen, und Watson kann es sofort benutzen.</p></div>
+      <div class="card" id="wzKarte"><h3><i class="ti ti-sparkles"></i>Watsons Wünsche – Werkzeuge, die er sich selbst ausgesucht hat</h3>
+        <div class="muted small" style="margin-bottom:10px">Watson sucht sich passend zu seinen Interessen und zu dem, was ihm gefehlt hat, selbst neue Werkzeuge aus. Einstecken tut er sie nie allein – ein Werkzeug ist fremder Programmcode auf deinem Laptop. Du sagst einfach Ja oder Nein. Eingesteckte Werkzeuge fragen trotzdem vor jeder Benutzung.</div>
+        <div id="wzListe"></div></div>
       <div class="card">
         <div class="row" style="gap:10px;margin-bottom:4px">
           <input type="search" id="skillSuchFeld" placeholder="Was soll Watson können? z. B. Wetter, Kalender, E-Mail, PDF …" style="flex:1;min-width:220px;font-size:1.05em" autocomplete="off">
@@ -900,7 +922,7 @@ function showTab(t) {
   if (t === "charakter") renderCharakter();
   if (t === "wachstum") renderWachstum();
   if (t === "video") vsZeigen();
-  if (t === "skills") { $("#skillSuchFeld").focus(); }
+  if (t === "skills") { $("#skillSuchFeld").focus(); wzZeigen(); }
   if (t === "einstellungen") { markTheme(); renderKeys(); handyZeigen().catch(() => {}); }
 }
 
@@ -1089,7 +1111,7 @@ async function saveCharakter() {
 }
 
 // ---------- Gespräch ----------
-function addMsg(text, who, cls = "") {
+function addMsg(text, who, cls = "", info = null) {
   const welcome = $("#chat .welcome"); if (welcome) welcome.remove();
   const d = document.createElement("div");
   d.className = "msg " + (cls || "bot");
@@ -1097,9 +1119,32 @@ function addMsg(text, who, cls = "") {
   const inhalt = window.watsonMarkdown ? (cls === "user" ? watsonEinfach(text) : watsonMarkdown(text)) : fmt(text);
   d.innerHTML = (who ? `<div class="who">${bot ? '<img src="assets/watson-logo.svg" alt="">' : ""}${esc(who)}</div>` : "") +
                 `<div class="md">${inhalt}</div>`;
-  if (window.watsonKopierKnopf) watsonKopierKnopf(d, d.querySelector(".md"));   // ganze Nachricht kopieren
-  $("#chat").appendChild(d); $("#chat").scrollTop = 1e9;
+  if (cls !== "user" && window.watsonKopierKnopf) watsonKopierKnopf(d, d.querySelector(".md"));   // ganze Nachricht kopieren
+  $("#chat").appendChild(d);
+  if (cls === "user" && window.watsonNutzerLeiste) {               // unter eigenen Nachrichten: Kopieren + Bearbeiten
+    const roh = (info && info.text != null) ? info.text : text;
+    if (info && info.id) d.dataset.id = info.id;
+    d.dataset.text = roh;
+    const teil = roh.indexOf("\n\n[Dokument „");                   // angehängtes Dokument nicht ins Bearbeiten-Feld
+    watsonNutzerLeiste(d, {kopie: roh, text: teil >= 0 ? roh.slice(0, teil) : roh, speichern: neu => nachrichtNeu(d, neu)});
+  }
+  $("#chat").scrollTop = 1e9;
   return d;
+}
+// Eigene Nachricht bearbeiten (wie Gemini/ChatGPT): sie und alles danach löschen, dann neu senden
+async function nachrichtNeu(blase, neu) {
+  if (busy) { status("Bitte warte, bis " + botName() + " fertig ist."); return false; }
+  let anhang = "";
+  if (chatId) {
+    const r = await P().chat_kuerzen(chatId, blase.dataset.id ? +blase.dataset.id : null, blase.dataset.text || "");
+    if (r.error) { status(r.error); return false; }
+    anhang = r.anhang || "";
+  }
+  while (blase.nextSibling) blase.nextSibling.remove();
+  blase.remove();
+  $("#input").value = neu;
+  await send(false, anhang);
+  renderChats();
 }
 // ---------- Lernbuch: 👍/👎 unter jeder Antwort ----------
 function lernLeiste(bubble, r, frageText) {
@@ -1445,6 +1490,10 @@ async function renderFehler() {
     await P().fehler_erklaeren(+b.dataset.fes, t); renderFehler();
   });
 }
+async function fkSchalter() {
+  const r = await P().werkzeug_wuensche(); const c = $("#fkOhneFrage"); if (!c) return;
+  c.checked = !!r.fertigkeiten_ohne_frage; c.onchange = () => P().fertigkeiten_ohne_frage_setzen(c.checked);
+}
 async function renderRezepte() {
   const r = await P().rezepte_liste();
   $("#rezeptList").innerHTML = r.rezepte.map(x => `<div class="hit"><div class="row" style="align-items:flex-start"><span style="flex:1">
@@ -1464,9 +1513,50 @@ async function renderRezepte() {
 }
 
 // ---------- Wachstum ----------
+// ---------- 💡 Ideenbuch (erfinder.py) ----------
+let idUhr = null;
+async function renderIdeen() {
+  const r = await P().ideen_liste(); const L = $("#idListe"); if (!L) return;
+  $("#idStart").disabled = r.laeuft;
+  $("#idInfo").textContent = r.laeuft ? "⏳ Watson denkt gerade nach … (dauert einige Minuten)" : "";
+  clearTimeout(idUhr); if (r.laeuft) idUhr = setTimeout(renderIdeen, 15000);
+  const sterne = n => n ? "★".repeat(n) + "☆".repeat(5 - n) : "–";
+  L.innerHTML = (r.ideen || []).map(i => {
+    const p = i.probe;
+    return `<details class="wsTag" data-i="${i.id}"><summary>${esc((r.arten[i.art] || "💡").split(" ")[0])} <b>${esc(i.titel)}</b> <span class="muted small">Nr. ${i.id} · ${esc(i.datum)} · Prüfer ${sterne(i.bewertung)}${p ? (p.ok ? " · ✅ Probe lief" : " · ⚠ Probe gescheitert") : ""} · ${i.status === "neu" ? "noch kein Urteil" : esc(r.urteile[i.status] || i.status)}</span></summary>
+      ${i.problem ? `<div class="small"><b>Problem:</b> ${esc(i.problem)}</div>` : ""}
+      <div class="small" style="margin-top:4px"><b>Idee:</b> ${esc(i.idee || "")}</div>
+      ${i.nutzen ? `<div class="small" style="margin-top:4px"><b>Nutzen:</b> ${esc(i.nutzen)}</div>` : ""}
+      ${i.gibt_es_schon ? `<div class="small" style="margin-top:4px"><b>Gibt es das schon?</b> ${esc(i.gibt_es_schon)}</div>` : ""}
+      ${i.naechster_schritt ? `<div class="small" style="margin-top:4px"><b>Nächster Schritt:</b> ${esc(i.naechster_schritt)}</div>` : ""}
+      ${i.kritik ? `<div class="small muted" style="margin-top:4px">Prüfer: ${esc(i.kritik)}</div>` : ""}
+      ${(i.quellen || []).length ? `<div class="small muted" style="margin-top:4px">Quellen: ${i.quellen.map(u => `<a href="#" data-link="${esc(u)}">${esc(u.replace(/^https?:\/\/(www\.)?/, "").split("/")[0])}</a>`).join(" · ")}</div>` : ""}
+      ${p ? `<details style="margin-top:6px"><summary class="small">Probeprogramm ansehen (${p.ok ? "Tests bestanden" : "gescheitert"}, ${p.dauer} s)</summary><pre class="small" style="white-space:pre-wrap;max-height:300px;overflow:auto">${esc(p.code)}</pre><div class="small muted">Ausgabe:</div><pre class="small" style="white-space:pre-wrap;max-height:160px;overflow:auto">${esc(p.ausgabe || "")}</pre></details>` : ""}
+      ${i.notiz ? `<div class="small" style="margin-top:4px">📝 Deine Notiz: ${esc(i.notiz)}</div>` : ""}
+      <div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><input class="idNotiz" placeholder="Notiz für Watson (freiwillig)" style="flex:1;min-width:160px">
+        <button class="small" data-u="gut">👍 Gut</button><button class="small ghost" data-u="nicht">👎 Nicht so</button><button class="small primary" data-u="werkstatt">🛠 Einbauen lassen</button></div>
+      <div class="small idMsg"></div></details>`;
+  }).join("") || `<div class="muted">Noch keine Ideen. Die erste Erfinder-Zeit kommt in der nächsten Abendrunde – oder starte sie jetzt.</div>`;
+  const neu = L.querySelector("details[data-i]"); if (neu && (r.ideen[0] || {}).status === "neu") neu.open = true;
+  L.querySelectorAll("[data-link]").forEach(a => a.onclick = e => { e.preventDefault(); P().open_link(a.dataset.link); });
+  L.querySelectorAll("[data-u]").forEach(b => b.onclick = async () => {
+    const box = b.closest("details[data-i]"), u = b.dataset.u;
+    if (u === "werkstatt" && !(await frage("Idee einbauen lassen?", "Watson schreibt die Idee als Wunsch an die Werkstatt (Claude). Eingebaut wird sie erst in einer gemeinsamen Sitzung – nicht von selbst.", {ja: "Ja, als Wunsch aufschreiben"}))) return;
+    const x = await P().idee_bewerten(+box.dataset.i, u, box.querySelector(".idNotiz").value.trim());
+    if (x.error) { box.querySelector(".idMsg").textContent = "⚠ " + x.error; return; }
+    renderIdeen();
+  });
+  const pr = r.pruefung || {}, nt = pr.noten || {};
+  const rang = Object.keys(nt).sort((a, b) => nt[b].punkte - nt[a].punkte || nt[a].sek - nt[b].sek);
+  $("#idGelernt").innerHTML = (rang.length ? `<div><b>🎓 Programmier-Prüfung</b> (${esc(pr.datum || "")}, 5 Aufgaben, von der Kiste geprüft): ${rang.map(m => `${(pr.beste || []).includes(m) ? "⭐ " : ""}${esc(m.split("/").pop().replace(":free", ""))} ${nt[m].punkte}/${nt[m].von}`).join(" · ")}${(pr.beste || []).length ? "" : " – noch kein Gehirn mit mindestens 3 von 5, Watson nimmt seine starken Gehirne."}</div>` : `<div>🎓 Die Programmier-Prüfung der Gehirne kommt in der nächsten Erfinder-Zeit.</div>`) +
+    ((r.lehren || []).length ? `<div style="margin-top:6px"><b>📏 Eigene Regeln aus Programmier-Fehlern:</b><ul style="margin:4px 0;padding-left:20px">${r.lehren.map(l => `<li>${esc(l.regel)} <span class="muted">(${esc(l.datum)})</span></li>`).join("")}</ul></div>` : "") +
+    ((r.gelernt || []).length ? `<div style="margin-top:6px"><b>📚 Zuletzt übers Programmieren gelernt:</b> ${r.gelernt.map(g => esc(g.thema) + " (" + esc(g.datum) + ")").join(" · ")}</div>` : "");
+}
+
 let wsUhr = null;
 async function renderWachstum() {
   const w = await P().wachstum_status();
+  renderIdeen().catch(e => { $("#idListe").textContent = "Fehler: " + e.message; });
   $("#wsStufe").innerHTML = `<div class="row" style="gap:14px;align-items:center"><span style="font-size:44px">${w.icon}</span><div>
       <div style="font-size:20px;font-weight:700">Stufe ${w.stufe}: ${esc(w.name)}</div>
       <div class="muted small">${w.naechste ? `Auf dem Weg zu ${w.naechste.icon} ${esc(w.naechste.name)} – ${w.fortschritt} % geschafft` : "Höchste Stufe erreicht – und trotzdem lernt Watson weiter."}</div></div></div>`;
@@ -1481,15 +1571,17 @@ async function renderWachstum() {
   $("#wsTagebuch").innerHTML = w.tagebuch.map(t => {
     const r = t.rueckblick || {};
     const liste = (titel, xs) => xs && xs.length ? `<div><b>${titel}</b><ul>${xs.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : "";
-    const vor = (r.vorschlaege || []).map((v, i) => `<div class="wsVorschlag"><span>${{merkzettel: "📒", rezept: "📜", charakter: "🙂"}[v.art] || "💡"} ${esc(v.text)}</span>
-      ${v.status === "offen" ? `<span><button class="small" data-va="${esc(t.zeit)}|${i}|1">Annehmen</button><button class="ghost small" data-va="${esc(t.zeit)}|${i}|0">Nein</button></span>` : `<span class="muted small">${v.status === "angenommen" ? "✅ angenommen" : "✖ abgelehnt"}</span>`}</div>`).join("");
+    const vor = (r.vorschlaege || []).map((v, i) => `<div class="wsVorschlag"><span>${{merkzettel: "📒", rezept: "📜", charakter: "🙂", widerspruch: "⚖"}[v.art] || "💡"} ${esc(v.text)}</span>
+      ${v.status === "offen" ? `<span><button class="small" data-va="${esc(t.zeit)}|${i}|1">${v.art === "widerspruch" ? "Geklärt" : "Annehmen"}</button><button class="ghost small" data-va="${esc(t.zeit)}|${i}|0">${v.art === "widerspruch" ? "Kein Widerspruch" : "Nein"}</button></span>` : `<span class="muted small">${v.status === "angenommen" ? (v.art === "widerspruch" ? "✅ geklärt" : "✅ angenommen") : (v.art === "widerspruch" ? "✖ kein Widerspruch" : "✖ abgelehnt")}</span>`}</div>`).join("");
+    const wsp = t.widersprueche && t.widersprueche.geprueft ? `<div><b>⚖ Widerspruchs-Prüfung:</b> ${t.widersprueche.geprueft} Paare geprüft · ${(t.widersprueche.funde || []).length ? (t.widersprueche.funde || []).length + " Fund(e): " + t.widersprueche.funde.map(f => esc(f.art)).join(", ") : "alles passt"}</div>` : "";
     const ng = Array.isArray(t.neugier) ? t.neugier.map(n => `<li>${n.gefunden ? "✅" : "❔"} ${esc(n.frage)}${n.gefunden ? " – <span class='muted'>ins Wissensbuch</span>" : ""}</li>`).join("") : "";
     const gh = t.gehirne && t.gehirne.getestet && t.gehirne.getestet.length ? `<div><b>Neue Gehirne geprüft:</b> ${t.gehirne.getestet.map(g => esc(g.modell.split("/").pop()) + " " + g.note + " %").join(" · ")}</div>` : "";
     const wa = t.wartung && t.wartung.code ? `<div><b>Programm geprüft:</b> ${t.wartung.code.probleme.length ? "⚠ " + t.wartung.code.probleme.length + " Probleme" : "✅ keine Fehler im Code"} · ${t.wartung.fehlerarten || 0} Fehlerarten ausgewertet</div>` : "";
+    const er = t.erfinder && (t.erfinder.ideen || t.erfinder.programmieren) ? `<div><b>💡 Erfinder-Zeit:</b> ${t.erfinder.programmieren && t.erfinder.programmieren.thema ? "Programmieren gelernt: " + esc(t.erfinder.programmieren.thema) + " · " : ""}${t.erfinder.problem ? "erforscht: " + esc(t.erfinder.problem) + " · " : ""}${(t.erfinder.ideen || []).length} Idee(n)</div>` : "";
     const pr = t.pruefung && t.pruefung.note !== undefined ? `<div><b>Prüfung:</b> ${t.pruefung.note} %</div>` : "";
     return `<details class="wsTag"><summary>🌙 ${esc(t.zeit)} <span class="muted small">(${esc(t.grund)}, ${t.dauer || 0} s)</span></summary>
       ${r.ruhig ? `<div class="muted">${esc(r.text)}</div>` : ""}${liste("👍 Gut gelaufen", r.gut)}${liste("👎 Nicht gut", r.schlecht)}${liste("💡 Gelernt", r.gelernt)}
-      ${vor ? `<div><b>Vorschläge – nur mit deinem OK:</b>${vor}</div>` : ""}${ng ? `<div><b>Selbst nachgeforscht:</b><ul>${ng}</ul></div>` : ""}${gh}${wa}${pr}</details>`;
+      ${vor ? `<div><b>Vorschläge – nur mit deinem OK:</b>${vor}</div>` : ""}${ng ? `<div><b>Selbst nachgeforscht:</b><ul>${ng}</ul></div>` : ""}${wsp}${er}${gh}${wa}${pr}</details>`;
   }).join("") || `<div class="muted">Noch keine Abendrunde. Die erste kommt heute Nacht – oder starte sie jetzt von Hand.</div>`;
   const ersteTag = $("#wsTagebuch details"); if (ersteTag) ersteTag.open = true;
   $("#wsTagebuch").querySelectorAll("[data-va]").forEach(b => b.onclick = async () => {
@@ -1618,6 +1710,7 @@ function codeRat(v) {
     <div class="small ratInfo" style="margin-top:6px"></div><div class="ratForm"></div></div>`;
 }
 function wachstumKnoepfe() {
+  $("#idStart").onclick = async () => { const r = await P().erfinder_starten(); $("#idInfo").textContent = r.error || "⏳ Watson denkt gerade nach … (dauert einige Minuten)"; setTimeout(renderIdeen, 1500); };
   $("#wsRunde").onclick = async () => { const r = await P().abendrunde_starten(); $("#wsRundeInfo").textContent = r.error || "⏳ Die Abendrunde läuft – das dauert ein paar Minuten."; setTimeout(renderWachstum, 1500); };
   $("#wsPruefung").onclick = async () => { await P().pruefung_starten(); $("#wsPruefInfo").textContent = "⏳ Watson schreibt die Prüfung (1–3 Minuten) – danach diese Seite neu öffnen."; };
   $("#wsCode").onclick = async () => { $("#wsCodeInfo").textContent = "Prüfe …"; const r = await P().wartung_code_pruefen();
@@ -1733,7 +1826,7 @@ function setupGespraech() {
 }
 
 let aktivDokument = null;   // eingelesene Datei(en)/Ordner für die nächste Nachricht
-async function send(look = false) {
+async function send(look = false, anhangAlt = "") {
   let text = $("#input").value.trim();
   if (look && !text) text = "Was siehst du gerade auf meinem Bildschirm? Erkläre es mir kurz.";
   if (!text || busy) return;
@@ -1744,8 +1837,9 @@ async function send(look = false) {
     aktivDokument = null;
     $("#input").placeholder = 'Schreib Watson etwas – oder sag Hey Watson …';
   }
+  if (anhangAlt) volltext += anhangAlt;            // bearbeitete Nachricht: das Dokument von vorher geht wieder mit
   $("#input").value = ""; autoGrow(); setBusy(true);
-  addMsg((look === "foto" ? "📷 " : look ? "👁 " : "") + text, "", "user");
+  const meineBlase = addMsg((look === "foto" ? "📷 " : look ? "👁 " : "") + text, "", "user", {text: volltext});
   try {
     let autoTeam = false;
     if (!teamMode && !look && !volltext.includes("[Dokument „")) {
@@ -1758,6 +1852,7 @@ async function send(look = false) {
       try {
         const r = await call("chat", {chat_id: chatId, text: volltext, model: cfg.model, look});
         chatId = r.chat_id;
+        if (r.user_id && meineBlase.isConnected) meineBlase.dataset.id = r.user_id;
         toolNote(r.tools);
         const bubble = addMsg(r.text, botName() + " · " + shortName(r.model));
         lernLeiste(bubble, r, text);
@@ -1983,7 +2078,7 @@ async function renderChats() {
 }
 async function openChat(id) {
   chatId = id; showTab("start"); $("#chat").innerHTML = "";
-  (await P().load_chat(id)).forEach(m => addMsg(m.content, m.role === "user" ? "" : (m.name || botName()) + (m.model ? " · " + shortName(m.model) : ""), m.role === "user" ? "user" : ""));
+  (await P().load_chat(id)).forEach(m => addMsg(m.content, m.role === "user" ? "" : (m.name || botName()) + (m.model ? " · " + shortName(m.model) : ""), m.role === "user" ? "user" : "", {id: m.id}));
   const t = document.querySelector(`.chatItem[data-id="${id}"] span`); if ($("#chatTitle") && t) $("#chatTitle").textContent = t.textContent;
   renderChats();
 }
@@ -2010,6 +2105,7 @@ async function renderFacts() {
   renderWissen().catch(() => {});
   renderRezepte().catch(() => {});
   renderLehren().catch(() => {});
+  fkSchalter().catch(() => {});
   renderMeinungen().catch(() => {});
   renderFehler().catch(() => {});
   $("#lehreNeuBtn").onclick = async () => { const t = $("#lehreNeu").value.trim(); if (!t) return; await P().lehre_neu(t, "von Hand eingetragen"); $("#lehreNeu").value = ""; renderLehren(); };
@@ -2048,6 +2144,31 @@ window.auftragFertig = d => {
   setTimeout(() => t.classList.add("weg"), 60000);
   setTimeout(() => t.remove(), 61000);
 };
+// ---------- 🔌 Watsons Werkzeug-Wünsche: er wählt, du sagst Ja/Nein (werkzeug_wahl.py) ----------
+async function wzZeigen() {
+  const r = await P().werkzeug_wuensche(); const L = $("#wzListe"); if (!L) return;
+  const marke = {offen: "⏳ wartet auf dich", eingesteckt: "✅ eingesteckt", nein: "✋ abgelehnt", fehler: "⚠ ging nicht"};
+  L.innerHTML = (r.wuensche || []).map(w => `<div class="hit" data-w="${w.id}">
+      <div class="row" style="align-items:flex-start;gap:10px"><span style="flex:1"><b>${esc(w.titel)}</b> <span class="muted small">${marke[w.status] || esc(w.status)} · ${esc(w.datum)} · ${esc(w.herkunft || "")}</span>
+        <div class="small" style="margin-top:4px"><span class="muted">Warum:</span> ${esc(w.warum || "–")}</div>
+        ${w.vertrauen ? `<div class="small"><span class="muted">Vertrauen:</span> ${esc(w.vertrauen)}</div>` : ""}
+        <div class="muted small">${esc(w.beschreibung || "")}${w.quelle_url ? ` · <a href="#" data-link="${esc(w.quelle_url)}">Quelle</a>` : ""}${(w.schluessel || []).length ? " · braucht Zugangscode: " + esc(w.schluessel.join(", ")) : ""}</div>
+        ${w.fehler ? `<div class="small" style="color:var(--err)">${esc(w.fehler)}</div>` : ""}<div class="small wzMsg"></div></span>
+      ${w.status === "offen" ? `<button class="primary" data-ja="${w.id}">Ja</button><button class="ghost" data-nein="${w.id}">Nein</button>` : ""}</div></div>`).join("")
+    || `<div class="muted">Noch keine Wünsche. Watson sucht nachts in seiner Abendrunde – oder frag ihn: „Welches Werkzeug würde dir helfen?“</div>`;
+  L.querySelectorAll("[data-link]").forEach(a => a.onclick = e => { e.preventDefault(); P().open_link(a.dataset.link); });
+  const antwort = async (id, ja) => {
+    const box = L.querySelector(`[data-w="${id}"]`); box.querySelectorAll("button").forEach(b => b.disabled = true);
+    box.querySelector(".wzMsg").textContent = ja ? "Wird eingesteckt …" : "";
+    const x = await P().werkzeug_antwort(id, ja);
+    if (x.error) box.querySelector(".wzMsg").textContent = "⚠ " + x.error;
+    setTimeout(wzZeigen, x.error ? 2500 : 200);
+  };
+  L.querySelectorAll("[data-ja]").forEach(b => b.onclick = async () => {
+    if (!(await frage("Werkzeug einstecken?", "Es kommt von einem fremden Anbieter und wird beim ersten Start aus dem Internet geladen. Watson fragt dich trotzdem vor JEDER Benutzung um Erlaubnis.", {ja: "Ja, einstecken"}))) return;
+    antwort(+b.dataset.ja, true); });
+  L.querySelectorAll("[data-nein]").forEach(b => b.onclick = () => antwort(+b.dataset.nein, false));
+}
 // ---------- 💬 ChatGPT-Plan: so einfach, dass es ein Kind kann (chatgpt_plan.py) ----------
 let cgStand = null, cgTimer = null;
 function cgZeigen(st) {
@@ -2152,11 +2273,14 @@ function herzPanelFuellen() {
       <button class="btn" id="herzJetzt">Jetzt prüfen</button>
       <span class="muted small">${st.anzahl || 0} Schläge</span>
     </div>
+    ${st.updates ? `<div class="small" style="margin:6px 0 10px">🔄 Windows-Updates: ${st.updates.zustand === "freigegeben" ? "laufen gerade" : "pausiert (nur wenn du am Laptop bist)"}${st.updates.offen.length ? ` · <b>${st.updates.offen.length} warten</b>` : " · keine offenen"}${st.updates.neustart ? " · <b>Neustart nötig</b>" : ""}
+      ${st.updates.offen.length && st.updates.zustand !== "freigegeben" ? ` <button class="btn" id="updJetzt">Updates jetzt machen</button>` : ""}</div>` : ""}
     ${(st.nachts_gesammelt || []).length ? `<div class="small">🌙 Für morgen gesammelt: ${st.nachts_gesammelt.map(esc).join(" · ")}</div>` : ""}
     ${liste || `<div class="muted small">Noch kein Herzschlag – der erste kommt 2 Minuten nach dem Start.</div>`}`;
   $("#herzAn").onchange = e => P().herzschlag_setzen(e.target.checked, +$("#herzMin").value).then(herzZeigen);
   $("#herzMin").onchange = () => P().herzschlag_setzen($("#herzAn").checked, +$("#herzMin").value).then(herzZeigen);
   $("#herzJetzt").onclick = () => { $("#herzJetzt").textContent = "prüft …"; P().herzschlag_jetzt(); };
+  if ($("#updJetzt")) $("#updJetzt").onclick = async () => { const r = await P().updates_jetzt(); $("#updJetzt").replaceWith(document.createTextNode(" ✓ " + (r.text || r.error || ""))); };
 }
 function herzPanelZeigen() {
   const p = $("#herzPanel"); p.classList.toggle("on");

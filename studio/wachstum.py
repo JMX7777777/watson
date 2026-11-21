@@ -4,6 +4,7 @@ Watson wächst – vom Baby zum Professor.
 Abendrunde (nachts, lautlos):
   1. Tagesrückblick  – Was lief gut, was nicht, was habe ich gelernt? Vorschläge für den Nutzer (nichts ohne sein OK).
   2. Neugier         – Offene Fragen selbst im Internet nachforschen (mehrere Quellen, mit Adressen) -> Wissensbuch.
+  2c. Erfinder-Zeit – Programmieren lernen, Probleme der Menschen erforschen, Ideen erdenken (erfinder.py).
   2b. Selbststudium  – Auch ohne Gespräche: Watson wählt selbst Fragen (Lebensbereiche des Nutzers + eigene Interessen,
                        die er frei entwickelt) und forscht nach – geprüft an seinem Gewissen/Maßstab.
   3. Neue Gehirne    – Neue kostenlose Gehirne mit Watsons eigener Prüfung testen; gute nimmt der Dirigent auf.
@@ -488,8 +489,11 @@ def abendrunde(grund="nachts"):
         for name, schritt in (("rueckblick", lambda: tagesrueckblick(seit)),
                               ("neugier", neugier),
                               ("selbststudium", selbststudium),
+                              ("erfinder", erfinder_zeit),
                               ("fehler", aus_fehlern_lernen),
+                              ("widersprueche", widersprueche_pruefen),
                               ("meinungen", meinungen_nachdenken),
+                              ("werkzeuge", werkzeug_wunsch_nachts),
                               ("gehirne", neue_gehirne),
                               ("wartung", lambda: H["wartung"].nachtpruefung()),
                               ("pruefung", lambda: pruefung(H["dirigent_modelle"]) if _pruefung_faellig() else None)):
@@ -503,6 +507,13 @@ def abendrunde(grund="nachts"):
         vs = (eintrag.get("fehler") or {}).get("vorschlaege") if isinstance(eintrag.get("fehler"), dict) else None
         if vs and isinstance(eintrag.get("rueckblick"), dict):
             eintrag["rueckblick"].setdefault("vorschlaege", []).extend(vs)
+        # Widersprüche in Wissen/Merkzettel -> der Nutzer klärt sie (Meinungen bedenkt Watson selbst)
+        ws = eintrag.get("widersprueche")
+        if isinstance(ws, dict) and ws.get("funde") and isinstance(eintrag.get("rueckblick"), dict):
+            import widerspruch
+            eintrag["rueckblick"].setdefault("vorschlaege", []).extend(widerspruch.als_vorschlaege(ws["funde"]))
+        if isinstance(ws, dict) and "funde" in ws:
+            ws["funde"] = [{k: f[k] for k in ("id", "art", "erklaerung")} for f in ws["funde"]]
         if isinstance(eintrag.get("pruefung"), dict) and "einzeln" in eintrag["pruefung"]:
             eintrag["pruefung"] = {k: v for k, v in eintrag["pruefung"].items() if k != "einzeln"}
         eintrag["dauer"] = round(time.time() - t0)
@@ -530,7 +541,40 @@ def meinungen_nachdenken():
     heute = time.strftime("%d.%m.%Y")
     gestern = time.strftime("%d.%m.%Y", time.localtime(time.time() - 86400))
     neu = [w for w in lernbuch.wissen_liste() if w.get("datum") in (heute, gestern)]
-    return meinungsbuch.nachdenken(H["frage"], H["stark"], _json_aus, _massstab(), neu)
+    # Meinungen, bei denen die Widerspruchs-Prüfung etwas gefunden hat, bedenkt Watson selbst neu
+    import widerspruch
+    funde = widerspruch.offene("meinung")[:2]
+    bericht = meinungsbuch.nachdenken(H["frage"], H["stark"], _json_aus, _massstab(), neu, widersprueche=funde)
+    for f in funde:
+        widerspruch.erledigt(f["id"], "watson_bedacht")
+    return bericht
+
+
+def widersprueche_pruefen():
+    """Nahe Einträge in Wissensbuch, Merkzettel und Meinungsbuch auf Widersprüche prüfen (siehe widerspruch.py)."""
+    import widerspruch
+    return widerspruch.pruefen(H["frage"], H["stark"], _json_aus, _massstab(), H.get("mem"))
+
+
+def erfinder_zeit():
+    """Erfinder-Zeit: programmieren lernen, Probleme der Menschen erforschen, Ideen erdenken (siehe erfinder.py)."""
+    import erfinder
+    return erfinder.nachts(H, _internet, _json_aus, lernbuch, _massstab())
+
+
+def werkzeug_wunsch_nachts():
+    """Watson sucht sich selbst ein Werkzeug aus (höchstens eins pro Nacht) – eingesteckt wird erst nach Ja."""
+    import werkzeug_wahl, fehlerbuch
+    eigene = [f"{i['thema']} ({i.get('warum', '')})" for i in interessen()]
+    luecken = [f["was"][:200] for f in fehlerbuch.alle()[-40:] if f.get("art") in ("tat", "korrektur")][-8:]
+    try:
+        import tatpruefung
+        luecken += [f"Konnte nicht: {x['satz'][:150]}" for e in
+                    (json.loads(z) for z in tatpruefung.DATEI.read_text(encoding="utf-8").splitlines()[-30:])
+                    for x in e.get("falsch", [])][-5:]
+    except Exception:
+        pass
+    return werkzeug_wahl.nachts_suchen(H["frage"], H["stark"], _json_aus, eigene, luecken, _massstab())
 
 
 def _pruefung_faellig():

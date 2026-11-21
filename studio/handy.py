@@ -551,6 +551,8 @@ class Handler(BaseHTTPRequestHandler):
             return {"gespraeche": api.list_chats()}
         if aktion == "gespraech":
             return {"nachrichten": [x for x in api.load_chat(int(d.get("id", 0))) if x.get("role") in ("user", "assistant")]}
+        if aktion == "gespraech_kuerzen":      # eigene Nachricht bearbeiten: sie und alles danach löschen
+            return api.chat_kuerzen(d.get("chat_id"), d.get("msg_id") or None, str(d.get("text", ""))[:8000])
         if aktion == "gespraech_loeschen":
             return api.delete_chat(int(d.get("id", 0)))
         if aktion == "ablaeufe":
@@ -590,6 +592,47 @@ class Handler(BaseHTTPRequestHandler):
             return api.mcp_suchen(begriff, d.get("weiter") or None)
         if aktion.startswith("video_"):
             return self._video_aktion(aktion, d)
+        if aktion == "innen":            # Bereich „Wachstum“: alles, was in Watson passiert (ohne Geheimnisse)
+            import herzschlag, wartung
+            hs = herzschlag.status()
+            cg = api.chatgpt_status()
+            rep = [{"id": v["id"], "datum": v["datum"], "datei": v["datei"], "fehler": v["fehler"][:300],
+                    "erklaerung": v.get("erklaerung", "")[:400], "ja": wartung.zustimmung(v)[0], "von": wartung.zustimmung(v)[1],
+                    "herkunft": v.get("herkunft", "Fehler-Sammler")} for v in wartung._laden()["vorschlaege"]
+                   if v["status"] == "vorgeschlagen"][-10:]
+            return {"herz": {"an": hs["an"], "minuten": hs["minuten"], "letzter": hs["letzter"], "updates": hs.get("updates"),
+                             "nachts": hs.get("nachts_gesammelt")},
+                    "chatgpt": {k: cg.get(k) for k in ("angemeldet", "an", "modell", "zustand", "pause_bis", "email")},
+                    "meinungen": api.meinungen_liste(), "fehler": api.fehler_liste(), "reparaturen": rep,
+                    "wachstum": api.wachstum_status() if hasattr(api, "wachstum_status") else {},
+                    "ideen": api.ideen_liste()}
+        if aktion == "idee_bewerten":   # Urteil zu einer Idee (Werkstatt-Wunsch = nur aufschreiben, baut nichts ein)
+            return api.idee_bewerten(int(d.get("id", 0)), str(d.get("urteil", "")), str(d.get("notiz", ""))[:400])
+        if aktion == "herz_jetzt":
+            return api.herzschlag_jetzt()
+        if aktion == "updates_jetzt":
+            return api.updates_jetzt()
+        if aktion == "chatgpt_an":
+            return api.chatgpt_setzen(bool(d.get("an")))
+        if aktion == "fehler_erklaeren":
+            return api.fehler_erklaeren(int(d.get("id", 0)), str(d.get("text", ""))[:800])
+        if aktion == "reparatur":
+            ja = bool(d.get("ja"))
+            if ja and not self._erhoeht():
+                return {"error": "Eine Reparatur ändert Watsons Programm. Bitte zuerst unter Menü → Sicherheit mit "
+                                 "Fingerabdruck bestätigen, dann noch einmal Ja drücken.", "bestaetigen": True}
+            sicherheit_log(f"Reparatur {int(d.get('id', 0))}: {'Ja' if ja else 'Nein'} (vom Handy)")
+            return api.reparatur_anwenden(int(d.get("id", 0))) if ja else api.reparatur_ablehnen(int(d.get("id", 0)))
+        if aktion == "werkzeug_wuensche":
+            return api.werkzeug_wuensche()
+        if aktion == "werkzeug_antwort":
+            ja = bool(d.get("ja"))
+            if ja and not self._erhoeht():
+                return {"error": "Ein neues Werkzeug startet fremde Programme auf deinem Laptop. Bitte zuerst unter "
+                                 "Menü → Sicherheit mit Fingerabdruck bestätigen, dann noch einmal Ja drücken.",
+                        "bestaetigen": True}
+            sicherheit_log(f"Werkzeug-Wunsch {int(d.get('id', 0))}: {'Ja' if ja else 'Nein'} (vom Handy)")
+            return api.werkzeug_antwort(int(d.get("id", 0)), ja)
         if aktion == "werkzeug_einstecken":
             if not self._erhoeht():
                 return {"error": "Ein neues Werkzeug startet fremde Programme auf deinem Laptop. Bitte zuerst unter "
@@ -1082,7 +1125,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self._antwort(400, {"error": "Leere Nachricht"})
                 r = api.chat({"text": text, "chat_id": d.get("chat_id"), "von_handy": True})
                 return self._antwort(200, {k: r.get(k) for k in ("text", "model", "chat_id", "tools", "lern_id",
-                                                                 "lehrer", "error")})
+                                                                 "lehrer", "error", "user_id")})
             if pfad == "/api/antwort":
                 return self._antwort(200, api.frage_antwort(str(d.get("id", "")), bool(d.get("ok"))))
             if pfad == "/api/bewerten":

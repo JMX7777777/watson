@@ -230,9 +230,103 @@ def pruef_tatpruefung(d):
     return []
 
 
+# ---------------- Windows-Updates: nur, wenn der Besitzer am Laptop ist (Wächter: werkzeuge\update_waechter.ps1) ----------------
+import os
+UPDATE_ORDNER = os.path.join(os.environ.get("ProgramData", r"C:\ProgramData"), "Watson", "austausch")
+UPDATE_STATUS = os.path.join(UPDATE_ORDNER, "updates_status.json")
+UPDATE_WUNSCH = os.path.join(UPDATE_ORDNER, "updates_wunsch.txt")
+
+
+def updates_info():
+    """Was der Update-Wächter zuletzt aufgeschrieben hat (None = nicht eingerichtet)."""
+    try:
+        with open(UPDATE_STATUS, encoding="utf-8-sig") as f:
+            d = json.load(f)
+    except (OSError, ValueError):
+        return None
+    offen = d.get("offen") or []
+    if isinstance(offen, str):
+        offen = [offen]
+    try:
+        alter = time.time() - time.mktime(time.strptime(str(d.get("stand", ""))[:19], "%Y-%m-%dT%H:%M:%S"))
+    except ValueError:
+        alter = 1e9
+    return {"zustand": d.get("zustand", ""), "offen": offen, "neustart": bool(d.get("neustart_noetig")),
+            "letzte_suche": str(d.get("letzte_suche", ""))[:16].replace("T", " "), "waechter_alt": alter > 30 * 60}
+
+
+def updates_wunsch(wort):
+    """Watson hinterlegt nur „jetzt“ oder „pause“ – der Wächter liest nur genau diese Wörter."""
+    if wort not in ("jetzt", "pause"):
+        raise ValueError("unbekannter Wunsch")
+    with open(UPDATE_WUNSCH, "w", encoding="utf-8") as f:
+        f.write(wort)
+
+
+def pruef_updates(d):
+    u = updates_info()
+    if u is None:
+        return []                                   # nicht eingerichtet
+    if u["waechter_alt"]:
+        return [_b("updates", "Der Update-Wächter hat sich seit über 30 Minuten nicht gemeldet", "info", "updates:waechter")]
+    if nachtruhe() or _handy_still():
+        return []                                   # nie nachts, nie wenn der Besitzer am Handy ist – nur am Laptop erinnern
+    out = []
+    if u["neustart"]:
+        out.append(_b("updates", "Windows möchte für Updates neu starten – mach es, wenn es dir gerade passt",
+                      "wichtig", "updates:neustart"))
+    elif u["offen"] and u["zustand"] == "pausiert":
+        out.append(_b("updates", f"{len(u['offen'])} Windows-Update(s) warten. Wenn du gerade Zeit hast: im Herz-Fenster "
+                      "„Updates jetzt machen“ drücken", "wichtig", f"updates:offen:{len(u['offen'])}"))
+    elif u["zustand"] == "freigegeben":
+        out.append(_b("updates", "Windows-Updates sind gerade freigegeben und laufen", "info", "updates:laufen"))
+    return out
+
+
+def pruef_werkzeug_wuensche(d):
+    """Neue Werkzeug-Wünsche von Watson vorlegen (nachts gesammelt, morgens gemeldet – über die normale Melde-Regel)."""
+    try:
+        import werkzeug_wahl
+        offen = werkzeug_wahl.offene()
+    except Exception:
+        return []
+    return [_b("werkzeug", f"🔌 Ich wünsche mir ein neues Werkzeug: „{w['titel']}“ – {w['warum'][:200]} "
+               "Sag Ja oder Nein unter „Skills“ (Laptop oder Handy).", "wichtig", f"werkzeug:{w['id']}") for w in offen[:3]]
+
+
+def pruef_ideen(d):
+    """Gute neue Ideen aus der Erfinder-Zeit einmal vorlegen (nachts gesammelt, morgens gemeldet)."""
+    try:
+        import erfinder
+        neu = erfinder.neue_ungezeigt()
+    except Exception:
+        return []
+    if not neu:
+        return []
+    namen = ", ".join(f"„{i['titel']}“" for i in neu[:3])
+    return [_b("ideen", f"💡 Erfinder-Zeit: Ich habe mir {'eine neue Idee' if len(neu) == 1 else f'{len(neu)} neue Ideen'} "
+               f"ausgedacht: {namen}. Schau sie dir unter „Wachstum“ → Ideenbuch an (Laptop oder Handy) und sag mir, "
+               "wie du sie findest.", "wichtig", f"ideen:{max(i['id'] for i in neu)}")]
+
+
+def pruef_wartung(d):
+    """Reparatur-Vorschläge, denen der Code-Rat zugestimmt hat, dem Besitzer vorlegen (Ja/Nein)."""
+    try:
+        import wartung
+        offen = [v for v in wartung._laden()["vorschlaege"] if v["status"] == "vorgeschlagen"
+                 and wartung.zustimmung(v)[0] >= 2]
+    except Exception:
+        return []
+    return [_b("wartung", f"🔧 Mein Wartungs-Team hat in „{v['datei']}“ etwas gefunden: {v.get('erklaerung', '')[:160]} "
+               "Der Code-Rat stimmt zu. Sag Ja oder Nein unter „Wachstum“ (Laptop oder Handy).", "wichtig",
+               f"wartung:{v['id']}") for v in offen[:2]]
+
+
 PRUEFUNGEN = [("Termine", pruef_termine), ("Sicherung", pruef_sicherung), ("Speicher", pruef_speicher),
               ("Gehirne", pruef_netz), ("Abläufe", pruef_n8n), ("Aufträge", pruef_auftraege),
-              ("Fehler", pruef_fehler), ("Abendrunde", pruef_abendrunde), ("Ehrlichkeit", pruef_tatpruefung)]
+              ("Fehler", pruef_fehler), ("Abendrunde", pruef_abendrunde), ("Ehrlichkeit", pruef_tatpruefung),
+              ("Updates", pruef_updates), ("Werkzeug-Wünsche", pruef_werkzeug_wuensche),
+              ("Wartung", pruef_wartung), ("Ideen", pruef_ideen)]
 
 
 # ---------------- Ein Schlag ----------------
@@ -314,7 +408,8 @@ def status():
     return {"an": an(cfg), "minuten": minuten(cfg), "anzahl": d["anzahl"], "letzter": letzter,
             "naechster_in": max(0, round(((d.get("letzter_schlag") or time.time()) + minuten(cfg) * 60 - time.time()) / 60))
             if an(cfg) else None,
-            "tagebuch": list(reversed(d["schlaege"][-30:])), "nachts_gesammelt": d["nachts_gesammelt"]}
+            "tagebuch": list(reversed(d["schlaege"][-30:])), "nachts_gesammelt": d["nachts_gesammelt"],
+            "updates": updates_info()}
 
 
 def schleife():

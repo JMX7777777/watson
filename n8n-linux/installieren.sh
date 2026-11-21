@@ -24,5 +24,5 @@ echo "Node: $(node -v) $(node -p process.arch) abi$(node -p process.versions.mod
 mkdir -p /opt/watson-n8n/daten
 cd /opt/watson-n8n
 [ -f package.json ] || echo '{"name":"watson-n8n","private":true}' > package.json
-npm install n8n@2.46.6 --no-fund --no-audit --loglevel=error
+npm install n8n@2.48.7 --no-fund --no-audit --loglevel=error
 test -f node_modules/n8n/bin/n8n && echo "N8N_OK"

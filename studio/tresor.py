@@ -15,7 +15,8 @@ import keyring
 
 SERVICE = "Watson"
 # Schlüssel, die Watson kennt: Kennung -> Anzeigename
-BEKANNT = {"api_key": "OpenRouter (Gehirne)", "n8n_api_key": "n8n (Abläufe)"}
+BEKANNT = {"api_key": "OpenRouter (Gehirne)", "n8n_api_key": "n8n (Abläufe)",
+           "n8n_passwort": "n8n Werkstatt – Passwort zum Anmelden"}   # nur für den Besitzer zum Nachschauen, Watson benutzt es nicht
 
 
 # ---------------- Tresor ----------------

@@ -75,6 +75,18 @@ header button{width:40px;height:40px;padding:0;display:grid;place-items:center;b
   background:var(--glass2);border:1px solid var(--line);color:var(--muted);font-size:13px;-webkit-backdrop-filter:none;backdrop-filter:none}
 .kopierKnopf.ok{color:var(--ok);border-color:var(--ok)}
 .msg.user .kopierKnopf{background:rgba(255,255,255,.2);border-color:transparent;color:#fff}
+/* Unter eigenen Nachrichten: Kopieren + Bearbeiten (wie Gemini), auf dem Handy immer sichtbar */
+.msg.user{padding-right:15px}
+.nutzerLeiste{display:flex;justify-content:flex-end;gap:6px;margin:-2px 2px 10px}
+.nutzerLeiste button{width:32px;height:32px;padding:0;border-radius:10px;display:grid;place-items:center;background:#1f2330;border:1px solid rgba(255,255,255,.08);color:#d7dbe6;font-size:13px}
+.nutzerLeiste button.ok{color:var(--ok);border-color:var(--ok)}
+.nutzerLeiste[hidden]{display:none}
+.msg.user.bearbeiten{width:86%}
+.nlFeld{width:100%;box-sizing:border-box;resize:none;background:rgba(0,0,0,.22);color:inherit;border:1px solid rgba(255,255,255,.35);border-radius:12px;padding:8px 10px;font:inherit;font-size:16px;line-height:1.45}
+.nlKnoepfe{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}
+.nlKnoepfe button{padding:7px 15px;border-radius:999px;font-size:14px}
+.nlAb{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5)}
+.nlOk{background:#fff;color:#1f2330;border:1px solid #fff;font-weight:650}
 .bar{display:flex;gap:4px;margin:-2px 0 10px 4px}.bar button{padding:5px 10px;font-size:13.5px;border-radius:11px}.bar button.an{background:var(--accentSoft);border-color:rgba(109,139,255,.5)}
 .karte{border:1px solid rgba(109,139,255,.45);border-radius:var(--r);padding:12px 14px;margin:8px 0 14px;background:var(--glass);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
 .denkt{color:#E08A62;font-size:15px;margin:10px 6px;display:flex;align-items:center;gap:9px}
@@ -239,6 +251,7 @@ input[type=checkbox]{width:22px!important;height:22px;accent-color:var(--accent)
       <button data-t="wissen"><span class="chip c7"><svg class="i" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg></span>Wissensbuch</button>
       <button data-t="sicherheit"><span class="chip c6"><svg class="i" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></span>Sicherheit</button>
       <button data-t="video"><span class="chip c3"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="13" height="14" rx="2.5"/><path d="m16 10 5-3v10l-5-3z"/></svg></span>Video-Studio</button>
+      <button data-t="innen"><span class="chip c7"><svg class="i" viewBox="0 0 24 24"><path d="M12 22V12"/><path d="M12 12C12 7 8 4 3 4c0 5 4 8 9 8z"/><path d="M12 14c0-4 3-7 9-7 0 5-4 7-9 7z"/></svg></span>Wachstum</button>
       <button data-t="stimme"><span class="chip c8"><svg class="i" viewBox="0 0 24 24"><path d="M2 12h2M6 8v8M10 5v14M14 8v8M18 10v4M22 12h0"/></svg></span>Meine Stimme</button>
     </div>
     <div id="menuInhalt"></div>
@@ -414,7 +427,7 @@ function fingerAnbieten() {
 async function verlaufZeigen() {
   if (!chatId || $("#chat").children.length) return false;
   try { const r = await api("/api/handy/gespraech", {id: chatId}); const n = (r.nachrichten || []).slice(-20);
-    for (const x of n) blase(x.content || "", x.role === "user" ? "" : name, x.role === "user" ? "user" : "");
+    for (const x of n) blase(x.content || "", x.role === "user" ? "" : name, x.role === "user" ? "user" : "", {id: x.id});
     return n.length > 0; } catch (e) { return false; }
 }
 async function begruessen() { if (await verlaufZeigen()) return; if (!$("#chat").children.length) blase((window.watsonTr || (t => t))(`Hallo! Ich bin ${name}. Schreib mir einfach – ich bin auf deinem Computer zu Hause und höre dir hier zu.`), name); }
@@ -452,12 +465,36 @@ $("#erstPinBtn").onclick = async () => {
 $("#pinNeu2").onkeydown = e => { if (e.key === "Enter") $("#erstPinBtn").click(); };
 $("#abBtn").onclick = async () => { await api("/api/abmelden", {}); zeigeLogin(); };
 $("#neuBtn").onclick = () => { chatId = null; try { localStorage.removeItem("watsonChat"); } catch (e) {} $("#chat").innerHTML = ""; begruessen(); };
-function blase(text, wer, art = "") {
+function blase(text, wer, art = "", info = null) {
   const d = document.createElement("div"); d.className = "msg " + art;
   const inhalt = window.watsonMarkdown ? (art === "user" ? watsonEinfach(text) : watsonMarkdown(text)) : fmt(text);
   d.innerHTML = (wer ? `<div class="who">${esc(wer)}</div>` : "") + `<div class="md">${inhalt}</div>`;
-  if (window.watsonKopierKnopf) watsonKopierKnopf(d, d.querySelector(".md"));   // ganze Nachricht kopieren
-  $("#chat").appendChild(d); $("#chat").scrollTop = 1e9; return d;
+  if (art !== "user" && window.watsonKopierKnopf) watsonKopierKnopf(d, d.querySelector(".md"));   // ganze Nachricht kopieren
+  $("#chat").appendChild(d);
+  if (art === "user" && window.watsonNutzerLeiste) {               // unter eigenen Nachrichten: Kopieren + Bearbeiten (immer sichtbar)
+    const roh = (info && info.text != null) ? info.text : text;
+    if (info && info.id) d.dataset.id = info.id;
+    d.dataset.text = roh;
+    const teil = roh.indexOf("\n\n[Dokument „");                   // angehängtes Dokument nicht ins Bearbeiten-Feld
+    watsonNutzerLeiste(d, {kopie: roh, text: teil >= 0 ? roh.slice(0, teil) : roh, speichern: neu => nachrichtNeu(d, neu)});
+  }
+  $("#chat").scrollTop = 1e9; return d;
+}
+// Eigene Nachricht bearbeiten (wie Gemini/ChatGPT): sie und alles danach löschen, dann neu senden
+async function nachrichtNeu(b, neu) {
+  if (beschaeftigt) return false;
+  let anhangAlt = "";
+  if (chatId) {
+    let r;
+    try { r = await api("/api/handy/gespraech_kuerzen", {chat_id: chatId, msg_id: b.dataset.id ? +b.dataset.id : null, text: b.dataset.text || ""}); }
+    catch (e) { blase("Keine Verbindung zu Watson: " + e.message, "Hinweis"); return false; }
+    if (r.error) { blase(r.error, "Hinweis"); return false; }
+    anhangAlt = r.anhang || "";
+  }
+  while (b.nextSibling) b.nextSibling.remove();
+  b.remove();
+  $("#eingabe").value = neu;
+  await senden(anhangAlt);
 }
 async function kopieren(t) { try { await navigator.clipboard.writeText(t); return true; } catch (e) { return false; } }
 function lernLeiste(b, r) {
@@ -507,11 +544,15 @@ function frageZeigen(f) {
   ov.querySelector(".ja").onclick = () => antwort(true); ov.querySelector(".nein").onclick = () => antwort(false);
   document.body.appendChild(ov);
 }
-async function senden() {
+async function senden(anhangAlt = "") {
+  if (typeof anhangAlt !== "string") anhangAlt = "";      // als Klick-Handler kommt hier ein Ereignis an
   const text = $("#eingabe").value.trim();
   if (!text || beschaeftigt) return;
   beschaeftigt = true; $("#senden").disabled = true; $("#eingabe").value = ""; groesse();
-  blase(text, "", "user");
+  let volltext = text;
+  if (anhang) { volltext = `${text}\n\n[Dokument „${anhang.name}“]\n${anhang.text}`; anhang = null; zeigeAnhang(""); }
+  if (anhangAlt) volltext += anhangAlt;                  // bearbeitete Nachricht: das Dokument von vorher geht wieder mit
+  const meineBlase = blase(text, "", "user", {text: volltext});
   // Arbeits-Anzeige wie bei Claude: Punkte, wechselndes Wort, Sekunden
   const denkt = document.createElement("div"); denkt.className = "denkt";
   denkt.innerHTML = '<span class="denkPunkte"><i></i><i></i><i></i><i></i></span><span class="denkWort"></span><span class="denkZeit"></span>';
@@ -526,13 +567,12 @@ async function senden() {
   stopp.onclick = () => api("/api/stopp", {}); denkt.appendChild(stopp);
   frageUhr = setInterval(fragenHolen, 1500);
   try {
-    let volltext = text;
-    if (anhang) { volltext = `${text}\n\n[Dokument „${anhang.name}“]\n${anhang.text}`; anhang = null; zeigeAnhang(""); }
     const r = await api("/api/chat", {text: volltext, chat_id: chatId});
     clearInterval(dUhr); denkt.remove();
     if (r.error && !r.text) blase(r.error, "Hinweis");
     else {
       if (r.chat_id) { chatId = r.chat_id; try { localStorage.setItem("watsonChat", chatId); } catch (e) {} }
+      if (r.user_id && meineBlase.isConnected) meineBlase.dataset.id = r.user_id;
       const b = blase(r.text, name); lernLeiste(b, r);   // Blick hinter die Kulissen steckt im ℹ️-Knopf
       if (r.lehrer) lehrerKarte(r.lehrer);
     }
@@ -803,7 +843,8 @@ async function menuZeige(t) {
         $("#mGehirn").onchange = async e => { await hx("einstellungen_setzen", {model: e.target.value}); $("#mInfo").textContent = "✓ Gehirn gespeichert"; };
       });
     } else if (t === "skills") {
-      m.innerHTML = `<div class="suche"><input type="search" id="skSuch" placeholder="Was soll Watson können? z. B. Wetter, PDF …"><button class="primary" id="skBtn">Suchen</button></div>
+      m.innerHTML = `<b>Watsons Wünsche</b><div class="small muted">Werkzeuge, die er sich selbst ausgesucht hat – du sagst Ja oder Nein.</div><div class="liste" id="wzListe"><div class="muted small">Lade …</div></div>
+        <div class="suche"><input type="search" id="skSuch" placeholder="Was soll Watson können? z. B. Wetter, PDF …"><button class="primary" id="skBtn">Suchen</button></div>
         <div class="small muted" id="skInfo"></div><div class="liste" id="skTreffer"></div><b>Schon eingesteckt</b><div class="liste" id="skDrin"><div class="muted small">Lade …</div></div>`;
       let weiter = null, begriff = "";
       const karte = x => { const d = document.createElement("div");
@@ -833,6 +874,21 @@ async function menuZeige(t) {
         $("#skInfo").innerHTML = (r.uebersetzt ? esc(r.uebersetzt) + " " : "") + (n ? `${n} gefunden.` : "Nichts gefunden – versuch ein anderes Wort, gern auf Englisch.") + (weiter && (r.treffer || []).length ? ' <a href="#" id="skMehr">Mehr laden</a>' : "");
         const mh = $("#skMehr"); if (mh) mh.onclick = e => { e.preventDefault(); suchen(true); };
       };
+      const wz = async () => {
+        const r = await hx("werkzeug_wuensche"); const L = $("#wzListe");
+        const offen = (r.wuensche || []).filter(w => w.status === "offen");
+        L.innerHTML = offen.map(w => `<div data-w="${w.id}"><div class="kopf"><b>${esc(w.titel)}</b></div><div class="small">${esc(w.warum || "")}</div>${w.vertrauen ? `<div class="small muted">${esc(w.vertrauen)}</div>` : ""}<div style="display:flex;gap:8px;margin-top:6px"><button class="primary small" data-ja="${w.id}">Ja</button><button class="small" data-nein="${w.id}">Nein</button></div><div class="small msg3"></div></div>`).join("")
+          || '<div class="muted small">Gerade keine offenen Wünsche.</div>';
+        L.querySelectorAll("[data-ja],[data-nein]").forEach(b => b.onclick = async () => {
+          const ja = !!b.dataset.ja, id = +(b.dataset.ja || b.dataset.nein), box = L.querySelector(`[data-w="${id}"]`);
+          if (ja && !confirm("Werkzeug einstecken? Es kommt von einem fremden Anbieter. Watson fragt trotzdem vor JEDER Benutzung.")) return;
+          box.querySelectorAll("button").forEach(x => x.disabled = true);
+          const x = await hx("werkzeug_antwort", {id, ja});
+          box.querySelector(".msg3").innerHTML = x.error ? `<span style="color:var(--err)">${esc(x.error)}</span>` : (ja ? "✓ eingesteckt" : "✓ abgelehnt");
+          if (x.error) box.querySelectorAll("button").forEach(y => y.disabled = false);
+        });
+      };
+      wz();
       $("#skBtn").onclick = () => suchen(false);
       $("#skSuch").onkeydown = e => { if (e.key === "Enter") suchen(false); };
       hx("werkzeuge").then(w => { $("#skDrin").innerHTML = (w.server || []).map(x => `<div><div class="kopf"><b>${esc(x.name)}</b><span class="marke ${x.ok ? "gut" : "schlecht"}">${x.ok ? x.werkzeuge + " Werkzeuge" : "nicht verbunden"}</span></div>${!x.ok && x.fehler ? `<div class="small muted">${esc(x.fehler).slice(0, 160)}</div>` : ""}</div>`).join("") || '<div class="muted small">Noch keine.</div>'; });
@@ -860,6 +916,37 @@ async function menuZeige(t) {
     } else if (t === "rezepte") {
       const r = await hx("rezepte");
       m.innerHTML = '<div class="liste">' + ((r.rezepte || []).map(x => `<div><b>${esc(x.titel)}</b>${x.wann ? `<div class="small muted">${esc(x.wann)}</div>` : ""}<ol class="small" style="margin:6px 0 0;padding-left:20px">${(x.schritte || []).map(s => `<li>${esc(s)}</li>`).join("")}</ol></div>`).join("") || '<div class="muted">Noch keine Fertigkeiten.</div>') + "</div>";
+    } else if (t === "innen") {
+      const r = await hx("innen"); const h = r.herz || {}, cg = r.chatgpt || {}, u = h.updates;
+      const zeichen = {ok: "🟢", info: "🟠", wichtig: "🔴"};
+      const l = h.letzter;
+      m.innerHTML = `<b>💓 Herzschlag</b><div class="liste"><div><div class="kopf"><span>${h.an ? `alle ${h.minuten} Min.` : "aus"}${l ? ` · zuletzt ${esc(l.zeit)} ${zeichen[l.zustand] || ""}` : ""}</span><button class="small" id="hzJetzt">Jetzt prüfen</button></div>
+          ${l && l.befunde && l.befunde.length ? l.befunde.map(b => `<div class="small">${b.stufe === "wichtig" ? "⚠ " : "· "}${esc(b.text)}</div>`).join("") : '<div class="small muted">Alles in Ordnung.</div>'}
+          ${u ? `<div class="small" style="margin-top:6px">🔄 Updates: ${u.zustand === "freigegeben" ? "laufen gerade" : "pausiert (nur am Laptop)"}${u.offen.length ? ` · ${u.offen.length} warten` : ""}${u.neustart ? " · Neustart nötig" : ""}</div>` : ""}</div></div>
+        <b>💬 ChatGPT-Plan</b><div class="liste"><div>${cg.angemeldet ? `<div class="kopf"><span>${cg.an ? (cg.pause_bis ? `⏸ Pause bis ${esc(cg.pause_bis)}` : "✓ Watson denkt damit") : "aus"}${cg.modell ? " · " + esc(cg.modell) : ""}</span><label class="small"><input type="checkbox" id="cgAn" ${cg.an ? "checked" : ""}> an</label></div>${cg.zustand === "kein_plan" ? '<div class="small" style="color:var(--err)">Kein passender Plan (Plus/Pro nötig)</div>' : ""}${cg.zustand === "neu_anmelden" ? '<div class="small" style="color:var(--err)">Bitte am Laptop neu anmelden</div>' : ""}`
+          : '<div class="small muted">Nicht verbunden. Anmelden geht nur am Laptop (Seite Gehirne → „Mit ChatGPT anmelden“).</div>'}</div></div>
+        <b>🔧 Wartungs-Team</b><div class="small muted">Findet Fehler in Watsons Programm. Repariert wird nur mit deinem Ja.</div><div class="liste" id="repListe">${(r.reparaturen || []).map(v => `<div data-r="${v.id}"><div class="kopf"><b>${esc(v.datei)}</b><span class="marke">Code-Rat ${v.ja}/${v.von} Ja</span></div><div class="small">${esc(v.erklaerung || v.fehler)}</div><div class="small muted">${esc(v.herkunft)} · ${esc(v.datum)}</div><div style="display:flex;gap:8px;margin-top:6px"><button class="primary small" data-ja="${v.id}" ${v.ja < 2 ? "disabled title=\"Erst müssen 2 von 3 Gutachtern zustimmen\"" : ""}>Ja, reparieren</button><button class="small" data-nein="${v.id}">Nein</button></div><div class="small msg4"></div></div>`).join("") || '<div class="muted small">Gerade nichts zu reparieren.</div>'}</div>
+        <b>💡 Ideenbuch</b><div class="small muted">Watsons Erfinder-Zeit: Ideen, die er sich nachts ausgedacht hat. Sag ihm, wie du sie findest – eingebaut wird nichts von selbst.</div><div class="liste" id="idListe">${(((r.ideen || {}).ideen) || []).slice(0, 15).map(i => `<div data-i="${i.id}"><div class="kopf"><b>${esc(i.titel)}</b><span class="marke">${i.bewertung ? "★".repeat(i.bewertung) : "–"}</span></div><div class="small">${esc(i.idee || "")}</div>${i.nutzen ? `<div class="small muted">Nutzen: ${esc(i.nutzen)}</div>` : ""}${i.probe ? `<div class="small muted">${i.probe.ok ? "✅ Probeprogramm lief" : "⚠ Probeprogramm gescheitert"}</div>` : ""}<div class="small muted">Nr. ${i.id} · ${esc(i.datum)}${i.status !== "neu" ? " · " + esc((r.ideen.urteile || {})[i.status] || i.status) : ""}</div>${i.status === "neu" ? `<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap"><button class="small" data-iu="gut">👍 Gut</button><button class="small" data-iu="nicht">👎 Nicht so</button><button class="primary small" data-iu="werkstatt">🛠 Einbauen lassen</button></div>` : ""}<div class="small msg5"></div></div>`).join("") || '<div class="muted small">Noch keine Ideen – die erste Erfinder-Zeit kommt heute Nacht.</div>'}</div>
+        <b>💭 Meinungsbuch</b><div class="liste">${((r.meinungen || {}).meinungen || []).map(x => `<div><b>${esc(x.thema)}</b> <span class="small muted">${"●".repeat(x.sicherheit)}${"○".repeat(5 - x.sicherheit)}</span><div class="small">${esc(x.meinung)}</div>${x.bibel ? `<div class="small muted">📖 ${esc(x.bibel)}</div>` : ""}${(x.verlauf || []).length ? `<div class="small muted">🔄 ${x.verlauf.length}× umgedacht</div>` : ""}</div>`).join("") || '<div class="muted small">Noch keine eigenen Meinungen.</div>'}</div>
+        <b>🩹 Fehlerbuch</b><div class="liste">${((r.fehler || {}).fehler || []).slice(0, 15).map(f => `<div data-f="${f.id}"><div class="small muted">${esc(f.datum)} · ${f.status === "gelernt" ? "✅ gelernt" : "⏳ offen"}</div><div class="small">${esc(f.was)}</div>${f.richtig ? `<div class="small"><span class="muted">Richtig:</span> ${esc(f.richtig)}</div>` : ""}${f.lehre ? `<div class="small">📒 ${esc(f.lehre)}</div>` : ""}${!f.richtig && f.art !== "tat" ? `<div style="display:flex;gap:6px;margin-top:4px"><input placeholder="Was wäre richtig?" data-fe="${f.id}"><button class="small" data-fs="${f.id}">OK</button></div>` : ""}</div>`).join("") || '<div class="muted small">Noch keine Fehler aufgeschrieben.</div>'}</div>`;
+      $("#hzJetzt").onclick = async () => { $("#hzJetzt").textContent = "prüft …"; await hx("herz_jetzt"); setTimeout(() => menuZeige("innen"), 4000); };
+      if ($("#cgAn")) $("#cgAn").onchange = e => hx("chatgpt_an", {an: e.target.checked});
+      m.querySelectorAll("[data-fs]").forEach(b => b.onclick = async () => { const v = m.querySelector(`[data-fe="${b.dataset.fs}"]`).value.trim(); if (!v) return; await hx("fehler_erklaeren", {id: +b.dataset.fs, text: v}); menuZeige("innen"); });
+      m.querySelectorAll("[data-iu]").forEach(b => b.onclick = async () => {
+        const box = b.closest("[data-i]"), u = b.dataset.iu;
+        if (u === "werkstatt" && !confirm("Watson schreibt die Idee als Wunsch an die Werkstatt. Eingebaut wird sie erst in einer gemeinsamen Sitzung.")) return;
+        box.querySelectorAll("button").forEach(x => x.disabled = true);
+        const x = await hx("idee_bewerten", {id: +box.dataset.i, urteil: u});
+        box.querySelector(".msg5").textContent = x.error ? "⚠ " + x.error : "✓ " + ({gut: "Gefällt dir – Watson merkt es sich.", nicht: "Watson merkt sich, dass das nicht passt.", werkstatt: "Als Wunsch an die Werkstatt aufgeschrieben."})[u];
+      });
+      m.querySelectorAll("[data-ja],[data-nein]").forEach(b => b.onclick = async () => {
+        const ja = !!b.dataset.ja, id = +(b.dataset.ja || b.dataset.nein), box = m.querySelector(`[data-r="${id}"]`);
+        if (ja && !confirm("Watsons Programm wirklich reparieren? Vorher wird gesichert; klappt der Probestart nicht, holt Watson den alten Stand automatisch zurück. Aktiv nach dem nächsten Neustart von Watson.")) return;
+        box.querySelectorAll("button").forEach(x => x.disabled = true);
+        const x = await hx("reparatur", {id, ja});
+        box.querySelector(".msg4").innerHTML = x.error ? `<span style="color:var(--err)">${esc(x.error)}</span>` : (ja ? "✓ " + esc(x.hinweis || "repariert") : "✓ abgelehnt");
+        if (x.error) box.querySelectorAll("button").forEach(y => y.disabled = false);
+      });
     } else if (t === "wissen") {
       const r = await hx("wissen");
       const ints = r.interessen || [];

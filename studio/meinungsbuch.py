@@ -146,11 +146,20 @@ def run(args):
 
 
 # ---------------- Nachts: nachdenken ----------------
-def nachdenken(frage_fn, gehirne, json_aus, massstab="", neues_wissen=(), max_neu=2):
+def nachdenken(frage_fn, gehirne, json_aus, massstab="", neues_wissen=(), max_neu=2, widersprueche=()):
     """Abendrunde: aus dem heute Gelernten Meinungen bilden und die am längsten nicht geprüfte Meinung neu prüfen.
+    widersprueche: Funde der Widerspruchs-Prüfung, an denen eine Meinung beteiligt ist – diese Meinungen werden
+    zuerst geprüft, mit dem Hinweis, was ihnen vielleicht widerspricht. Watson entscheidet selbst.
     Eine Gehirn-Anfrage. -> Bericht für das Tagebuch."""
     liste = alle()
-    alt = sorted(liste, key=lambda m: time.mktime(time.strptime(m.get("geprueft") or m["entstanden"], "%d.%m.%Y %H:%M")))[:1]
+    hinweise = {}
+    for f in widersprueche or ():
+        for x, y in ((f["a"], f["b"]), (f["b"], f["a"])):
+            if x["quelle"] == "meinung":
+                hinweise.setdefault(str(x["id"]), []).append(f"{f['art']} mit „{y['text'][:300]}“ – {f['erklaerung'][:300]}")
+    alt = [m for m in liste if str(m["id"]) in hinweise][:2]
+    if not alt:
+        alt = sorted(liste, key=lambda m: time.mktime(time.strptime(m.get("geprueft") or m["entstanden"], "%d.%m.%Y %H:%M")))[:1]
     wissen = [w for w in neues_wissen][:6]
     if not wissen and not alt:
         return {"ruhig": True}
@@ -169,6 +178,7 @@ def nachdenken(frage_fn, gehirne, json_aus, massstab="", neues_wissen=(), max_ne
             f"- {w.get('frage', '')[:200]}: {(w.get('kurz') or w.get('antwort') or '')[:700]}" for w in wissen) or "(nichts Neues)") +
          "\n\nAlte Meinung zum Prüfen:\n" + ("\n".join(
              f"[{m['id']}] {m['thema']}: {m['meinung']} (Sicherheit {m['sicherheit']}; Grund: {m.get('begruendung', '')[:300]})"
+             + "".join(f"\n   Möglicher Widerspruch: {h}" for h in hinweise.get(str(m["id"]), []))
              for m in alt) or "(keine)") +
          "\n\nDeine übrigen Meinungen (nur zur Info, nicht doppelt anlegen):\n" + ("\n".join(
              f"- {m['thema']}: {m['meinung'][:150]}" for m in liste if m not in alt)[:3000] or "(keine)")}], gehirne)
@@ -179,7 +189,7 @@ def nachdenken(frage_fn, gehirne, json_aus, massstab="", neues_wissen=(), max_ne
             meinung_bilden(x["thema"], x["meinung"], x.get("begruendung", ""), x.get("bibel", ""),
                            x.get("sicherheit", 3), "Nachdenken (nachts)")
             bericht["neu"].append(f"{x['thema']}: {str(x['meinung'])[:200]}")
-    for x in (j.get("pruefung") or [])[:1]:
+    for x in (j.get("pruefung") or [])[:len(alt)]:
         m = next((m for m in alt if isinstance(x, dict) and str(m["id"]) == str(x.get("id"))), None)
         if not m:
             continue

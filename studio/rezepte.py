@@ -99,3 +99,35 @@ def benutzt(rids):
 def als_text(rezepte_liste):
     return "\n".join(f"FERTIGKEIT „{r['titel']}“ ({'selbst gelernt' if r.get('quelle') == 'Watson' else 'vom Nutzer geschrieben'}):\n" +
                      "\n".join(f"  {i}. {s}" for i, s in enumerate(r["schritte"], 1)) for r in rezepte_liste)
+
+
+# ---------------- Watson schreibt selbst Fertigkeiten (Skills) ----------------
+# Grundsatz des Besitzers (19.11.2026): „Er darf selber Skills schreiben.“ Fertigkeiten sind reines Wissen
+# (Anleitungen), kein fremder Programmcode – darum ohne Nachfrage, wenn die Einstellung „fertigkeiten_ohne_frage“ an ist.
+TOOL = {"type": "function", "function": {
+    "name": "watson__fertigkeit_schreiben",
+    "description": "Schreibt eine eigene FERTIGKEIT (Skill): eine Schritt-für-Schritt-Anleitung, wie du eine Art von "
+                   "Aufgabe gut erledigst – aus deiner Erfahrung oder weil du einen besseren Weg gefunden hast. Passt "
+                   "später eine Aufgabe dazu, bekommst du sie automatisch mit. Gibt es schon eine Fertigkeit mit "
+                   "gleichem Titel, wird sie verbessert.",
+    "parameters": {"type": "object", "properties": {
+        "titel": {"type": "string", "description": "Kurzer Name, z. B. „Bibelvers mit Übersetzung nennen“"},
+        "wann": {"type": "string", "description": "Wofür sie gilt (Stichworte, damit sie später gefunden wird)"},
+        "schritte": {"type": "array", "items": {"type": "string"}, "description": "2–10 klare Schritte"}},
+        "required": ["titel", "wann", "schritte"]}}}
+NAME = TOOL["function"]["name"]
+
+
+def run(args):
+    titel = str(args.get("titel") or "").strip()
+    alt = next((r for r in liste() if r["titel"].strip().lower() == titel.lower()), None)
+    schritte = args.get("schritte") or []
+    if isinstance(schritte, str):
+        schritte = [z for z in schritte.splitlines() if z.strip()]
+    try:
+        rid = speichern(titel, args.get("wann", ""), [str(s) for s in schritte], quelle="Watson",
+                        rid=alt["id"] if alt else None)
+    except ValueError as e:
+        return f"Nicht gespeichert: {e}"
+    return (f"Fertigkeit „{titel}“ {'verbessert' if alt else 'gespeichert'} (Nr. {rid}). Du benutzt sie ab jetzt, "
+            "wenn eine passende Aufgabe kommt.")

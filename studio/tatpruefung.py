@@ -30,14 +30,14 @@ ARTEN = {
     "klicken": (r"geklickt|angeklickt|gedrückt|gedrueckt|clicked|pressed",
                 ("klicken", "tasten", "taste", "browser_click", "browser_press")),
     "tippen": (r"getippt|eingetippt|eingegeben|eingetragen|ausgefüllt|ausgefuellt|typed|entered",
-               ("tippen", "browser_type", "browser_fill", "ablauf_merken", "lehre_merken", "werkstatt_wunsch")),
+               ("tippen", "browser_type", "browser_fill", "ablauf_merken", "lehre_merken", "werkstatt_wunsch", "ideenbuch")),
     "senden": (r"gesendet|geschickt|verschickt|abgeschickt|versendet|weitergeleitet|gepostet|sent|emailed|posted",
                ("mail", "send", "senden", "post", "ablauf_starten", "ablauf „")),
     # „erstellt/angelegt“ nur mit Ding außerhalb des Gesprächs („Ich habe dir einen Plan erstellt“ ist Text und stimmt)
     "speichern": (r"gespeichert|abgespeichert|hinterlegt|saved|(datei|ordner|ablauf|termin|dokument|workflow|"
                   r"verknüpfung|eintrag|file|folder)\w*[^.!?\n]{0,60}\b(erstellt|angelegt|created)",
                   ("write", "edit", "create", "speichern", "merken", "lehre", "rezept", "move", "auftrag_hintergrund",
-                   "werkstatt_wunsch", "powershell")),
+                   "werkstatt_wunsch", "ideenbuch", "powershell")),
     "löschen": (r"gelöscht|geloescht|entfernt|deleted|removed",
                 ("delete", "loeschen", "löschen", "remove", "powershell")),
     # „geprüft/angesehen“ nur mit Ort außerhalb des Gesprächs („Ich habe deinen Text geprüft“ stimmt ohne Werkzeug)

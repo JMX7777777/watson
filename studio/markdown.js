@@ -134,6 +134,53 @@
     return k;
   }
 
+  // Leiste unter jeder eigenen Nachricht (wie bei Gemini): Kopieren + Bearbeiten.
+  // o.kopie = Text zum Kopieren, o.text = Text im Bearbeiten-Feld, o.speichern(neu) -> false = hat nicht geklappt
+  const SVG_KOPIE = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
+  const SVG_STIFT = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+  function nutzerLeiste(blase, o) {
+    const leiste = document.createElement("div");
+    leiste.className = "nutzerLeiste";
+    leiste.innerHTML = `<button type="button" class="nlKopie" title="Kopieren">${SVG_KOPIE}</button>` +
+                       `<button type="button" class="nlStift" title="Bearbeiten">${SVG_STIFT}</button>`;
+    const kb = leiste.querySelector(".nlKopie");
+    kb.onclick = async e => {
+      e.stopPropagation();
+      const ok = await kopieren(o.kopie != null ? o.kopie : o.text);
+      kb.classList.add(ok ? "ok" : "nein"); kb.innerHTML = ok ? "✓" : "!";
+      kb.title = ok ? "Kopiert" : "Kopieren ging nicht – bitte markieren";
+      setTimeout(() => { kb.classList.remove("ok", "nein"); kb.innerHTML = SVG_KOPIE; kb.title = "Kopieren"; }, 1600);
+    };
+    leiste.querySelector(".nlStift").onclick = e => {
+      e.stopPropagation();
+      if (blase.classList.contains("bearbeiten")) return;
+      const md = blase.querySelector(".md"), vorher = md.innerHTML;
+      blase.classList.add("bearbeiten"); leiste.hidden = true;
+      md.innerHTML = '<textarea class="nlFeld" rows="2"></textarea><div class="nlKnoepfe">' +
+                     '<button type="button" class="nlAb">Abbrechen</button><button type="button" class="nlOk">Speichern</button></div>';
+      const ta = md.querySelector("textarea"), ok = md.querySelector(".nlOk");
+      const hoehe = () => { ta.style.height = "auto"; ta.style.height = Math.min(320, ta.scrollHeight) + "px"; };
+      ta.value = o.text; ta.oninput = hoehe; setTimeout(() => { hoehe(); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }, 0);
+      const zu = () => { md.innerHTML = vorher; blase.classList.remove("bearbeiten"); leiste.hidden = false; };
+      const speichern = async () => {
+        const neu = ta.value.trim();
+        if (!neu) return;
+        if (neu === o.text.trim()) { zu(); return; }
+        ok.disabled = true; ok.textContent = "…";
+        let r; try { r = await o.speichern(neu); } catch (err) { r = false; }
+        if (r === false && blase.isConnected) { ok.disabled = false; ok.textContent = "Speichern"; }
+      };
+      md.querySelector(".nlAb").onclick = zu; ok.onclick = speichern;
+      ta.onkeydown = ev => {
+        if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); zu(); }
+        else if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); speichern(); }
+      };
+    };
+    blase.after(leiste);
+    return leiste;
+  }
+
+  window.watsonNutzerLeiste = nutzerLeiste;
   window.watsonMarkdown = block;
   window.watsonEinfach = einfach;
   window.watsonKlartext = klartext;
