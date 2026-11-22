@@ -15,6 +15,7 @@ import subprocess
 import sys
 import threading
 import time
+from pathlib import Path
 
 import pfade
 
@@ -86,6 +87,15 @@ def _fehler_gruppen(tage=7):
             if not eigene:
                 continue
             datei, zeile = eigene[-1]
+            # Fehler von VOR der letzten Änderung der Datei überspringen – vielleicht ist er schon behoben
+            # (22.11.2026: „Hey Watson“-Fehler vom 16.11. war seit 19.11. repariert, trotzdem kam Vorschlag Nr. 2).
+            # Tritt er nach der Änderung wieder auf, kommt er ganz normal wieder in die Liste.
+            try:
+                geaendert = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(Path(datei).stat().st_mtime))
+                if e["zeit"] < geaendert:
+                    continue
+            except OSError:
+                pass
             key = (datei, zeile, e["fehler"].split(":")[0])
             g = gruppen.setdefault(key, {"datei": datei, "zeile": zeile, "fehler": e["fehler"], "ablauf": e["ablauf"],
                                          "anzahl": 0})

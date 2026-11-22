@@ -349,11 +349,46 @@ def pruef_wartung(d):
                f"wartung:{v['id']}") for v in offen[:2]]
 
 
-PRUEFUNGEN = [("Termine", pruef_termine), ("Sicherung", pruef_sicherung), ("Speicher", pruef_speicher),
+def pruef_selbsttest(d):
+    """Was beim nächtlichen Selbsttest nicht ging, einmal melden (siehe selbsttest.py)."""
+    try:
+        import selbsttest
+        e = selbsttest.letzter()
+    except Exception:
+        return []
+    if not e or not e.get("kaputt") or time.time() - e.get("t", 0) > 20 * 3600:
+        return []
+    teile = [f"{x['name']} ({_kurz(x['text'], 90)})" for x in e["ergebnisse"] if x["ok"] is False]
+    return [_b("selbsttest", f"🩺 Selbsttest heute Nacht: {len(teile)} von {len(e['ergebnisse'])} Dingen gingen nicht – "
+               + "; ".join(teile) + ". Claude kann sich das ansehen.", "wichtig",
+               "selbsttest:" + e["zeit"][:10] + ":" + ",".join(e["kaputt"]))]
+
+
+def pruef_morgenbericht(d):
+    """Den Morgenbericht, den Claude Code früh morgens schreibt (Watson\\morgenbericht.md), einmal am Tag weitergeben.
+    Nachts gesammelt, nach 7 Uhr gemeldet – wie alles vom Herzschlag."""
+    import pfade
+    p = pfade.WATSON_HOME / "morgenbericht.md"
+    try:
+        mtime = p.stat().st_mtime
+    except OSError:
+        return []
+    if time.strftime("%Y-%m-%d", time.localtime(mtime)) != time.strftime("%Y-%m-%d"):
+        return []                                       # nur der Bericht von heute
+    text = p.read_text(encoding="utf-8", errors="replace").strip()
+    if not text:
+        return []
+    text = text if len(text) <= 2500 else _kurz(text, 2500)
+    zeilen = text.splitlines()
+    eingerueckt = zeilen[0] + "".join("\n  " + z for z in zeilen[1:])   # bleibt ein Listenpunkt
+    return [_b("morgen", eingerueckt, "wichtig", "morgen:" + time.strftime("%Y-%m-%d", time.localtime(mtime)))]
+
+
+PRUEFUNGEN = [("Morgenbericht", pruef_morgenbericht), ("Termine", pruef_termine), ("Sicherung", pruef_sicherung), ("Speicher", pruef_speicher),
               ("Gehirne", pruef_netz), ("Abläufe", pruef_n8n), ("Aufträge", pruef_auftraege),
               ("Fehler", pruef_fehler), ("Abendrunde", pruef_abendrunde), ("Ehrlichkeit", pruef_tatpruefung),
               ("Updates", pruef_updates), ("Werkzeug-Wünsche", pruef_werkzeug_wuensche),
-              ("Wartung", pruef_wartung), ("Ideen", pruef_ideen)]
+              ("Wartung", pruef_wartung), ("Ideen", pruef_ideen), ("Selbsttest", pruef_selbsttest)]
 
 
 # ---------------- Ein Schlag ----------------

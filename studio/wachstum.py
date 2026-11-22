@@ -486,7 +486,9 @@ def abendrunde(grund="nachts"):
         d = _laden()
         seit = d.get("letzte_runde") or (time.time() - 86400)
         eintrag = {"zeit": time.strftime("%d.%m.%Y %H:%M"), "grund": grund}
-        for name, schritt in (("rueckblick", lambda: tagesrueckblick(seit)),
+        import selbsttest
+        for name, schritt in (("selbsttest", selbsttest.lauf),
+                              ("rueckblick", lambda: tagesrueckblick(seit)),
                               ("neugier", neugier),
                               ("selbststudium", selbststudium),
                               ("erfinder", erfinder_zeit),

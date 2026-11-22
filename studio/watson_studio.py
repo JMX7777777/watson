@@ -51,6 +51,7 @@ import team
 TEAM_MODUL = team   # eindeutiger Name (in der Klasse Api heißt eine Methode ebenfalls „team“)
 import entscheider
 import auftraege
+import selbsttest
 
 try:
     import stimme
@@ -745,6 +746,9 @@ wachstum.init(massstab=lambda: massstab_text(load_config()) + ("\n\n" + selbst.l
               programmier_kandidaten=lambda: [m for m in _gratis_ids() if "stealth" not in m] +
                   ([chatgpt_plan.modell_id(load_config())] if chatgpt_plan.bereit(load_config()) else []))
 chatgpt_plan.init(load_config=load_config, save_config=save_config, fehler_melden=fehler_melden)
+selbsttest.init(frage=gehirn_frage, schnell=dirigent.SCHNELL, mem=MEM, mund=lambda: MUND, handy=handy,
+                stimme_name=lambda: load_config().get("piper_voice", "thorsten"), sicherung=sicherung,
+                n8n_hub=n8n_hub, n8n_an=lambda: bool(load_config().get("use_n8n", True)))
 
 
 VISION_MODELS = ["google/gemma-4-31b-it:free", "nvidia/nemotron-3.5-super-vl:free", "google/gemma-4-26b-a4b-it:free"]
@@ -2243,6 +2247,10 @@ class Api:
         """Knopf „Jetzt prüfen“: ein Schlag sofort (im Hintergrund, Ergebnis kommt über herzPuls)."""
         threading.Thread(target=herzschlag.schlag, args=("von Hand",), daemon=True).start()
         return {"ok": True}
+
+    def selbsttest_starten(self):
+        """Gesundheits-Check von Hand (läuft sonst jede Nacht in der Abendrunde)."""
+        return selbsttest.lauf()
 
     def updates_jetzt(self):
         """Der Besitzer sitzt am Laptop und will die Windows-Updates jetzt: Wächter gibt sie frei, Einstellungen öffnen sich."""
